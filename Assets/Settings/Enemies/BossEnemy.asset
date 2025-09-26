@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6760aa607ac6488d9309034868fb647, type: 3}
+  m_Name: BossEnemy
+  m_EditorClassIdentifier: 
+  enemyName: BossEnemy
+  prefab: {fileID: 7654641127439623020, guid: e23a32223401339478be7b831ea5717d, type: 3}
+  maxHealth: 600
+  moveSpeed: 1
+  baseDamage: 50
+  goldReward: 10
+  isArmored: 1
+  armorDamageReduction: 0.3
+  isFast: 0
+  speedMultiplier: 1

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8894d49a13ce5490cacb3f77d468834a, type: 3}
+  m_Name: SniperTower
+  m_EditorClassIdentifier: 
+  towerName: Sniper Tower
+  towerPrefab: {fileID: 2633245017972398780, guid: ddbd73788510e4a0b97a8c5465da4120, type: 3}
+  towerIcon: {fileID: 21300000, guid: f09e0a0d0f3b993478632645cd7c50a4, type: 3}
+  cost: 175
+  range: 8
+  fireRate: 0.7
+  damage: 40
+  canTargetAir: 1
+  isAoE: 0
+  splashRadius: 0
+  slowsEnemies: 0
+  slowAmount: 0
