@@ -1,34 +1,101 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class TowerPlacement : MonoBehaviour
 {
-  [SerializeField] private LayerMask placementLayer;    // Layer to raycast for placement (Ground)
-  [SerializeField] private LayerMask blockingLayers;    // Layers that block placement (Tower)
-  [SerializeField] private LayerMask ignoreLayers;      // Layers to ignore (Range Indicator)
+  [SerializeField] private LayerMask placementLayer;
   [SerializeField] private TowerFactory towerFactory;
+  [SerializeField] private GridVisualizer gridLineVisualizer;
+  [SerializeField] private GridTileVisualizer gridTileVisualizer;
 
   private Camera mainCamera;
   private TowerConfig currentTowerConfig;
   private Tower previewTower;
+  private GridManager gridManager;
+  private bool groundManagerChecked = false;
+  private bool groundManagerAvailable = false;
 
   private void Awake()
   {
     mainCamera = Camera.main;
+    gridManager = GridManager.Instance;
+
+    if (gridManager == null)
+    {
+      Debug.LogError("GridManager instance not found in TowerPlacement! Disabling component.");
+      enabled = false;
+      return;
+    }
+    if (gridLineVisualizer == null)
+    {
+      Debug.LogWarning("GridLineVisualizer not assigned in TowerPlacement!");
+    }
+    if (gridTileVisualizer == null)
+    {
+      Debug.LogError("GridTileVisualizer not assigned in TowerPlacement! Disabling component.");
+      enabled = false;
+      return;
+    }
+    if (towerFactory == null)
+    {
+      Debug.LogError("TowerFactory not assigned in TowerPlacement! Disabling component.");
+      enabled = false;
+      return;
+    }
+
+    groundManagerAvailable = GroundManager.Instance != null;
+    if (!groundManagerAvailable)
+    {
+      Debug.LogWarning("GroundManager instance not found in TowerPlacement. Placement Y position may be inaccurate.");
+    }
+    groundManagerChecked = true;
   }
 
   private void Update()
   {
-    if (currentTowerConfig == null) return;
+    if (currentTowerConfig == null || !enabled) return;
+
+    if (Input.GetMouseButtonDown(1))
+    {
+      CancelPlacement();
+      return;
+    }
+
     HandlePlacementInput();
   }
 
+
   public void StartPlacement(TowerConfig config)
   {
-    if (config == null || !GameManager.Instance.CanAfford(config.cost)) return;
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.TowerDrag);
+    if (currentTowerConfig != null) CancelPlacement();
+
+    if (config == null || GameManager.Instance == null || !GameManager.Instance.CanAfford(config.cost))
+    {
+      if (GameManager.Instance != null && config != null)
+        Debug.LogWarning($"Cannot start placement: Not enough gold for {config.towerName}. Need {config.cost}, have {GameManager.Instance.currentGold}");
+      return;
+    }
+
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.TowerDrag);
     currentTowerConfig = config;
     GameObject preview = towerFactory.CreateTowerPreview(config);
+    if (preview == null)
+    {
+      Debug.LogError($"Failed to create preview for {config.towerName}");
+      currentTowerConfig = null;
+      return;
+    }
     previewTower = preview.GetComponent<Tower>();
+    if (previewTower == null)
+    {
+      Debug.LogError($"Preview GameObject for {config.towerName} is missing Tower component");
+      Destroy(preview);
+      currentTowerConfig = null;
+      return;
+    }
+
+    gridLineVisualizer?.ShowGrid();
+    gridTileVisualizer?.ShowVisualization();
   }
 
   public void CancelPlacement()
@@ -39,67 +106,104 @@ public class TowerPlacement : MonoBehaviour
     }
     currentTowerConfig = null;
     previewTower = null;
+
+    gridLineVisualizer?.HideGrid();
+    gridTileVisualizer?.HideVisualization();
   }
 
   private void HandlePlacementInput()
   {
+    if (previewTower == null || gridManager == null || mainCamera == null) return;
+
     Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-    if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, placementLayer))
+    bool hitValidSurface = Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, placementLayer);
+
+    if (!hitValidSurface)
     {
+      if (previewTower.gameObject.activeSelf)
+      {
+        previewTower.gameObject.SetActive(false);
+        gridTileVisualizer?.ShowTemporarilyHiddenIndicator();
+      }
       return;
     }
 
-    Vector3 position = new Vector3(
-        hit.point.x,
-        GroundManager.Instance.GetGroundHeight(hit.point),
-        hit.point.z
-    );
-
-    bool canPlace = CanPlaceAtPosition(position);
-
-    // Update preview position and visual feedback
-    if (previewTower != null)
+    if (!previewTower.gameObject.activeSelf)
     {
-      previewTower.transform.position = position;
-      previewTower.UpdateRangeIndicator(canPlace);
+      previewTower.gameObject.SetActive(true);
     }
 
-    if (Input.GetMouseButtonDown(0) && canPlace)
+    Vector2Int centerGridPos = gridManager.WorldToGrid(hit.point);
+    Vector3 snappedPosition = gridManager.GridToWorld(centerGridPos);
+
+    float groundY = snappedPosition.y;
+    if (groundManagerAvailable)
     {
-      PlaceTower(currentTowerConfig, position);
+      groundY = GroundManager.Instance.GetGroundHeight(snappedPosition);
     }
-    else if (Input.GetMouseButtonDown(1))
+    else if (!groundManagerChecked)
     {
-      CancelPlacement();
+      groundManagerAvailable = GroundManager.Instance != null;
+      if (groundManagerAvailable) groundY = GroundManager.Instance.GetGroundHeight(snappedPosition);
+      groundManagerChecked = true;
     }
-  }
+    snappedPosition.y = groundY;
 
-  private bool CanPlaceAtPosition(Vector3 position)
-  {
-    Collider[] colliders = Physics.OverlapSphere(position, 0.5f);
+    previewTower.transform.position = snappedPosition;
+    gridTileVisualizer?.SetPreviewPosition(centerGridPos);
 
-    foreach (Collider collider in colliders)
+    bool canPlaceCenter = gridManager.IsCellBuildable(centerGridPos);
+    previewTower.UpdatePlacementIndicatorVisuals(canPlaceCenter);
+
+    if (Input.GetMouseButtonDown(0))
     {
-      int objectLayer = 1 << collider.gameObject.layer;
-
-      if ((objectLayer & ignoreLayers.value) != 0)
-        continue;
-
-      if ((objectLayer & blockingLayers.value) != 0)
+      if (canPlaceCenter)
       {
-        if (!collider.transform.IsChildOf(previewTower?.transform))
-          return false;
+        PlaceTower(currentTowerConfig, snappedPosition, centerGridPos);
+      }
+      else
+      {
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+        Debug.LogWarning("Cannot place tower here: Tile is blocked.");
       }
     }
-
-    return true;
   }
 
-  private void PlaceTower(TowerConfig config, Vector3 position)
+  private void PlaceTower(TowerConfig config, Vector3 worldPosition, Vector2Int gridPosition)
   {
-    if (!GameManager.Instance.TryPurchase(config.cost)) return;
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.TowerDrop);
-    towerFactory.CreateTower(config, position);
+    if (GameManager.Instance == null)
+    {
+      Debug.LogError("GameManager not found, cannot process purchase!");
+      return;
+    }
+    if (towerFactory == null)
+    {
+      Debug.LogError("TowerFactory not found, cannot create tower!");
+      return;
+    }
+
+
+    if (!GameManager.Instance.TryPurchase(config.cost))
+    {
+      Debug.LogWarning($"Cannot place tower: Not enough gold. Need {config.cost}, have {GameManager.Instance.currentGold}");
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      return;
+    }
+
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.TowerDrop);
+    Tower createdTower = towerFactory.CreateTower(config, worldPosition);
+
+    if (createdTower != null)
+    {
+      createdTower.SetGridPosition(gridPosition);
+      gridManager?.SetCellBuildable(gridPosition, false);
+    }
+    else
+    {
+      Debug.LogError($"Failed to create tower '{config.towerName}' at {worldPosition} after purchase!");
+      GameManager.Instance.AddGold(config.cost);
+    }
+
     CancelPlacement();
   }
 }

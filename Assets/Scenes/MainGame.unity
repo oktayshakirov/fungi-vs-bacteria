@@ -1097,6 +1097,71 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!1 &528278881
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 528278883}
+  - component: {fileID: 528278882}
+  - component: {fileID: 528278884}
+  m_Layer: 0
+  m_Name: GridVisualizerManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &528278882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 528278881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa85fcc184f74554caabaea1c7fe5d03, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gridLinePrefab: {fileID: 7303992090573649779, guid: b1a3ae0b9e81aa341a0db37988a91ae5, type: 3}
+  lineParent: {fileID: 1747957671}
+  initialPoolSize: 100
+--- !u!4 &528278883
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 528278881}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 9.744457, y: 6.5455723, z: -7.1332846}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &528278884
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 528278881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a27e5c803819088419fd3659bd0b813d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tileIndicatorPrefab: {fileID: 8015606089559125091, guid: 17fd0f3a0f81a4a2e91549ce6e7f5e1e, type: 3}
+  availableMaterial: {fileID: 2100000, guid: 60e1953b56deded429a96befec5a73b0, type: 2}
+  blockedMaterial: {fileID: 2100000, guid: ef6f5b9a89df79a499278f503f5c6788, type: 2}
+  indicatorParent: {fileID: 528278883}
+  initialPoolSize: 100
 --- !u!1 &601250411
 GameObject:
   m_ObjectHideFlags: 0
@@ -1749,13 +1814,9 @@ MonoBehaviour:
   placementLayer:
     serializedVersion: 2
     m_Bits: 64
-  blockingLayers:
-    serializedVersion: 2
-    m_Bits: 128
-  ignoreLayers:
-    serializedVersion: 2
-    m_Bits: 256
   towerFactory: {fileID: 1533998428}
+  gridLineVisualizer: {fileID: 528278882}
+  gridTileVisualizer: {fileID: 528278884}
 --- !u!4 &981192869
 Transform:
   m_ObjectHideFlags: 0
@@ -2280,7 +2341,7 @@ GameObject:
   - component: {fileID: 1478026990}
   - component: {fileID: 1478026994}
   m_Layer: 6
-  m_Name: Ground
+  m_Name: GroundManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2369,10 +2430,10 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1478026989}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 5, y: 5, z: 5}
-  m_ConstrainProportionsScale: 1
+  m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2702,6 +2763,53 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1573823315}
   m_CullTransparentMesh: 1
+--- !u!1 &1747957669
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1747957671}
+  - component: {fileID: 1747957670}
+  m_Layer: 6
+  m_Name: GridManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1747957670
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747957669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12f6712a5699c8447b5926856a2cba46, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gridSize: {x: 10, y: 10}
+  cellSize: 5
+  originPosition: {x: -25, y: 0, z: -25}
+--- !u!4 &1747957671
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1747957669}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1755505733
 GameObject:
   m_ObjectHideFlags: 0
@@ -3214,8 +3322,8 @@ GameObject:
   - component: {fileID: 1905359891}
   - component: {fileID: 1905359890}
   - component: {fileID: 1905359892}
-  m_Layer: 0
-  m_Name: Path
+  m_Layer: 6
+  m_Name: PathManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3274,7 +3382,7 @@ LineRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: be9aba1b6c3314a209fbbb7988bb3291, type: 2}
+  - {fileID: 2100000, guid: 7fa423b9404543f4fb9467d5b11fc928, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3367,8 +3475,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd3fe333a746d4d85b41221a5e6afd84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  pathConfig: {fileID: 11400000, guid: 8f3d43d3ec09f4c8bad3e56d04cc476c, type: 2}
   pathVisualizer: {fileID: 1905359890}
+  currentPathConfig: {fileID: 11400000, guid: a0b014136c674ae408b678b083ca061b, type: 2}
 --- !u!1 &1939812640
 GameObject:
   m_ObjectHideFlags: 0
@@ -3594,8 +3702,10 @@ SceneRoots:
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 601250413}
-  - {fileID: 1478026993}
   - {fileID: 1905359889}
+  - {fileID: 1478026993}
+  - {fileID: 1747957671}
+  - {fileID: 528278883}
   - {fileID: 838571012}
   - {fileID: 1059400858}
   - {fileID: 1971449185}

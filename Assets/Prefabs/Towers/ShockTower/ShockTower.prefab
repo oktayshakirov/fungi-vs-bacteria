@@ -179,7 +179,7 @@ MonoBehaviour:
   tower: {fileID: 6648630811481710894}
   projectileSpawnPoint: {fileID: 6911596857440595791}
   projectilePrefab: {fileID: 8582832645627992878, guid: b17cea8d812583b4d8b6ceae090bbfee, type: 3}
-  rangeIndicatorPrefab: {fileID: 8015606089559125091, guid: 17fd0f3a0f81a4a2e91549ce6e7f5e1e, type: 3}
+  tileIndicatorPrefab: {fileID: 8015606089559125091, guid: 17fd0f3a0f81a4a2e91549ce6e7f5e1e, type: 3}
 --- !u!114 &3755137836964699508
 MonoBehaviour:
   m_ObjectHideFlags: 0

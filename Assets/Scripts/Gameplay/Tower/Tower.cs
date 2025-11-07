@@ -3,58 +3,90 @@ using UnityEngine;
 [RequireComponent(typeof(TowerTargeting))]
 public class Tower : MonoBehaviour
 {
+  [Header("Tower Components")]
   [SerializeField] private Transform tower;
   [SerializeField] private Transform projectileSpawnPoint;
+
+  [Header("Prefabs")]
   [SerializeField] private GameObject projectilePrefab;
-  [SerializeField] private GameObject rangeIndicatorPrefab;
+  [SerializeField] private GameObject tileIndicatorPrefab;
 
   private TowerConfig config;
   private TowerTargeting targeting;
-  private float fireCountdown;
-  private GameObject rangeIndicator;
-  private bool isSelected;
-  private bool isPreviewMode;
+  private float fireCountdown = 0f;
+  private GameObject tileIndicator;
+  private bool isSelected = false;
+  private bool isPreviewMode = false;
+  public Vector2Int GridPosition { get; private set; }
 
-  public float Range => config.range;
-  public float FireRate => config.fireRate;
+  public float Range => config?.range ?? 0f;
+  public float FireRate => config?.fireRate ?? 1f;
 
   private void Awake()
   {
     targeting = GetComponent<TowerTargeting>();
-  }
-
-  public void Initialize(TowerConfig config)
-  {
-    this.config = config;
-    targeting.Initialize(config.range);
+    if (targeting == null)
+    {
+      Debug.LogError("Tower requires a TowerTargeting component!", this);
+    }
   }
 
   private void Update()
   {
-    if (isPreviewMode)
+    if (isPreviewMode || config == null)
     {
-      UpdateRangeIndicatorPosition();
       return;
     }
 
     UpdateTarget();
-    if (targeting.CurrentTarget != null)
+    if (targeting != null && targeting.CurrentTarget != null)
     {
       RotateTurret();
       HandleShooting();
     }
   }
 
+  private void OnDestroy()
+  {
+    HideTileIndicator();
+  }
+
+  public void Initialize(TowerConfig towerConfig)
+  {
+    this.config = towerConfig;
+    if (config != null)
+    {
+      if (targeting != null)
+      {
+        targeting.Initialize(config.range);
+      }
+      fireCountdown = 1f / (FireRate > 0 ? FireRate : 1f);
+    }
+    else
+    {
+      Debug.LogError("Tower initialized with a null TowerConfig!", this);
+    }
+  }
+
+  public void SetGridPosition(Vector2Int gridPos)
+  {
+    GridPosition = gridPos;
+  }
+
   public void UpdateTarget()
   {
-    targeting.UpdateTarget();
+    targeting?.UpdateTarget();
   }
 
   public void Attack()
   {
-    if (projectilePrefab == null || targeting.CurrentTarget == null) return;
-    Vector3 directionToTarget = (targeting.CurrentTarget.position - projectileSpawnPoint.position).normalized;
+    if (config == null || projectilePrefab == null || targeting == null || targeting.CurrentTarget == null || projectileSpawnPoint == null)
+    {
+      return;
+    }
+
     GameObject projectileGO = Instantiate(projectilePrefab, projectileSpawnPoint.position, projectileSpawnPoint.rotation);
+    Vector3 directionToTarget = (targeting.CurrentTarget.position - projectileSpawnPoint.position).normalized;
     projectileGO.transform.forward = directionToTarget;
 
     if (projectileGO.TryGetComponent(out Projectile projectile))
@@ -65,40 +97,42 @@ public class Tower : MonoBehaviour
           config.splashRadius,
           config.slowsEnemies,
           config.slowAmount,
-          20f // Default speed, consider moving to config
+          20f
       );
-
       projectile.Initialize(projectileData);
       projectile.Seek(targeting.CurrentTarget);
+    }
+    else
+    {
+      Debug.LogWarning($"Projectile prefab '{projectilePrefab.name}' is missing the Projectile component.", projectilePrefab);
+      Destroy(projectileGO);
     }
   }
 
   private void RotateTurret()
   {
-    if (tower == null) return;
+    if (tower == null || targeting == null || targeting.CurrentTarget == null) return;
+
     Vector3 targetPosition = targeting.CurrentTarget.position;
-    Vector3 directionToTarget = targetPosition - tower.position;
-    directionToTarget.y = 0f;
-    Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
-    tower.rotation = Quaternion.Lerp(tower.rotation, targetRotation, Time.deltaTime * 10f);
+    Vector3 direction = targetPosition - tower.position;
+    direction.y = 0f;
+
+    if (direction == Vector3.zero) return;
+
+    Quaternion lookRotation = Quaternion.LookRotation(direction);
+    float speed = 10f;
+    tower.rotation = Quaternion.Slerp(tower.rotation, lookRotation, Time.deltaTime * speed);
   }
 
   private void HandleShooting()
   {
+    if (config == null) return;
+
+    fireCountdown -= Time.deltaTime;
     if (fireCountdown <= 0f)
     {
       Attack();
-      fireCountdown = 1f / FireRate;
-    }
-
-    fireCountdown -= Time.deltaTime;
-  }
-
-  private void OnDrawGizmosSelected()
-  {
-    if (targeting != null)
-    {
-      targeting.DrawRangeGizmo();
+      fireCountdown = 1f / (FireRate > 0 ? FireRate : 1f);
     }
   }
 
@@ -109,114 +143,133 @@ public class Tower : MonoBehaviour
 
   public void Select()
   {
-    if (isSelected) return;
-
+    if (isSelected || isPreviewMode) return;
     isSelected = true;
-    ShowRangeIndicator();
-    HUDManager.Instance.ShowTowerActions(this);
+    HUDManager.Instance?.ShowTowerActions(this);
   }
 
   public void Deselect()
   {
-    if (!isSelected) return;
-
+    if (!isSelected || isPreviewMode) return;
     isSelected = false;
-    HideRangeIndicator();
-    HUDManager.Instance.HideTowerActions();
+    HUDManager.Instance?.HideTowerActions();
   }
 
   public void Sell()
   {
-    Debug.Log("3. Tower.Sell() called");
-    Debug.Log($"4. Adding {config.sellValue} gold");
-    GameManager.Instance.AddGold(config.sellValue);
+    if (config == null)
+    {
+      Debug.LogError("Cannot sell tower: Configuration is missing!", this);
+      Destroy(gameObject);
+      return;
+    }
+
+    GameManager.Instance?.AddGold(config.sellValue);
+    GridManager.Instance?.SetCellBuildable(GridPosition, true);
     Deselect();
-    Debug.Log("5. Tower destroyed");
     Destroy(gameObject);
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.Sell);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.Sell);
   }
 
   public void Upgrade()
   {
-    Debug.Log("[Not implemented] Upgrading tower:", gameObject);
-  }
-
-  private void OnDestroy()
-  {
-    HideRangeIndicator();
+    Debug.Log($"[Not Implemented] Attempting to upgrade tower: {gameObject.name}", this);
   }
 
   public void SetPreviewMode(bool preview)
   {
     isPreviewMode = preview;
+    if (targeting != null) targeting.enabled = !preview;
 
-    // Disable functional components in preview mode
-    targeting.enabled = !preview;
-
-    // Show range indicator
     if (preview)
     {
-      ShowRangeIndicator();
+      ShowTileIndicator();
+    }
+    else
+    {
+      HideTileIndicator();
     }
 
-    // Disable colliders except for range indicator
-    foreach (Collider col in GetComponentsInChildren<Collider>())
+    foreach (Collider col in GetComponentsInChildren<Collider>(true))
     {
       col.enabled = !preview;
     }
   }
 
-  public void UpdateRangeIndicator(bool validPlacement)
+  public void UpdatePlacementIndicatorVisuals(bool validPlacement)
   {
-    if (rangeIndicator == null) return;
+    if (!isPreviewMode || tileIndicator == null) return;
 
-    Material material = rangeIndicator.GetComponent<MeshRenderer>().material;
+    Renderer indicatorRenderer = tileIndicator.GetComponent<Renderer>();
+    if (indicatorRenderer == null || indicatorRenderer.material == null) return;
+
+    Material mat = indicatorRenderer.material;
     Color color = validPlacement ? Color.blue : Color.red;
-    color.a = 0.3f;
-    material.color = color;
+    color.a = 0.5f;
+    mat.color = color;
   }
 
-  private void UpdateRangeIndicatorPosition()
+  private void ShowTileIndicator()
   {
-    if (rangeIndicator == null) return;
+    if (tileIndicator != null) return;
+    if (tileIndicatorPrefab == null) { Debug.LogError("TileIndicatorPrefab is not assigned!", this); return; }
+    if (GridManager.Instance == null) { Debug.LogError("GridManager instance not found!", this); return; }
 
-    Vector3 towerPosition = transform.position;
-    rangeIndicator.transform.position = new Vector3(
-        towerPosition.x,
-        0.01f,
-        towerPosition.z
-    );
-  }
+    tileIndicator = Instantiate(tileIndicatorPrefab, transform);
+    UpdateTileIndicatorPositionAndScale();
 
-  private void ShowRangeIndicator()
-  {
-    if (rangeIndicator != null) return;
-
-    rangeIndicator = Instantiate(rangeIndicatorPrefab);
-    rangeIndicator.transform.parent = transform;
-    UpdateRangeIndicatorPosition();
-
-    float parentScale = transform.lossyScale.x;
-    float compensatedRange = config.range / parentScale * 2;
-
-    rangeIndicator.transform.localScale = new Vector3(
-        compensatedRange,
-        0.01f,
-        compensatedRange
-    );
-
-    Material material = rangeIndicator.GetComponent<MeshRenderer>().material;
-    Color color = Color.blue;
-    color.a = 0.3f;
-    material.color = color;
-  }
-
-  private void HideRangeIndicator()
-  {
-    if (rangeIndicator != null)
+    Renderer rend = tileIndicator.GetComponent<Renderer>();
+    if (rend != null && rend.material != null)
     {
-      Destroy(rangeIndicator);
-      rangeIndicator = null;
+      rend.material.color = new Color(0f, 1f, 0f, 0.5f);
+    }
+  }
+
+  private void HideTileIndicator()
+  {
+    if (tileIndicator != null)
+    {
+      Destroy(tileIndicator);
+      tileIndicator = null;
+    }
+  }
+
+  private void UpdateTileIndicatorPositionAndScale()
+  {
+    if (tileIndicator == null || GridManager.Instance == null) return;
+
+    tileIndicator.transform.localPosition = Vector3.up * 0.01f;
+    tileIndicator.transform.localRotation = Quaternion.identity;
+
+    float cellSize = GridManager.Instance.cellSize;
+    Vector3 parentScale = transform.lossyScale;
+
+    float requiredLocalScaleX = (Mathf.Abs(parentScale.x) < 0.001f) ? 0 : cellSize / parentScale.x;
+    float requiredLocalScaleY = (Mathf.Abs(parentScale.y) < 0.001f) ? 0.01f : 0.01f / parentScale.y;
+    float requiredLocalScaleZ = (Mathf.Abs(parentScale.z) < 0.001f) ? 0 : cellSize / parentScale.z;
+
+    tileIndicator.transform.localScale = new Vector3(requiredLocalScaleX, requiredLocalScaleY, requiredLocalScaleZ);
+  }
+
+  private void OnDrawGizmosSelected()
+  {
+    if (targeting != null && config != null)
+    {
+      targeting.DrawRangeGizmo();
+    }
+    else
+    {
+      Gizmos.color = Color.grey;
+      Gizmos.DrawWireSphere(transform.position, config?.range ?? 5f);
+    }
+
+    if (GridManager.Instance != null && !isPreviewMode && GridPosition != default(Vector2Int))
+    {
+      Gizmos.color = Color.cyan;
+      Vector3 cellCenter = GridManager.Instance.GridToWorld(GridPosition);
+      float yPos = GroundManager.Instance != null ? GroundManager.Instance.GetGroundHeight(cellCenter) : transform.position.y;
+      cellCenter.y = yPos + 0.05f;
+      Gizmos.DrawWireCube(cellCenter, new Vector3(GridManager.Instance.cellSize, 0.1f, GridManager.Instance.cellSize));
     }
   }
 }

@@ -16,7 +16,7 @@ MonoBehaviour:
   towerPrefab: {fileID: 2633245017972398780, guid: ddbd73788510e4a0b97a8c5465da4120, type: 3}
   towerIcon: {fileID: 21300000, guid: f09e0a0d0f3b993478632645cd7c50a4, type: 3}
   cost: 175
-  range: 8
+  range: 10
   fireRate: 0.7
   damage: 40
   canTargetAir: 1
