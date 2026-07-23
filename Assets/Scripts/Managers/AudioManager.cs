@@ -31,7 +31,8 @@ public class AudioManager : MonoBehaviour
         TowerDrag,
         TargetHit,
         Toggle,
-        BaseDamage
+        BaseDamage,
+        Victory
     }
 
     [Header("Volume Settings")]

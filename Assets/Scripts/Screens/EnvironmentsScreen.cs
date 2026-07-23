@@ -66,6 +66,7 @@ public class EnvironmentsScreen : MonoBehaviour
   private void OnEnvironmentSelected(string environmentName)
   {
     Debug.Log("Selected Environment: " + environmentName);
+    GameSession.SelectedEnvironment = environmentName;
     AudioManager.Instance.PlaySound(AudioManager.SoundType.EnvironmentPicked);
     if (levelsScreenPrefab != null)
     {

@@ -33,6 +33,11 @@ public class PathManager : MonoBehaviour
 
   private void GeneratePath()
   {
+    if (GameSession.SelectedLevel != null && GameSession.SelectedLevel.pathConfig != null)
+    {
+      currentPathConfig = GameSession.SelectedLevel.pathConfig;
+    }
+
     if (currentPathConfig == null)
     {
       Debug.LogError("PathConfig is not assigned to PathManager! Cannot generate path.", this);

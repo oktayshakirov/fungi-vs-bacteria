@@ -31,6 +31,8 @@ public class HUDManager : MonoBehaviour
   [SerializeField] private GameOverScreen gameOverPrefab;
   private GameOverScreen gameOverScreen;
 
+  private VictoryScreen victoryScreen;
+
   [Header("Tower Actions")]
   [SerializeField] private GameObject towerActionsPanel;
   private TowerDefense.UI.TowerActions towerActions;
@@ -87,6 +89,11 @@ public class HUDManager : MonoBehaviour
       gameOverScreen = Instantiate(gameOverPrefab, transform);
       gameOverScreen.Initialize();
       gameOverScreen.gameObject.SetActive(false);
+    }
+
+    if (TutorialOverlay.ShouldShow())
+    {
+      TutorialOverlay.Show(transform);
     }
   }
 
@@ -242,6 +249,25 @@ public class HUDManager : MonoBehaviour
     }
 
     gameOverScreen.gameObject.SetActive(true);
+    towerActionsPanel?.SetActive(false);
+    DeselectCurrentTower();
+  }
+
+  public void ShowVictoryScreen()
+  {
+    if (victoryScreen == null)
+    {
+      VictoryScreen prefab = Resources.Load<VictoryScreen>("Screens/VictoryScreen");
+      if (prefab == null)
+      {
+        Debug.LogError("VictoryScreen prefab not found at Resources/Screens/VictoryScreen!");
+        return;
+      }
+      victoryScreen = Instantiate(prefab, transform);
+    }
+
+    victoryScreen.Initialize();
+    victoryScreen.gameObject.SetActive(true);
     towerActionsPanel?.SetActive(false);
     DeselectCurrentTower();
   }

@@ -16,6 +16,9 @@ public class Enemy : MonoBehaviour
   private float slowAmount = 0f;
   private float slowDuration = 2f;
   private float normalSpeed;
+  private bool isRemoved = false;
+  private int maxHealth;
+  private EnemyHealthBar healthBar;
 
   [SerializeField] private float rotationOffset = 0f;
 
@@ -26,13 +29,27 @@ public class Enemy : MonoBehaviour
 
   public void Initialize(Vector3[] path, EnemyConfig enemyConfig)
   {
+    // Full reset: instances come back from the pool with stale state
+    StopAllCoroutines();
+    currentWaypointIndex = 0;
+    isRemoved = false;
+    slowAmount = 0f;
+
     waypoints = path;
     health = enemyConfig.maxHealth;
+    maxHealth = enemyConfig.maxHealth;
     speed = enemyConfig.moveSpeed * (enemyConfig.isFast ? enemyConfig.speedMultiplier : 1f);
     normalSpeed = speed;
     damage = enemyConfig.baseDamage;
     goldReward = enemyConfig.goldReward;
     armorDamageReduction = enemyConfig.isArmored ? enemyConfig.armorDamageReduction : 0f;
+
+    if (healthBar == null)
+    {
+      healthBar = gameObject.GetComponent<EnemyHealthBar>();
+      if (healthBar == null) healthBar = gameObject.AddComponent<EnemyHealthBar>();
+    }
+    healthBar.SetHealth(1f);
 
     transform.position = waypoints[0];
 
@@ -74,7 +91,7 @@ public class Enemy : MonoBehaviour
       if (currentWaypointIndex >= waypoints.Length)
       {
         DealDamageToBase();
-        Destroy(gameObject);
+        Remove();
       }
     }
   }
@@ -91,15 +108,27 @@ public class Enemy : MonoBehaviour
 
   public void TakeDamage(int damageAmount)
   {
+    if (isRemoved) return;
+
     // Apply armor damage reduction if any
     float reducedDamage = damageAmount * (1f - armorDamageReduction);
     health -= Mathf.RoundToInt(reducedDamage);
+    healthBar?.SetHealth((float)health / maxHealth);
     if (health <= 0)
     {
       GameManager.Instance?.AddGold(goldReward);
       AudioManager.Instance.PlaySound(AudioManager.SoundType.EnemyDeath);
-      Destroy(gameObject);
+      Remove();
     }
+  }
+
+  private void Remove()
+  {
+    if (isRemoved) return;
+    isRemoved = true;
+
+    GameManager.Instance?.OnEnemyRemoved();
+    EnemyPool.Release(gameObject);
   }
 
   public void ApplySlow(float amount)

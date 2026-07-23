@@ -16,6 +16,11 @@ public class EnemySpawner : MonoBehaviour
 
   private void Start()
   {
+    if (GameSession.SelectedLevel != null && GameSession.SelectedLevel.waveConfig != null)
+    {
+      waveConfig = GameSession.SelectedLevel.waveConfig;
+    }
+
     if (waveConfig == null)
     {
       Debug.LogError("WaveConfig is not assigned to EnemySpawner!");
@@ -73,6 +78,12 @@ public class EnemySpawner : MonoBehaviour
     // Award gold for completing the wave
     GameManager.Instance.AddGold(wave.waveGoldReward);
 
+    // Last wave finished spawning: victory may already be decided if all enemies are dead
+    if (currentWave >= waveConfig.waves.Length)
+    {
+      GameManager.Instance.CheckVictory();
+    }
+
     if (currentWave < waveConfig.waves.Length)
     {
       isWaitingForNextWave = true;
@@ -100,7 +111,7 @@ public class EnemySpawner : MonoBehaviour
       Vector3 spawnPoint = pathPoints[0];
       spawnPoint.y = heightOffset;
 
-      GameObject enemyObj = Instantiate(
+      GameObject enemyObj = EnemyPool.Get(
         enemyGroup.enemyConfig.prefab,
         spawnPoint,
         Quaternion.identity
@@ -109,6 +120,8 @@ public class EnemySpawner : MonoBehaviour
       Enemy enemy = enemyObj.GetComponent<Enemy>();
       if (enemy != null)
       {
+        GameManager.Instance.OnEnemySpawned();
+
         // Create path points at correct height for this enemy
         Vector3[] adjustedPathPoints = new Vector3[pathPoints.Length];
         for (int i = 0; i < pathPoints.Length; i++)

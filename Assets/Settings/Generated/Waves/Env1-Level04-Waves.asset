@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 414463a9765b64edd81c17dbf09108f7, type: 3}
+  m_Name: Env1-Level04-Waves
+  m_EditorClassIdentifier: Assembly-CSharp::WaveConfig
+  waves:
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 4
+    timeBetweenSpawns: 1.79
+    timeToNextWave: 8
+    waveGoldReward: 58
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 2
+    timeBetweenSpawns: 1.74
+    timeToNextWave: 8
+    waveGoldReward: 68
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 3
+    timeBetweenSpawns: 1.69
+    timeToNextWave: 8
+    waveGoldReward: 78
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 6
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 3
+    timeBetweenSpawns: 1.64
+    timeToNextWave: 8
+    waveGoldReward: 88
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 6
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 3
+    - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
+      count: 1
+    timeBetweenSpawns: 1.59
+    timeToNextWave: 8
+    waveGoldReward: 98

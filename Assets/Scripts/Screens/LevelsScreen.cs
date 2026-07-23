@@ -1,15 +1,12 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class LevelSelectionScreen : MonoBehaviour
 {
   [Header("Level Card Setup")]
   [SerializeField] private GameObject levelCardPrefab;
   [SerializeField] private Transform cardsContainer;
-
-  [Header("Level Data")]
-  [SerializeField] private int numberOfLevels = 10;
-  [SerializeField] private int unlockedLevels = 5;
 
   [Header("Back Button")]
   [SerializeField] private Button backButton;
@@ -26,14 +23,24 @@ public class LevelSelectionScreen : MonoBehaviour
 
   private void PopulateLevelCards()
   {
-    for (int i = 1; i <= numberOfLevels; i++)
+    string environmentName = GameSession.SelectedEnvironment;
+    List<LevelConfig> levels = LevelRepository.GetLevelsForEnvironment(environmentName);
+
+    if (levels.Count == 0)
+    {
+      Debug.LogWarning($"No LevelConfig assets found in Resources/Levels for environment '{environmentName}'.");
+      return;
+    }
+
+    foreach (LevelConfig level in levels)
     {
       GameObject cardGO = Instantiate(levelCardPrefab, cardsContainer);
       LevelCard card = cardGO.GetComponent<LevelCard>();
       if (card != null)
       {
-        bool isLocked = (i > unlockedLevels);
-        card.Setup(i, isLocked, OnLevelSelected);
+        bool isLocked = !LevelProgress.IsLevelUnlocked(level.environmentName, level.levelNumber);
+        LevelConfig selected = level;
+        card.Setup(level.levelNumber, isLocked, _ => OnLevelSelected(selected));
       }
       else
       {
@@ -42,9 +49,10 @@ public class LevelSelectionScreen : MonoBehaviour
     }
   }
 
-  private void OnLevelSelected(int levelNumber)
+  private void OnLevelSelected(LevelConfig level)
   {
-    Debug.Log("Selected Level: " + levelNumber);
+    Debug.Log($"Selected Level: {level.levelNumber} ({level.environmentName})");
+    GameSession.SelectedLevel = level;
     AudioManager.Instance.PlaySound(AudioManager.SoundType.LevelPicked);
     SceneController.Instance.LoadScene(SceneController.GameScene.MainGame);
     gameObject.SetActive(false);

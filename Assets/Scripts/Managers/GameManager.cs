@@ -10,11 +10,16 @@ public class GameManager : MonoBehaviour
   public int currentGold;
   public int currentHealth;
 
+  private EnemySpawner spawner;
+  private int aliveEnemies;
+  private bool gameEnded;
+
   private void Awake()
   {
     if (Instance == null)
     {
       Instance = this;
+      Application.targetFrameRate = 60;
     }
     else
     {
@@ -24,11 +29,50 @@ public class GameManager : MonoBehaviour
 
   private void Start()
   {
-    currentGold = startingGold;
-    currentHealth = startingHealth;
+    LevelConfig level = GameSession.SelectedLevel;
+    currentGold = level != null ? level.startingGold : startingGold;
+    currentHealth = level != null ? level.startingHealth : startingHealth;
+
+    spawner = FindFirstObjectByType<EnemySpawner>();
 
     // Initial UI update
     UpdateUI();
+  }
+
+  public void OnEnemySpawned()
+  {
+    aliveEnemies++;
+  }
+
+  public void OnEnemyRemoved()
+  {
+    aliveEnemies = Mathf.Max(0, aliveEnemies - 1);
+    CheckVictory();
+  }
+
+  public void CheckVictory()
+  {
+    if (gameEnded || currentHealth <= 0) return;
+    if (spawner == null || !spawner.AreWavesComplete() || aliveEnemies > 0) return;
+
+    Victory();
+  }
+
+  private void Victory()
+  {
+    gameEnded = true;
+
+    LevelConfig level = GameSession.SelectedLevel;
+    if (level != null)
+    {
+      LevelProgress.MarkLevelCompleted(level.environmentName, level.levelNumber);
+    }
+
+    Debug.Log("Victory! All waves cleared.");
+    AudioManager.Instance.PlaySound(AudioManager.SoundType.Victory);
+    CameraRig.Instance?.PlayEndOfLevelView();
+    HUDManager.Instance.ShowVictoryScreen();
+    PauseGame();
   }
 
   private void UpdateUI()
@@ -71,8 +115,12 @@ public class GameManager : MonoBehaviour
 
   private void GameOver()
   {
+    if (gameEnded) return;
+    gameEnded = true;
+
     Debug.Log("Game Over!");
     AudioManager.Instance.PlaySound(AudioManager.SoundType.GameOver);
+    CameraRig.Instance?.PlayEndOfLevelView();
     HUDManager.Instance.ShowGameOverScreen();
     PauseGame();
   }
