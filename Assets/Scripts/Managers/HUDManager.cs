@@ -192,6 +192,12 @@ public class HUDManager : MonoBehaviour
     }
   }
 
+  public void ShowWaveBanner(int currentWave, int totalWaves)
+  {
+    string message = currentWave >= totalWaves ? "FINAL WAVE" : $"WAVE {currentWave}";
+    WaveBanner.Show(transform, message);
+  }
+
   public void UpdateWaveTimer(float timeRemaining)
   {
     if (timerText != null)

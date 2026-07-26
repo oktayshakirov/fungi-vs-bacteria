@@ -17,7 +17,7 @@ MonoBehaviour:
   maxHealth: 600
   moveSpeed: 1
   baseDamage: 50
-  goldReward: 10
+  goldReward: 120
   isArmored: 1
   armorDamageReduction: 0.3
   isFast: 0

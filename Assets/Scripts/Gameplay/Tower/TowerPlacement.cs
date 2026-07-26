@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
 public class TowerPlacement : MonoBehaviour
@@ -51,17 +52,37 @@ public class TowerPlacement : MonoBehaviour
     groundManagerChecked = true;
   }
 
+  // True when the current press/tap began over a UI element (a button), so we
+  // don't place a tower "through" the tower tray or the cancel button.
+  private bool pointerStartedOverUI;
+
   private void Update()
   {
     if (currentTowerConfig == null || !enabled) return;
 
+    // Desktop convenience: right-click cancels. Touch uses the Cancel button.
     if (Input.GetMouseButtonDown(1))
     {
       CancelPlacement();
       return;
     }
 
+    if (Input.GetMouseButtonDown(0))
+    {
+      pointerStartedOverUI = IsPointerOverUI();
+    }
+
     HandlePlacementInput();
+  }
+
+  private bool IsPointerOverUI()
+  {
+    if (EventSystem.current == null) return false;
+    if (Input.touchCount > 0)
+    {
+      return EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId);
+    }
+    return EventSystem.current.IsPointerOverGameObject();
   }
 
 
@@ -96,6 +117,7 @@ public class TowerPlacement : MonoBehaviour
 
     gridLineVisualizer?.ShowGrid();
     gridTileVisualizer?.ShowVisualization();
+    PlacementCancelButton.Show(CancelPlacement);
   }
 
   public void CancelPlacement()
@@ -109,6 +131,7 @@ public class TowerPlacement : MonoBehaviour
 
     gridLineVisualizer?.HideGrid();
     gridTileVisualizer?.HideVisualization();
+    PlacementCancelButton.Hide();
   }
 
   private void HandlePlacementInput()
@@ -155,7 +178,9 @@ public class TowerPlacement : MonoBehaviour
     bool canPlaceCenter = gridManager.IsCellBuildable(centerGridPos);
     previewTower.UpdatePlacementIndicatorVisuals(canPlaceCenter);
 
-    if (Input.GetMouseButtonDown(0))
+    // Place on pointer-up so a tap/drag can aim first (touch has no hover).
+    // Only if the gesture began on the board, not on a UI button.
+    if (Input.GetMouseButtonUp(0) && !pointerStartedOverUI)
     {
       if (canPlaceCenter)
       {

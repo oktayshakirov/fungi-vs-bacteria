@@ -55,6 +55,7 @@ public class EnemySpawner : MonoBehaviour
       currentWave++;
 
       HUDManager.Instance.UpdateWaveText(currentWave, waveConfig.waves.Length);
+      HUDManager.Instance.ShowWaveBanner(currentWave, waveConfig.waves.Length);
       HUDManager.Instance.UpdateStartWaveButton();
     }
   }

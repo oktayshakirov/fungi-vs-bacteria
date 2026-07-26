@@ -70,6 +70,7 @@ public class TutorialOverlay : MonoBehaviour
     var go = new GameObject(name, typeof(RectTransform));
     go.transform.SetParent(transform, false);
     var text = go.AddComponent<TextMeshProUGUI>();
+    UiFont.Apply(text);
     text.fontSize = size;
     text.enableAutoSizing = true;
     text.fontSizeMin = 18f;

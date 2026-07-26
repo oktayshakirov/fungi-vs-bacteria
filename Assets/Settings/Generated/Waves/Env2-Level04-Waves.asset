@@ -18,7 +18,7 @@ MonoBehaviour:
       count: 7
     timeBetweenSpawns: 1.39
     timeToNextWave: 8
-    waveGoldReward: 78
+    waveGoldReward: 38
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 8
@@ -26,7 +26,7 @@ MonoBehaviour:
       count: 4
     timeBetweenSpawns: 1.34
     timeToNextWave: 8
-    waveGoldReward: 88
+    waveGoldReward: 42
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 8
@@ -36,7 +36,7 @@ MonoBehaviour:
       count: 2
     timeBetweenSpawns: 1.29
     timeToNextWave: 8
-    waveGoldReward: 98
+    waveGoldReward: 46
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 9
@@ -46,7 +46,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.24
     timeToNextWave: 8
-    waveGoldReward: 108
+    waveGoldReward: 50
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 9
@@ -56,7 +56,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.19
     timeToNextWave: 8
-    waveGoldReward: 118
+    waveGoldReward: 54
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 10
@@ -66,7 +66,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.14
     timeToNextWave: 8
-    waveGoldReward: 128
+    waveGoldReward: 58
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 10
@@ -76,7 +76,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.09
     timeToNextWave: 8
-    waveGoldReward: 138
+    waveGoldReward: 62
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 11
@@ -88,4 +88,4 @@ MonoBehaviour:
       count: 1
     timeBetweenSpawns: 1.04
     timeToNextWave: 8
-    waveGoldReward: 148
+    waveGoldReward: 66

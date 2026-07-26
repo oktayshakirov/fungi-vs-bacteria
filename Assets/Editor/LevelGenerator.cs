@@ -199,7 +199,9 @@ public static class LevelGenerator
         enemyGroups = groups.ToArray(),
         timeBetweenSpawns = Mathf.Max(0.6f, 2f - difficulty * 0.04f - w * 0.05f),
         timeToNextWave = 8f,
-        waveGoldReward = 40 + 10 * w + 2 * difficulty
+        // Modest completion bonus: most income should come from kills, so the
+        // player can't coast on flat per-wave gold in the late game
+        waveGoldReward = 20 + 4 * w + difficulty
       };
     }
 

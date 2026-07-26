@@ -18,7 +18,7 @@ MonoBehaviour:
       count: 7
     timeBetweenSpawns: 1.4300001
     timeToNextWave: 8
-    waveGoldReward: 76
+    waveGoldReward: 37
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 8
@@ -26,7 +26,7 @@ MonoBehaviour:
       count: 4
     timeBetweenSpawns: 1.38
     timeToNextWave: 8
-    waveGoldReward: 86
+    waveGoldReward: 41
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 8
@@ -36,7 +36,7 @@ MonoBehaviour:
       count: 2
     timeBetweenSpawns: 1.33
     timeToNextWave: 8
-    waveGoldReward: 96
+    waveGoldReward: 45
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 9
@@ -46,7 +46,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.28
     timeToNextWave: 8
-    waveGoldReward: 106
+    waveGoldReward: 49
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 9
@@ -56,7 +56,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.23
     timeToNextWave: 8
-    waveGoldReward: 116
+    waveGoldReward: 53
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 10
@@ -66,7 +66,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.1800001
     timeToNextWave: 8
-    waveGoldReward: 126
+    waveGoldReward: 57
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 10
@@ -76,7 +76,7 @@ MonoBehaviour:
       count: 3
     timeBetweenSpawns: 1.13
     timeToNextWave: 8
-    waveGoldReward: 136
+    waveGoldReward: 61
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 11
@@ -88,4 +88,4 @@ MonoBehaviour:
       count: 1
     timeBetweenSpawns: 1.08
     timeToNextWave: 8
-    waveGoldReward: 146
+    waveGoldReward: 65

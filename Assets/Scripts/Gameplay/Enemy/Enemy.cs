@@ -21,6 +21,19 @@ public class Enemy : MonoBehaviour
   private EnemyHealthBar healthBar;
 
   [SerializeField] private float rotationOffset = 0f;
+  [SerializeField] private float turnSpeed = 12f;
+
+  private Vector3 baseScale = Vector3.one;
+  private float hitPunch = 0f;
+  private Quaternion targetRotation;
+
+  private static readonly Color DamageColor = new Color(1f, 0.85f, 0.2f);
+  private static readonly Color GoldColor = new Color(1f, 0.9f, 0.35f);
+
+  private void Awake()
+  {
+    baseScale = transform.localScale;
+  }
 
   private void Start()
   {
@@ -34,6 +47,8 @@ public class Enemy : MonoBehaviour
     currentWaypointIndex = 0;
     isRemoved = false;
     slowAmount = 0f;
+    hitPunch = 0f;
+    transform.localScale = baseScale;
 
     waypoints = path;
     health = enemyConfig.maxHealth;
@@ -57,18 +72,18 @@ public class Enemy : MonoBehaviour
     if (waypoints.Length > 1)
     {
       Vector3 initialDirection = (waypoints[1] - waypoints[0]).normalized;
-      UpdateRotation(initialDirection);
+      SetTargetRotation(initialDirection);
+      transform.rotation = targetRotation; // snap on spawn only
     }
   }
 
-  private void UpdateRotation(Vector3 direction)
+  private void SetTargetRotation(Vector3 direction)
   {
     if (direction != Vector3.zero)
     {
       // Keep the y-axis rotation only, maintain upright position
       direction.y = 0;
-      Quaternion targetRotation = Quaternion.LookRotation(direction) * Quaternion.Euler(0, rotationOffset, 0);
-      transform.rotation = targetRotation;
+      targetRotation = Quaternion.LookRotation(direction) * Quaternion.Euler(0, rotationOffset, 0);
     }
   }
 
@@ -80,9 +95,17 @@ public class Enemy : MonoBehaviour
     Vector3 targetPosition = waypoints[currentWaypointIndex];
     transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
 
-    // Look in the movement direction
+    // Look in the movement direction, turning smoothly instead of snapping
     Vector3 direction = (targetPosition - transform.position).normalized;
-    UpdateRotation(direction);
+    SetTargetRotation(direction);
+    transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, turnSpeed * Time.deltaTime);
+
+    // Decay the hit-punch scale back to normal
+    if (hitPunch > 0f)
+    {
+      hitPunch = Mathf.Max(0f, hitPunch - Time.deltaTime * 6f);
+      transform.localScale = baseScale * (1f + hitPunch * 0.18f);
+    }
 
     // Check if reached path point
     if (Vector3.Distance(transform.position, targetPosition) < 0.1f)
@@ -112,11 +135,19 @@ public class Enemy : MonoBehaviour
 
     // Apply armor damage reduction if any
     float reducedDamage = damageAmount * (1f - armorDamageReduction);
-    health -= Mathf.RoundToInt(reducedDamage);
+    int dealt = Mathf.RoundToInt(reducedDamage);
+    health -= dealt;
     healthBar?.SetHealth((float)health / maxHealth);
+
+    // Juice: damage number + a small scale punch toward the camera
+    Vector3 popupPos = transform.position + Vector3.up * (baseScale.y + 0.5f);
+    FloatingText.Spawn(popupPos, dealt.ToString(), DamageColor);
+    hitPunch = 1f;
+
     if (health <= 0)
     {
       GameManager.Instance?.AddGold(goldReward);
+      FloatingText.Spawn(popupPos + Vector3.up * 0.4f, $"+{goldReward}", GoldColor, 6f);
       AudioManager.Instance.PlaySound(AudioManager.SoundType.EnemyDeath);
       Remove();
     }

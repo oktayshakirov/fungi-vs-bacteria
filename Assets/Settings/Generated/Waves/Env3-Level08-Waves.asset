@@ -18,7 +18,7 @@ MonoBehaviour:
       count: 12
     timeBetweenSpawns: 0.83000004
     timeToNextWave: 8
-    waveGoldReward: 106
+    waveGoldReward: 52
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 13
@@ -26,7 +26,7 @@ MonoBehaviour:
       count: 8
     timeBetweenSpawns: 0.78000003
     timeToNextWave: 8
-    waveGoldReward: 116
+    waveGoldReward: 56
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 13
@@ -36,7 +36,7 @@ MonoBehaviour:
       count: 5
     timeBetweenSpawns: 0.73
     timeToNextWave: 8
-    waveGoldReward: 126
+    waveGoldReward: 60
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 14
@@ -46,7 +46,7 @@ MonoBehaviour:
       count: 6
     timeBetweenSpawns: 0.68
     timeToNextWave: 8
-    waveGoldReward: 136
+    waveGoldReward: 64
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 14
@@ -56,7 +56,7 @@ MonoBehaviour:
       count: 6
     timeBetweenSpawns: 0.63
     timeToNextWave: 8
-    waveGoldReward: 146
+    waveGoldReward: 68
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 15
@@ -66,7 +66,7 @@ MonoBehaviour:
       count: 6
     timeBetweenSpawns: 0.6
     timeToNextWave: 8
-    waveGoldReward: 156
+    waveGoldReward: 72
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 15
@@ -76,7 +76,7 @@ MonoBehaviour:
       count: 6
     timeBetweenSpawns: 0.6
     timeToNextWave: 8
-    waveGoldReward: 166
+    waveGoldReward: 76
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 16
@@ -86,7 +86,7 @@ MonoBehaviour:
       count: 7
     timeBetweenSpawns: 0.6
     timeToNextWave: 8
-    waveGoldReward: 176
+    waveGoldReward: 80
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 16
@@ -96,7 +96,7 @@ MonoBehaviour:
       count: 7
     timeBetweenSpawns: 0.6
     timeToNextWave: 8
-    waveGoldReward: 186
+    waveGoldReward: 84
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 17
@@ -108,4 +108,4 @@ MonoBehaviour:
       count: 2
     timeBetweenSpawns: 0.6
     timeToNextWave: 8
-    waveGoldReward: 196
+    waveGoldReward: 88
