@@ -44,9 +44,11 @@ public class AudioManager : MonoBehaviour
 
     private bool isMusicMuted = false;
     private bool isSfxMuted = false;
+    private bool isVibrationEnabled = true;
 
     public bool IsBackgroundMusicEnabled => !isMusicMuted;
     public bool IsSfxEnabled => !isSfxMuted;
+    public bool IsVibrationEnabled => isVibrationEnabled;
 
     private void Awake()
     {
@@ -125,8 +127,23 @@ public class AudioManager : MonoBehaviour
 
     public void SetVibrationEnabled(bool enabled)
     {
+        isVibrationEnabled = enabled;
         PlayerPrefs.SetInt("VibrationEnabled", enabled ? 1 : 0);
         PlayerPrefs.Save();
+    }
+
+    // Fires a short device vibration for meaningful events (base hit, defeat).
+    // Handheld.Vibrate is only meaningful on a real handheld, so it is guarded.
+    public void Vibrate()
+    {
+        if (!isVibrationEnabled) return;
+#if UNITY_ANDROID || UNITY_IOS
+        if (Application.platform == RuntimePlatform.Android ||
+            Application.platform == RuntimePlatform.IPhonePlayer)
+        {
+            Handheld.Vibrate();
+        }
+#endif
     }
 
     public void SetSoundVolume(SoundType type, float volume)
@@ -153,6 +170,8 @@ public class AudioManager : MonoBehaviour
 
         bool sfxEnabled = PlayerPrefs.GetInt("SoundEffectsEnabled", 1) == 1;
         ToggleSFX(!sfxEnabled);
+
+        isVibrationEnabled = PlayerPrefs.GetInt("VibrationEnabled", 1) == 1;
 
         // Load individual sound volumes
         foreach (var sound in sounds)

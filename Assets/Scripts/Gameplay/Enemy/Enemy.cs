@@ -26,6 +26,7 @@ public class Enemy : MonoBehaviour
   private Vector3 baseScale = Vector3.one;
   private float hitPunch = 0f;
   private Quaternion targetRotation;
+  private Color bodyColor = Color.white;
 
   private static readonly Color DamageColor = new Color(1f, 0.85f, 0.2f);
   private static readonly Color GoldColor = new Color(1f, 0.9f, 0.35f);
@@ -33,6 +34,18 @@ public class Enemy : MonoBehaviour
   private void Awake()
   {
     baseScale = transform.localScale;
+
+    MeshRenderer bodyRenderer = GetComponentInChildren<MeshRenderer>();
+    if (bodyRenderer != null && bodyRenderer.sharedMaterial != null &&
+        bodyRenderer.sharedMaterial.HasProperty("_BaseColor"))
+    {
+      bodyColor = bodyRenderer.sharedMaterial.GetColor("_BaseColor");
+    }
+    else if (bodyRenderer != null && bodyRenderer.sharedMaterial != null &&
+             bodyRenderer.sharedMaterial.HasProperty("_Color"))
+    {
+      bodyColor = bodyRenderer.sharedMaterial.color;
+    }
   }
 
   private void Start()
@@ -148,6 +161,7 @@ public class Enemy : MonoBehaviour
     {
       GameManager.Instance?.AddGold(goldReward);
       FloatingText.Spawn(popupPos + Vector3.up * 0.4f, $"+{goldReward}", GoldColor, 6f);
+      DeathEffect.Spawn(transform.position + Vector3.up * baseScale.y * 0.5f, bodyColor, baseScale.y);
       AudioManager.Instance.PlaySound(AudioManager.SoundType.EnemyDeath);
       Remove();
     }

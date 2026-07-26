@@ -15,7 +15,6 @@ public class TowerConfig : ScriptableObject
   public float range = 5f;
   public float fireRate = 1f;
   public int damage = 20;
-  public bool canTargetAir = true;
 
   [Header("Special Abilities")]
   public bool isAoE = false;

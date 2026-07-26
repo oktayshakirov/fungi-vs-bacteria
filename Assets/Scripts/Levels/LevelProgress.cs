@@ -22,4 +22,32 @@ public static class LevelProgress
   {
     return levelNumber <= GetHighestCompletedLevel(environmentName) + 1;
   }
+
+  private static string StarsKey(string environmentName, int levelNumber)
+    => $"Stars_{environmentName}_{levelNumber}";
+
+  public static int GetStars(string environmentName, int levelNumber)
+  {
+    return PlayerPrefs.GetInt(StarsKey(environmentName, levelNumber), 0);
+  }
+
+  // Keeps the player's best result for a level
+  public static void SetStars(string environmentName, int levelNumber, int stars)
+  {
+    if (stars > GetStars(environmentName, levelNumber))
+    {
+      PlayerPrefs.SetInt(StarsKey(environmentName, levelNumber), stars);
+      PlayerPrefs.Save();
+    }
+  }
+
+  // 3 stars for finishing near-untouched, 2 for over half health, else 1
+  public static int StarsForHealth(int healthRemaining, int startingHealth)
+  {
+    if (startingHealth <= 0) return 1;
+    float ratio = (float)healthRemaining / startingHealth;
+    if (ratio >= 0.9f) return 3;
+    if (ratio >= 0.5f) return 2;
+    return 1;
+  }
 }

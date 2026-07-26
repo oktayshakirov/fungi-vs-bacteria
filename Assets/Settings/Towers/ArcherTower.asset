@@ -19,7 +19,6 @@ MonoBehaviour:
   range: 7
   fireRate: 1.5
   damage: 15
-  canTargetAir: 1
   isAoE: 0
   splashRadius: 0
   slowsEnemies: 0

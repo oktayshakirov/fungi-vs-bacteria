@@ -125,6 +125,7 @@ public class CameraRig : MonoBehaviour
     if (transitionDuration <= 0f)
     {
       ApplyPose(state == ViewState.Outro ? outroPose : PlayPose);
+      ApplyShake();
       return;
     }
 
@@ -135,12 +136,42 @@ public class CameraRig : MonoBehaviour
 
     Pose target = state == ViewState.Outro ? outroPose : PlayPose;
     ApplyPose(Pose.Lerp(fromPose, target, eased));
+    ApplyShake();
 
     if (t >= 1f)
     {
       transitionDuration = 0f;
       if (state == ViewState.Intro) state = ViewState.Play;
     }
+  }
+
+  private float shakeTime;
+  private float shakeDuration;
+  private float shakeMagnitude;
+
+  // amount is a 0..1 intensity; scaled to world units for this camera distance
+  public void Shake(float amount)
+  {
+    shakeMagnitude = amount * 4f;
+    shakeDuration = 0.35f;
+    shakeTime = 0f;
+  }
+
+  private void ApplyShake()
+  {
+    if (shakeDuration <= 0f) return;
+
+    shakeTime += Time.unscaledDeltaTime;
+    float remaining = 1f - Mathf.Clamp01(shakeTime / shakeDuration);
+    if (remaining <= 0f)
+    {
+      shakeDuration = 0f;
+      return;
+    }
+
+    Vector3 offset = Random.insideUnitSphere * shakeMagnitude * remaining;
+    offset.z *= 0.3f; // less wobble along the view direction
+    transform.position += offset;
   }
 
   public void PlayEndOfLevelView()

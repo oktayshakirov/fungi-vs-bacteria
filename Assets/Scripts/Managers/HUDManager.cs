@@ -91,6 +91,8 @@ public class HUDManager : MonoBehaviour
       gameOverScreen.gameObject.SetActive(false);
     }
 
+    GameSpeedButton.Create(transform);
+
     if (TutorialOverlay.ShouldShow())
     {
       TutorialOverlay.Show(transform);
@@ -259,7 +261,7 @@ public class HUDManager : MonoBehaviour
     DeselectCurrentTower();
   }
 
-  public void ShowVictoryScreen()
+  public void ShowVictoryScreen(int stars)
   {
     if (victoryScreen == null)
     {
@@ -272,7 +274,7 @@ public class HUDManager : MonoBehaviour
       victoryScreen = Instantiate(prefab, transform);
     }
 
-    victoryScreen.Initialize();
+    victoryScreen.Initialize(stars);
     victoryScreen.gameObject.SetActive(true);
     towerActionsPanel?.SetActive(false);
     DeselectCurrentTower();

@@ -13,6 +13,11 @@ public class GameManager : MonoBehaviour
   private EnemySpawner spawner;
   private int aliveEnemies;
   private bool gameEnded;
+  private int levelStartingHealth = 100;
+
+  // Chosen play speed (1x or 2x); pausing sets timeScale to 0 without losing it
+  public float PlaySpeed { get; private set; } = 1f;
+  public bool IsPaused => Time.timeScale == 0f;
 
   private void Awake()
   {
@@ -32,6 +37,10 @@ public class GameManager : MonoBehaviour
     LevelConfig level = GameSession.SelectedLevel;
     currentGold = level != null ? level.startingGold : startingGold;
     currentHealth = level != null ? level.startingHealth : startingHealth;
+    levelStartingHealth = currentHealth;
+
+    PlaySpeed = 1f;
+    Time.timeScale = 1f;
 
     spawner = FindFirstObjectByType<EnemySpawner>();
 
@@ -62,16 +71,19 @@ public class GameManager : MonoBehaviour
   {
     gameEnded = true;
 
+    int stars = LevelProgress.StarsForHealth(currentHealth, levelStartingHealth);
+
     LevelConfig level = GameSession.SelectedLevel;
     if (level != null)
     {
       LevelProgress.MarkLevelCompleted(level.environmentName, level.levelNumber);
+      LevelProgress.SetStars(level.environmentName, level.levelNumber, stars);
     }
 
-    Debug.Log("Victory! All waves cleared.");
+    Debug.Log($"Victory! All waves cleared. Stars: {stars}");
     AudioManager.Instance.PlaySound(AudioManager.SoundType.Victory);
     CameraRig.Instance?.PlayEndOfLevelView();
-    HUDManager.Instance.ShowVictoryScreen();
+    HUDManager.Instance.ShowVictoryScreen(stars);
     PauseGame();
   }
 
@@ -107,6 +119,10 @@ public class GameManager : MonoBehaviour
     currentHealth = Mathf.Max(0, currentHealth - damage);
     UpdateUI();
 
+    // Feedback: the base was hit
+    CameraRig.Instance?.Shake(0.35f);
+    AudioManager.Instance?.Vibrate();
+
     if (currentHealth <= 0)
     {
       GameOver();
@@ -132,7 +148,18 @@ public class GameManager : MonoBehaviour
 
   public void ResumeGame()
   {
-    Time.timeScale = 1f;
+    Time.timeScale = PlaySpeed;
+  }
+
+  // Cycles the play speed between 1x and 2x. Ignored while paused or ended.
+  public float ToggleSpeed()
+  {
+    PlaySpeed = Mathf.Approximately(PlaySpeed, 1f) ? 2f : 1f;
+    if (!gameEnded && Time.timeScale != 0f)
+    {
+      Time.timeScale = PlaySpeed;
+    }
+    return PlaySpeed;
   }
 
   public void ReturnToMainMenu()

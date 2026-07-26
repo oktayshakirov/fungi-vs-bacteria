@@ -39,8 +39,9 @@ public class LevelSelectionScreen : MonoBehaviour
       if (card != null)
       {
         bool isLocked = !LevelProgress.IsLevelUnlocked(level.environmentName, level.levelNumber);
+        int stars = LevelProgress.GetStars(level.environmentName, level.levelNumber);
         LevelConfig selected = level;
-        card.Setup(level.levelNumber, isLocked, _ => OnLevelSelected(selected));
+        card.Setup(level.levelNumber, isLocked, stars, _ => OnLevelSelected(selected));
       }
       else
       {

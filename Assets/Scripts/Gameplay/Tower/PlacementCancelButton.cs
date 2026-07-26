@@ -65,7 +65,7 @@ public class PlacementCancelButton : MonoBehaviour
 
     var label = textGo.AddComponent<TextMeshProUGUI>();
     UiFont.Apply(label);
-    label.text = "✕  CANCEL";
+    label.text = "CANCEL";
     label.fontSize = 44f;
     label.enableAutoSizing = true;
     label.fontSizeMin = 20f;
