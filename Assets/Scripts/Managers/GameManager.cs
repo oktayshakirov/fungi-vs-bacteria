@@ -42,6 +42,8 @@ public class GameManager : MonoBehaviour
     PlaySpeed = 1f;
     Time.timeScale = 1f;
 
+    EnvironmentTheme.Apply(GameSession.SelectedEnvironment);
+
     spawner = FindFirstObjectByType<EnemySpawner>();
 
     // Initial UI update

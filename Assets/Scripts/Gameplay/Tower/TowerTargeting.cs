@@ -21,9 +21,14 @@ public class TowerTargeting : MonoBehaviour
   {
     if (CurrentTarget != null)
     {
-      float distance = GetDistanceToTarget(CurrentTarget);
-
-      if (distance > range)
+      // A pooled enemy is deactivated, not destroyed, so the reference stays
+      // non-null. Without this check the tower keeps firing at a dead (or
+      // reused) enemy's position — shooting at "nothing".
+      if (!CurrentTarget.gameObject.activeInHierarchy)
+      {
+        CurrentTarget = null;
+      }
+      else if (GetDistanceToTarget(CurrentTarget) > range)
       {
         CurrentTarget = null;
       }

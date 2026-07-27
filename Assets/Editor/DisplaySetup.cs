@@ -26,10 +26,11 @@ public static class DisplaySetup
     "Assets/Resources/Screens/VictoryScreen.prefab"
   };
 
-  // A widescreen board fills a landscape phone the way the PvZ lawn does;
-  // a square one always leaves large empty margins.
-  public const int BoardWidth = 16;
-  public const int BoardHeight = 9;
+  // A wide, shallow board fills a landscape phone like the PvZ lawn and keeps
+  // towers/enemies large and readable; too many rows makes units tiny and
+  // forces a flat top-down angle.
+  public const int BoardWidth = 13;
+  public const int BoardHeight = 6;
 
   [MenuItem("Tools/Display/Apply Camera + Safe Area Setup")]
   public static void Apply()
@@ -69,6 +70,7 @@ public static class DisplaySetup
         if (scenePath.Contains("MainGame"))
         {
           AddBoardBase(root);
+          EnsureLevelDecorator(root);
         }
 
         foreach (Canvas canvas in root.GetComponentsInChildren<Canvas>(true))
@@ -112,21 +114,23 @@ public static class DisplaySetup
   private static void ConfigureRig(CameraRig rig)
   {
     var so = new SerializedObject(rig);
-    so.FindProperty("fieldOfView").floatValue = 36f;
-    so.FindProperty("playPitch").floatValue = 46f;
+    // Low, wide-lens, close: a cinematic 3/4 view with real perspective depth.
+    // A touch lower reveals more of the cliff/sky around the floating island.
+    so.FindProperty("fieldOfView").floatValue = 50f;
+    so.FindProperty("playPitch").floatValue = 26f;
     so.FindProperty("playYaw").floatValue = 0f;
-    so.FindProperty("adaptPitchToAspect").boolValue = true;
-    so.FindProperty("minPitch").floatValue = 34f;
-    so.FindProperty("maxPitch").floatValue = 58f;
+    so.FindProperty("adaptPitchToAspect").boolValue = false;
+    so.FindProperty("minPitch").floatValue = 24f;
+    so.FindProperty("maxPitch").floatValue = 40f;
     so.FindProperty("edgePadding").floatValue = 0.02f;
     so.FindProperty("hudTopReserve").floatValue = 0.09f;
     so.FindProperty("hudBottomReserve").floatValue = 0.15f;
     so.FindProperty("towerHeadroom").floatValue = 5f;
     so.FindProperty("playIntroOnStart").boolValue = true;
-    so.FindProperty("introDuration").floatValue = 2.75f;
-    SetPose(so, "introPose", pitch: 24f, yaw: -26f, zoom: 0.62f, height: 2f);
+    so.FindProperty("introDuration").floatValue = 3.8f;
+    SetPose(so, "introPose", pitch: 11f, yaw: -62f, zoom: 0.48f, height: 1.5f);
     so.FindProperty("outroDuration").floatValue = 2.5f;
-    SetPose(so, "outroPose", pitch: 32f, yaw: 14f, zoom: 0.72f, height: 1.5f);
+    SetPose(so, "outroPose", pitch: 26f, yaw: 18f, zoom: 0.78f, height: 1.5f);
     so.ApplyModifiedPropertiesWithoutUndo();
   }
 
@@ -173,12 +177,17 @@ public static class DisplaySetup
     grid.originPosition = new Vector3(-worldWidth * 0.5f, 0f, -worldDepth * 0.5f);
     EditorUtility.SetDirty(grid);
 
+    // Visual ground/slab extend past the grid by a margin, giving a border ring
+    // of grass for decorative props (the play grid stays centred and unchanged).
+    float groundW = worldWidth + 2f * BoardDecor.Margin;
+    float groundD = worldDepth + 2f * BoardDecor.Margin;
+
     // The ground is a built-in 10x10 plane, so scale is world size / 10
     GroundManager ground = Object.FindFirstObjectByType<GroundManager>();
     if (ground != null)
     {
       ground.transform.position = new Vector3(0f, ground.transform.position.y, 0f);
-      ground.transform.localScale = new Vector3(worldWidth / 10f, 1f, worldDepth / 10f);
+      ground.transform.localScale = new Vector3(groundW / 10f, 1f, groundD / 10f);
       EditorUtility.SetDirty(ground);
     }
   }
@@ -294,9 +303,9 @@ public static class DisplaySetup
     baseGo.name = "BoardBase";
     if (existing == null) baseGo.transform.SetParent(root.transform, false);
 
-    float worldWidth = grid.gridSize.x * grid.cellSize;
-    float worldDepth = grid.gridSize.y * grid.cellSize;
-    const float thickness = 6f;
+    float worldWidth = grid.gridSize.x * grid.cellSize + 2f * BoardDecor.Margin;
+    float worldDepth = grid.gridSize.y * grid.cellSize + 2f * BoardDecor.Margin;
+    const float thickness = 4f;
 
     // Top sits just below the grass plane (y=0) with a matching footprint, so
     // the grass shows on top and only the soil sides are visible at the edges.
@@ -312,6 +321,14 @@ public static class DisplaySetup
     if (collider != null) Object.DestroyImmediate(collider);
 
     EditorUtility.SetDirty(baseGo);
+  }
+
+  private static void EnsureLevelDecorator(GameObject root)
+  {
+    if (Object.FindFirstObjectByType<LevelDecorator>() != null) return;
+    var go = new GameObject("LevelDecorator");
+    go.AddComponent<LevelDecorator>();
+    EditorUtility.SetDirty(go);
   }
 
   private static Material GetOrCreateSoilMaterial()

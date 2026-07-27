@@ -15,10 +15,9 @@ MonoBehaviour:
   pathName: Env2 Level10 Path
   description: 
   pathGridCoordinates:
+  - {x: 0, y: 2}
   - {x: 0, y: 3}
-  - {x: 0, y: 4}
-  - {x: 1, y: 4}
-  - {x: 2, y: 4}
+  - {x: 1, y: 3}
   - {x: 2, y: 3}
   - {x: 2, y: 2}
   - {x: 2, y: 1}
@@ -39,9 +38,3 @@ MonoBehaviour:
   - {x: 10, y: 4}
   - {x: 11, y: 4}
   - {x: 12, y: 4}
-  - {x: 12, y: 3}
-  - {x: 13, y: 3}
-  - {x: 13, y: 2}
-  - {x: 14, y: 2}
-  - {x: 14, y: 1}
-  - {x: 15, y: 1}

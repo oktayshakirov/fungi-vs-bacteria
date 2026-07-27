@@ -586,9 +586,9 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 5.5110455
-  far clip plane: 440.88364
-  field of view: 36
+  near clip plane: 4.0949583
+  far clip plane: 327.59665
+  field of view: 50
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -614,8 +614,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.4848096, y: 0, z: 0, w: 0.8746197}
-  m_LocalPosition: {x: 0, y: 94.833954, z: -60.23045}
+  m_LocalRotation: {x: 0.22495104, y: 0, z: 0, w: 0.97437006}
+  m_LocalPosition: {x: 0, y: 36.34272, z: -74.61497}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -677,28 +677,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8e70413c57614ab1aa176b84ec4db46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraRig
-  fieldOfView: 36
+  fieldOfView: 50
   edgePadding: 0.02
   hudTopReserve: 0.09
   hudBottomReserve: 0.15
   towerHeadroom: 5
-  playPitch: 46
+  playPitch: 26
   playYaw: 0
-  adaptPitchToAspect: 1
-  minPitch: 34
-  maxPitch: 58
+  viewPresets:
+  - {x: 26, y: 0, z: 1}
+  - {x: 52, y: 0, z: 1}
+  - {x: 34, y: 34, z: 1}
+  adaptPitchToAspect: 0
+  minPitch: 24
+  maxPitch: 40
   playIntroOnStart: 1
-  introDuration: 2.75
+  introDuration: 3.8
   introPose:
-    pitch: 24
-    yaw: -26
-    zoom: 0.62
-    height: 2
+    pitch: 11
+    yaw: -62
+    zoom: 0.48
+    height: 1.5
   outroDuration: 2.5
   outroPose:
-    pitch: 32
-    yaw: 14
-    zoom: 0.72
+    pitch: 26
+    yaw: 18
+    zoom: 0.78
     height: 1.5
 --- !u!1 &362689926
 GameObject:
@@ -1279,8 +1283,8 @@ Transform:
   m_GameObject: {fileID: 721545183}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -3.1, z: 0}
-  m_LocalScale: {x: 80, y: 6, z: 45}
+  m_LocalPosition: {x: 0, y: -2.1, z: 0}
+  m_LocalScale: {x: 83, y: 4, z: 48}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1747957671}
@@ -2567,7 +2571,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 8, y: 1, z: 4.5}
+  m_LocalScale: {x: 8.3, y: 1, z: 4.8}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -2584,6 +2588,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a8fa733a9b5049d6ba50a629a703738, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1478350009
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1478350011}
+  - component: {fileID: 1478350010}
+  m_Layer: 0
+  m_Name: LevelDecorator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1478350010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478350009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dcfc39a470654072a27eb5ba43a2147, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LevelDecorator
+--- !u!4 &1478350011
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478350009}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1500351597
 GameObject:
   m_ObjectHideFlags: 0
@@ -2927,9 +2975,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12f6712a5699c8447b5926856a2cba46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridSize: {x: 16, y: 9}
+  gridSize: {x: 13, y: 6}
   cellSize: 5
-  originPosition: {x: -40, y: 0, z: -22.5}
+  originPosition: {x: -32.5, y: 0, z: -15}
 --- !u!4 &1747957671
 Transform:
   m_ObjectHideFlags: 0
@@ -3849,3 +3897,4 @@ SceneRoots:
   - {fileID: 1059400858}
   - {fileID: 1971449185}
   - {fileID: 1939812643}
+  - {fileID: 1478350011}

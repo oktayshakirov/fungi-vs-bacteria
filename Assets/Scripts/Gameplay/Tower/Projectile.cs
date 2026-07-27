@@ -27,7 +27,9 @@ public class Projectile : MonoBehaviour
   {
     lifetime += Time.deltaTime;
 
-    if (target == null || lifetime > maxLifetime)
+    // Also drop the projectile if the target was pooled (deactivated) mid-flight,
+    // otherwise it homes onto a dead/reused enemy's position.
+    if (target == null || !target.gameObject.activeInHierarchy || lifetime > maxLifetime)
     {
       Destroy(gameObject);
       return;

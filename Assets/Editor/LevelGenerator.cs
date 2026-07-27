@@ -6,14 +6,14 @@ using UnityEngine;
 public static class LevelGenerator
 {
   // Grid bounds must match the GridManager in the MainGame scene (see DisplaySetup).
-  private const int GridWidth = 16;
-  private const int GridHeight = 9;
+  private const int GridWidth = 13;
+  private const int GridHeight = 6;
 
   private const int EnvironmentCount = 3;
   private const int LevelsPerEnvironment = 10;
 
-  private const int MinPathLength = 18;
-  private const int MaxPathLength = 46;
+  private const int MinPathLength = 14;
+  private const int MaxPathLength = 38;
   private const int BaseSeed = 4242;
 
   private const string LevelsFolder = "Assets/Resources/Levels";

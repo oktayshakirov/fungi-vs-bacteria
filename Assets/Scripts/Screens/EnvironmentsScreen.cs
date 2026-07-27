@@ -38,11 +38,15 @@ public class EnvironmentsScreen : MonoBehaviour
   {
     foreach (var envData in environments)
     {
+      // Never enable an environment with no levels yet (would open an empty list)
+      bool hasLevels = LevelRepository.GetLevelsForEnvironment(envData.environmentName).Count > 0;
+      bool isLocked = !hasLevels || (envData.isLocked && !LevelProgress.UnlockAll);
+
       GameObject cardGO = Instantiate(environmentCardPrefab, cardsContainer);
       EnvironmentCard card = cardGO.GetComponent<EnvironmentCard>();
       if (card != null)
       {
-        card.Setup(envData.environmentSprite, envData.environmentName, envData.isLocked);
+        card.Setup(envData.environmentSprite, envData.environmentName, isLocked);
       }
 
       Button cardButton = cardGO.GetComponent<Button>();
@@ -50,7 +54,7 @@ public class EnvironmentsScreen : MonoBehaviour
       {
         string envName = envData.environmentName;
         cardButton.onClick.AddListener(() => OnEnvironmentSelected(envName));
-        if (envData.isLocked)
+        if (isLocked)
         {
           cardButton.interactable = false;
         }

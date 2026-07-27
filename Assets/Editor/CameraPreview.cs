@@ -26,6 +26,54 @@ public static class CameraPreview
 
   private const string OutputDir = "Builds/CameraPreview";
 
+  // Diagnostic: writes the raw generated ground textures to disk to check the
+  // generation independent of scene lighting.
+  public static void DumpTextures()
+  {
+    Directory.CreateDirectory(OutputDir);
+    System.IO.File.WriteAllBytes($"{OutputDir}/tex_sand.png", GroundTextureFactory.Sand().EncodeToPNG());
+    System.IO.File.WriteAllBytes($"{OutputDir}/tex_toxic.png", GroundTextureFactory.Toxic().EncodeToPNG());
+    Debug.Log("DUMP OK");
+    if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
+  // Renders the meadow at several pitch/FOV combos so a lower, closer, more
+  // cinematic camera can be chosen by comparison.
+  public static void RenderCameraExperiment()
+  {
+    Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
+    CameraRig rig = Object.FindFirstObjectByType<CameraRig>();
+    if (rig == null) { if (Application.isBatchMode) EditorApplication.Exit(1); return; }
+    Camera cam = rig.GetComponent<Camera>();
+
+    Directory.CreateDirectory(OutputDir);
+    List<GameObject> towers = PlaceRealTowers();
+    EnvironmentTheme.Apply("Environment 1");
+
+    // (pitch, fov)
+    (float pitch, float fov)[] combos =
+    {
+      (34f, 45f), (30f, 50f), (27f, 55f), (24f, 60f),
+    };
+
+    var so = new SerializedObject(rig);
+    so.FindProperty("adaptPitchToAspect").boolValue = false;
+    so.ApplyModifiedPropertiesWithoutUndo();
+
+    foreach (var combo in combos)
+    {
+      so.Update();
+      so.FindProperty("playPitch").floatValue = combo.pitch;
+      so.FindProperty("fieldOfView").floatValue = combo.fov;
+      so.ApplyModifiedPropertiesWithoutUndo();
+      Capture(rig, cam, Devices[1], 0, $"cam-p{combo.pitch:00}-f{combo.fov:00}", false);
+    }
+
+    foreach (GameObject t in towers) Object.DestroyImmediate(t);
+    Debug.Log("CAM EXPERIMENT OK");
+    if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
   public static void Render()
   {
     Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
@@ -39,27 +87,66 @@ public static class CameraPreview
     }
 
     Camera cam = rig.GetComponent<Camera>();
-    List<GameObject> temporaries = BuildTemporaryVisuals();
 
     Directory.CreateDirectory(OutputDir);
 
+    // Framing shots use placeholder markers + shaded HUD bands
+    List<GameObject> temporaries = BuildTemporaryVisuals();
     foreach (Device device in Devices)
     {
-      Capture(rig, cam, device, 0, "play");
+      Capture(rig, cam, device, 0, "play", true);
     }
-    Capture(rig, cam, Devices[1], 1, "intro");
-    Capture(rig, cam, Devices[1], 2, "outro");
-
+    Capture(rig, cam, Devices[1], 1, "intro", true);
+    Capture(rig, cam, Devices[1], 2, "outro", true);
     foreach (GameObject temp in temporaries)
     {
       Object.DestroyImmediate(temp);
+    }
+
+    // Theme shots use real tower prefabs, the level decorator (props + base +
+    // portal), and each environment's palette, no HUD shading
+    List<GameObject> towers = PlaceRealTowers();
+    GridManager grid = Object.FindFirstObjectByType<GridManager>();
+    Vector3[] pathPts = PreviewPathPoints(grid);
+
+    var decorGo = new GameObject("PreviewDecor");
+    var decor = decorGo.AddComponent<LevelDecorator>();
+
+    foreach (string env in new[] { "Environment 1", "Environment 2", "Environment 3" })
+    {
+      EnvironmentTheme.Apply(env);
+      decor.BuildAt(pathPts);
+      string label = env.Replace(" ", "").ToLower(); // environment1, ...
+      Capture(rig, cam, Devices[1], 0, label, false);
+    }
+
+    Object.DestroyImmediate(decorGo);
+    foreach (GameObject t in towers)
+    {
+      Object.DestroyImmediate(t);
     }
 
     Debug.Log($"PREVIEW OK: wrote images to {OutputDir}");
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
-  private static void Capture(CameraRig rig, Camera cam, Device device, int poseIndex, string label)
+  private static Vector3[] PreviewPathPoints(GridManager grid)
+  {
+    LevelConfig level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+      "Assets/Resources/Levels/Environment1/Level01.asset");
+    if (grid == null || level == null || level.pathConfig == null) return null;
+
+    var cells = level.pathConfig.pathGridCoordinates;
+    var pts = new Vector3[cells.Count];
+    for (int i = 0; i < cells.Count; i++)
+    {
+      pts[i] = grid.GridToWorld(cells[i]);
+      pts[i].y = 0f;
+    }
+    return pts;
+  }
+
+  private static void Capture(CameraRig rig, Camera cam, Device device, int poseIndex, string label, bool shadeHud)
   {
     float aspect = (float)device.width / device.height;
 
@@ -82,7 +169,7 @@ public static class CameraPreview
     var texture = new Texture2D(device.width, device.height, TextureFormat.RGB24, false);
     texture.ReadPixels(new Rect(0, 0, device.width, device.height), 0, 0);
 
-    ShadeHudBands(texture, rig.TopReserve, rig.BottomReserve);
+    if (shadeHud) ShadeHudBands(texture, rig.TopReserve, rig.BottomReserve);
     texture.Apply();
 
     File.WriteAllBytes($"{OutputDir}/{device.name}-{label}.png", texture.EncodeToPNG());
@@ -114,6 +201,47 @@ public static class CameraPreview
         texture.SetPixel(x, y, Color.Lerp(c, new Color(0.9f, 0.2f, 0.4f), 0.35f));
       }
     }
+  }
+
+  // Places real tower prefabs at the same Y a placement would use (grass level),
+  // so both the visual theme and whether towers sit on the ground can be judged.
+  private static List<GameObject> PlaceRealTowers()
+  {
+    var created = new List<GameObject>();
+    GridManager grid = Object.FindFirstObjectByType<GridManager>();
+    LevelConfig level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+      "Assets/Resources/Levels/Environment1/Level01.asset");
+    if (grid == null || level == null || level.pathConfig == null) return created;
+
+    string[] towerPaths =
+    {
+      "Assets/Prefabs/Towers/ArcherTower/ArcherTower.prefab",
+      "Assets/Prefabs/Towers/SniperTower/SniperTower.prefab",
+      "Assets/Prefabs/Towers/IceTower/IceTower.prefab",
+    };
+
+    var pathCells = new HashSet<Vector2Int>(level.pathConfig.pathGridCoordinates);
+    int placed = 0;
+    for (int x = 0; x < grid.gridSize.x && placed < towerPaths.Length; x++)
+    {
+      for (int y = 0; y < grid.gridSize.y && placed < towerPaths.Length; y++)
+      {
+        var cell = new Vector2Int(x, y);
+        if (pathCells.Contains(cell)) continue;
+        if (!pathCells.Contains(cell + Vector2Int.up) && !pathCells.Contains(cell + Vector2Int.down)) continue;
+
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(towerPaths[placed]);
+        if (prefab == null) { placed++; continue; }
+
+        GameObject tower = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        Vector3 pos = grid.GridToWorld(cell);
+        pos.y = 0f; // grass surface, matching how placement snaps
+        tower.transform.position = pos;
+        created.Add(tower);
+        placed++;
+      }
+    }
+    return created;
   }
 
   // The path and towers only exist at runtime, so stand-ins are spawned to make

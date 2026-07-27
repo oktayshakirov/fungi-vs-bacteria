@@ -91,12 +91,35 @@ public class HUDManager : MonoBehaviour
       gameOverScreen.gameObject.SetActive(false);
     }
 
-    GameSpeedButton.Create(transform);
+    Transform uiRoot = HudUiRoot();
+    GameSpeedButton.Create(uiRoot);
+    CameraViewButton.Create(uiRoot);
 
     if (TutorialOverlay.ShouldShow())
     {
-      TutorialOverlay.Show(transform);
+      TutorialOverlay.Show(uiRoot);
     }
+  }
+
+  // Runtime-built UI must live under a Canvas to render. HUDManager itself is on
+  // a plain (non-UI) transform, so find the HUD canvas (and its SafeArea).
+  private Transform hudUiRoot;
+  private Transform HudUiRoot()
+  {
+    if (hudUiRoot != null) return hudUiRoot;
+
+    Canvas best = null;
+    foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+    {
+      if (c.renderMode != RenderMode.ScreenSpaceOverlay) continue;
+      if (best == null || c.sortingOrder < best.sortingOrder) best = c;
+    }
+    if (best == null) { hudUiRoot = transform; return hudUiRoot; }
+
+    // Prefer the SafeArea so buttons align with the other HUD content
+    SafeArea safe = best.GetComponentInChildren<SafeArea>(true);
+    hudUiRoot = safe != null ? safe.transform : best.transform;
+    return hudUiRoot;
   }
 
   private void Update()
@@ -197,7 +220,7 @@ public class HUDManager : MonoBehaviour
   public void ShowWaveBanner(int currentWave, int totalWaves)
   {
     string message = currentWave >= totalWaves ? "FINAL WAVE" : $"WAVE {currentWave}";
-    WaveBanner.Show(transform, message);
+    WaveBanner.Show(HudUiRoot(), message);
   }
 
   public void UpdateWaveTimer(float timeRemaining)

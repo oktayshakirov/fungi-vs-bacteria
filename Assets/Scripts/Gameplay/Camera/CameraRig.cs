@@ -32,7 +32,7 @@ public class CameraRig : MonoBehaviour
 
   [Header("Lens")]
   [Tooltip("A narrow FOV from further away gives the flat 'tabletop diorama' look.")]
-  [SerializeField] private float fieldOfView = 36f;
+  [SerializeField] private float fieldOfView = 50f;
 
   [Header("Framing")]
   [Tooltip("Fraction of the screen kept as a margin around the board.")]
@@ -45,18 +45,27 @@ public class CameraRig : MonoBehaviour
   [SerializeField] private float towerHeadroom = 5f;
 
   [Header("Play view")]
-  [SerializeField] private float playPitch = 46f;
+  [SerializeField] private float playPitch = 26f;
   [SerializeField] private float playYaw = 0f;
+  [Tooltip("Selectable camera angles (pitch, yaw, zoom) cycled by the view button.")]
+  [SerializeField] private Vector3[] viewPresets =
+  {
+    new Vector3(26f, 0f, 1f),    // Cinematic low
+    new Vector3(52f, 0f, 1f),    // Isometric / top-down
+    new Vector3(34f, 34f, 1f),   // Angled
+  };
+  private int viewIndex = 0;
   [Tooltip("Tilt further on wide phones and flatter on tablets, so the board " +
            "fills the usable screen area on every device.")]
-  [SerializeField] private bool adaptPitchToAspect = true;
+  [SerializeField] private bool adaptPitchToAspect = false;
   [SerializeField] private float minPitch = 34f;
   [SerializeField] private float maxPitch = 58f;
 
   [Header("Intro fly-in")]
   [SerializeField] private bool playIntroOnStart = true;
-  [SerializeField] private float introDuration = 2.75f;
-  [SerializeField] private Pose introPose = new Pose { pitch = 16f, yaw = -32f, zoom = 0.62f, height = 2f };
+  [SerializeField] private float introDuration = 3.8f;
+  // Low, close, swung around to one side — orbits up and out to the play view
+  [SerializeField] private Pose introPose = new Pose { pitch = 11f, yaw = -62f, zoom = 0.48f, height = 1.5f };
 
   [Header("End of level")]
   [SerializeField] private float outroDuration = 2.5f;
@@ -68,7 +77,33 @@ public class CameraRig : MonoBehaviour
   private float transitionTime;
   private float transitionDuration;
 
-  private Pose PlayPose => new Pose { pitch = ResolvedPlayPitch(), yaw = playYaw, zoom = 1f, height = 0f };
+  private Pose PlayPose
+  {
+    get
+    {
+      Vector3 v = CurrentPreset();
+      float pitch = adaptPitchToAspect ? ResolvedPlayPitch() : v.x;
+      return new Pose { pitch = pitch, yaw = v.y, zoom = v.z, height = 0f };
+    }
+  }
+
+  private Vector3 CurrentPreset()
+  {
+    if (viewPresets == null || viewPresets.Length == 0) return new Vector3(playPitch, playYaw, 1f);
+    return viewPresets[Mathf.Clamp(viewIndex, 0, viewPresets.Length - 1)];
+  }
+
+  public int ViewCount => (viewPresets == null || viewPresets.Length == 0) ? 1 : viewPresets.Length;
+
+  // Cycles to the next camera angle with a smooth transition. Returns the new index.
+  public int CycleView()
+  {
+    if (viewPresets == null || viewPresets.Length <= 1) return viewIndex;
+    Pose from = state == ViewState.Outro ? outroPose : PlayPose;
+    viewIndex = (viewIndex + 1) % viewPresets.Length;
+    BeginTransition(ViewState.Play, from, PlayPose, 0.9f);
+    return viewIndex;
+  }
 
   // A tilted board covers boardWidth x (boardDepth * sin(pitch)) on screen.
   // Solving that against the usable screen area gives the pitch where the board
@@ -132,7 +167,8 @@ public class CameraRig : MonoBehaviour
     // Unscaled: the game is paused (timeScale 0) on victory and defeat
     transitionTime += Time.unscaledDeltaTime;
     float t = Mathf.Clamp01(transitionTime / transitionDuration);
-    float eased = t * t * (3f - 2f * t);
+    // Smootherstep: gentle acceleration and a soft settle at the end
+    float eased = t * t * t * (t * (6f * t - 15f) + 10f);
 
     Pose target = state == ViewState.Outro ? outroPose : PlayPose;
     ApplyPose(Pose.Lerp(fromPose, target, eased));
@@ -290,8 +326,14 @@ public class CameraRig : MonoBehaviour
 
     if (grid != null)
     {
+      // Frame close to the play grid (plus a little room for the base/portal at
+      // the ends). Decorative props extend past this and spill off-frame, which
+      // keeps the game area large and close instead of framing the whole island.
+      const float framingMargin = 5f; // world units added on each side
       Vector3 size = new Vector3(grid.gridSize.x * grid.cellSize, 0f, grid.gridSize.y * grid.cellSize);
       Vector3 center = grid.originPosition + size * 0.5f;
+      size.x += framingMargin * 2f;
+      size.z += framingMargin * 2f;
       size.y = towerHeadroom;
       center.y = towerHeadroom * 0.5f;
       return new Bounds(center, size);

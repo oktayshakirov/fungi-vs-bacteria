@@ -2,6 +2,9 @@ using UnityEngine;
 
 public static class LevelProgress
 {
+  // TESTING: unlocks every environment and level. Set to false before release.
+  public const bool UnlockAll = true;
+
   private static string Key(string environmentName) => $"HighestCompletedLevel_{environmentName}";
 
   public static int GetHighestCompletedLevel(string environmentName)
@@ -20,6 +23,7 @@ public static class LevelProgress
 
   public static bool IsLevelUnlocked(string environmentName, int levelNumber)
   {
+    if (UnlockAll) return true;
     return levelNumber <= GetHighestCompletedLevel(environmentName) + 1;
   }
 
