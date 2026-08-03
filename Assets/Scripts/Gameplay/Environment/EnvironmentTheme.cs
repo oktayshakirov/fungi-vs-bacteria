@@ -32,6 +32,12 @@ public static class EnvironmentTheme
     public Color plantColor;
     public Color structureColor;
     public Color accentGlow;
+    public Color woodColor;              // tree trunks
+    public Color grassColor;             // grass blades
+    public Color cliffTop, cliffBottom;  // strata gradient down the island cliff
+
+    public Color fogColor;
+    public float fogDensity;             // exponential-squared; 0 disables fog
   }
 
   private static Material skyMaterial;
@@ -83,23 +89,29 @@ public static class EnvironmentTheme
           skyTop = C(0.24f, 0.20f, 0.52f),
           skyHorizon = C(1f, 0.60f, 0.30f),
           skyBottom = C(0.72f, 0.38f, 0.28f),
-          ambient = C(0.60f, 0.50f, 0.44f),
-          lightColor = C(1f, 0.78f, 0.52f),
-          lightIntensity = 1.3f,
+          ambient = C(0.50f, 0.47f, 0.52f),
+          lightColor = C(1f, 0.86f, 0.68f),
+          lightIntensity = 1.28f,
           lightAngles = new Vector3(16f, 20f, 0f),
           sunColor = C(1f, 0.55f, 0.22f),
           sunSize = 0.02f, sunGlow = 3.5f,
-          hazeColor = C(1f, 0.70f, 0.40f), hazeStrength = 0.7f,
+          hazeColor = C(1f, 0.74f, 0.48f), hazeStrength = 0.42f,
           cloudColor = C(1f, 0.78f, 0.58f), cloudStrength = 0.55f, cloudScale = 2.2f,
           starStrength = 0f,
           ground = "SAND",
           groundTint = Color.white,
           soilColor = C(0.40f, 0.26f, 0.16f),
           pathColor = C(0.55f, 0.40f, 0.26f),
-          rockColor = C(0.72f, 0.56f, 0.38f),
+          rockColor = C(0.60f, 0.52f, 0.46f),
           plantColor = C(0.52f, 0.60f, 0.30f),
           structureColor = C(0.66f, 0.50f, 0.36f),
           accentGlow = C(1f, 0.72f, 0.32f),
+          woodColor = C(0.42f, 0.30f, 0.20f),
+          grassColor = C(0.58f, 0.56f, 0.28f),
+          cliffTop = C(0.60f, 0.44f, 0.27f),
+          cliffBottom = C(0.34f, 0.27f, 0.24f),
+          fogColor = C(0.92f, 0.74f, 0.58f),
+          fogDensity = 0.0022f,
         };
 
       // Toxic / night — cool purple, moon and stars over glowing swamp
@@ -109,9 +121,9 @@ public static class EnvironmentTheme
           skyTop = C(0.06f, 0.04f, 0.18f),
           skyHorizon = C(0.42f, 0.24f, 0.60f),
           skyBottom = C(0.16f, 0.10f, 0.30f),
-          ambient = C(0.24f, 0.26f, 0.38f),
-          lightColor = C(0.62f, 0.70f, 1f),
-          lightIntensity = 0.8f,
+          ambient = C(0.38f, 0.41f, 0.55f),
+          lightColor = C(0.70f, 0.78f, 1f),
+          lightIntensity = 1.05f,
           lightAngles = new Vector3(30f, 32f, 0f),
           sunColor = C(0.88f, 0.92f, 1f),
           sunSize = 0.02f, sunGlow = 12f,
@@ -125,9 +137,149 @@ public static class EnvironmentTheme
           // Bright warm path so it clearly stands out on the dark ground
           pathColor = C(0.92f, 0.86f, 0.60f),
           rockColor = C(0.22f, 0.26f, 0.30f),
-          plantColor = C(0.35f, 0.70f, 0.35f),
+          plantColor = C(0.26f, 0.48f, 0.32f),
           structureColor = C(0.42f, 0.32f, 0.56f),
           accentGlow = C(0.55f, 1f, 0.35f),
+          woodColor = C(0.20f, 0.18f, 0.24f),
+          grassColor = C(0.26f, 0.42f, 0.30f),
+          cliffTop = C(0.26f, 0.22f, 0.30f),
+          cliffBottom = C(0.13f, 0.12f, 0.20f),
+          fogColor = C(0.32f, 0.24f, 0.46f),
+          fogDensity = 0.0030f,
+        };
+
+      // Frozen tundra — bright overcast day, snow and ice
+      case "Environment 4":
+        return new Palette
+        {
+          skyTop = C(0.42f, 0.60f, 0.82f),
+          skyHorizon = C(0.82f, 0.90f, 0.97f),
+          skyBottom = C(0.74f, 0.82f, 0.88f),
+          ambient = C(0.70f, 0.75f, 0.82f),
+          lightColor = C(0.88f, 0.94f, 1f),
+          lightIntensity = 1.35f,
+          lightAngles = new Vector3(38f, 24f, 0f),
+          sunColor = C(1f, 1f, 1f),
+          sunSize = 0.014f, sunGlow = 4f,
+          hazeColor = C(0.94f, 0.97f, 1f), hazeStrength = 0.6f,
+          cloudColor = Color.white, cloudStrength = 0.75f, cloudScale = 2.6f,
+          starStrength = 0f,
+          ground = "SNOW",
+          groundTint = Color.white,
+          groundTiling = 4f,
+          soilColor = C(0.44f, 0.48f, 0.56f),
+          pathColor = C(0.55f, 0.62f, 0.72f),
+          rockColor = C(0.58f, 0.63f, 0.70f),
+          plantColor = C(0.24f, 0.42f, 0.40f),   // dark firs against the snow
+          structureColor = C(0.66f, 0.74f, 0.84f),
+          accentGlow = C(0.55f, 0.88f, 1f),
+          woodColor = C(0.30f, 0.25f, 0.24f),
+          grassColor = C(0.68f, 0.75f, 0.82f),
+          cliffTop = C(0.60f, 0.65f, 0.72f),
+          cliffBottom = C(0.30f, 0.34f, 0.42f),
+          fogColor = C(0.86f, 0.92f, 0.98f),
+          fogDensity = 0.0040f,
+        };
+
+      // Volcanic — ash plain under an ember sky
+      case "Environment 5":
+        return new Palette
+        {
+          skyTop = C(0.14f, 0.05f, 0.08f),
+          skyHorizon = C(0.85f, 0.26f, 0.09f),
+          skyBottom = C(0.42f, 0.12f, 0.08f),
+          ambient = C(0.42f, 0.30f, 0.28f),
+          lightColor = C(1f, 0.62f, 0.42f),
+          lightIntensity = 1.05f,
+          lightAngles = new Vector3(20f, 14f, 0f),
+          sunColor = C(1f, 0.42f, 0.14f),
+          sunSize = 0.026f, sunGlow = 6f,
+          hazeColor = C(1f, 0.44f, 0.18f), hazeStrength = 0.5f,
+          cloudColor = C(0.35f, 0.16f, 0.14f), cloudStrength = 0.5f, cloudScale = 2.0f,
+          starStrength = 0f,
+          ground = "ASH",
+          groundTint = Color.white,
+          groundTiling = 3f,
+          soilColor = C(0.20f, 0.13f, 0.11f),
+          pathColor = C(0.90f, 0.86f, 0.78f),
+          rockColor = C(0.26f, 0.22f, 0.22f),
+          plantColor = C(0.34f, 0.26f, 0.18f),   // scorched scrub
+          structureColor = C(0.44f, 0.28f, 0.24f),
+          accentGlow = C(1f, 0.52f, 0.16f),
+          woodColor = C(0.18f, 0.14f, 0.13f),
+          grassColor = C(0.38f, 0.28f, 0.18f),
+          cliffTop = C(0.30f, 0.20f, 0.16f),
+          cliffBottom = C(0.16f, 0.12f, 0.12f),
+          fogColor = C(0.55f, 0.24f, 0.14f),
+          fogDensity = 0.0048f,
+        };
+
+      // Alien bloom — bioluminescent growth under a teal-violet sky
+      case "Environment 6":
+        return new Palette
+        {
+          skyTop = C(0.10f, 0.05f, 0.24f),
+          skyHorizon = C(0.16f, 0.62f, 0.62f),
+          skyBottom = C(0.10f, 0.30f, 0.38f),
+          ambient = C(0.44f, 0.52f, 0.56f),
+          lightColor = C(0.78f, 0.95f, 0.98f),
+          lightIntensity = 1.25f,
+          lightAngles = new Vector3(34f, 40f, 0f),
+          sunColor = C(0.70f, 1f, 0.95f),
+          sunSize = 0.018f, sunGlow = 8f,
+          hazeColor = C(0.30f, 0.75f, 0.75f), hazeStrength = 0.45f,
+          cloudColor = C(0.30f, 0.50f, 0.60f), cloudStrength = 0.4f, cloudScale = 2.3f,
+          starStrength = 0.7f,
+          ground = "DARK",
+          // Above 1 deliberately: the neutral dark ground is built for a night
+          // scene, and this lifts it to a readable mid teal
+          groundTint = C(1.5f, 2.1f, 2.0f),
+          groundTiling = 3f,
+          soilColor = C(0.16f, 0.22f, 0.24f),
+          pathColor = C(0.86f, 0.92f, 0.70f),
+          rockColor = C(0.30f, 0.34f, 0.42f),
+          plantColor = C(0.42f, 0.24f, 0.62f),   // violet foliage
+          structureColor = C(0.34f, 0.52f, 0.60f),
+          accentGlow = C(1f, 0.30f, 0.85f),      // magenta bioluminescence
+          woodColor = C(0.24f, 0.20f, 0.32f),
+          grassColor = C(0.26f, 0.52f, 0.48f),
+          cliffTop = C(0.24f, 0.30f, 0.34f),
+          cliffBottom = C(0.12f, 0.18f, 0.24f),
+          fogColor = C(0.16f, 0.48f, 0.52f),
+          fogDensity = 0.0042f,
+        };
+
+      // Blossom grove — warm pink autumn at golden hour
+      case "Environment 7":
+        return new Palette
+        {
+          skyTop = C(0.36f, 0.52f, 0.86f),
+          skyHorizon = C(1f, 0.80f, 0.76f),
+          skyBottom = C(0.92f, 0.70f, 0.66f),
+          ambient = C(0.68f, 0.60f, 0.60f),
+          lightColor = C(1f, 0.92f, 0.82f),
+          lightIntensity = 1.3f,
+          lightAngles = new Vector3(28f, 34f, 0f),
+          sunColor = C(1f, 0.90f, 0.72f),
+          sunSize = 0.016f, sunGlow = 5f,
+          hazeColor = C(1f, 0.88f, 0.86f), hazeStrength = 0.5f,
+          cloudColor = C(1f, 0.94f, 0.94f), cloudStrength = 0.65f, cloudScale = 2.4f,
+          starStrength = 0f,
+          ground = "MEADOW",
+          groundTint = C(1f, 0.90f, 0.86f),      // warms the grass toward autumn
+          groundTiling = 4f,
+          soilColor = C(0.42f, 0.28f, 0.24f),
+          pathColor = C(0.74f, 0.56f, 0.44f),
+          rockColor = C(0.62f, 0.56f, 0.56f),
+          plantColor = C(0.94f, 0.55f, 0.68f),   // blossom canopies
+          structureColor = C(0.72f, 0.56f, 0.62f),
+          accentGlow = C(1f, 0.62f, 0.80f),
+          woodColor = C(0.38f, 0.26f, 0.24f),
+          grassColor = C(0.55f, 0.62f, 0.34f),
+          cliffTop = C(0.52f, 0.38f, 0.30f),
+          cliffBottom = C(0.30f, 0.26f, 0.28f),
+          fogColor = C(1f, 0.86f, 0.82f),
+          fogDensity = 0.0036f,
         };
 
       // Meadow / clear day — the default
@@ -146,14 +298,21 @@ public static class EnvironmentTheme
           hazeColor = C(0.95f, 0.98f, 1f), hazeStrength = 0.45f,
           cloudColor = Color.white, cloudStrength = 0.7f, cloudScale = 2.4f,
           starStrength = 0f,
-          ground = "Textures/Green Ground",
+          ground = "MEADOW",
           groundTint = Color.white,
+          groundTiling = 4f,
           soilColor = C(0.40f, 0.28f, 0.17f),
           pathColor = C(0.66f, 0.50f, 0.32f),
           rockColor = C(0.55f, 0.56f, 0.58f),
           plantColor = C(0.28f, 0.60f, 0.24f),
           structureColor = C(0.62f, 0.52f, 0.70f),
           accentGlow = C(0.55f, 0.95f, 1f),
+          woodColor = C(0.38f, 0.27f, 0.18f),
+          grassColor = C(0.35f, 0.62f, 0.24f),
+          cliffTop = C(0.46f, 0.34f, 0.23f),
+          cliffBottom = C(0.28f, 0.27f, 0.30f),
+          fogColor = C(0.74f, 0.86f, 0.96f),
+          fogDensity = 0.0034f,
         };
     }
   }
@@ -172,6 +331,16 @@ public static class EnvironmentTheme
     keyLight.color = p.lightColor;
     keyLight.intensity = p.lightIntensity;
     keyLight.transform.rotation = Quaternion.Euler(p.lightAngles);
+    keyLight.shadows = LightShadows.Soft;
+    keyLight.shadowStrength = 0.72f;
+
+    // Atmospheric depth: the distant clouds and floating islands fade toward the
+    // horizon colour, which is most of what sells the "high in the sky" look.
+    // Tuned so the play area itself is barely touched.
+    RenderSettings.fog = p.fogDensity > 0f;
+    RenderSettings.fogMode = FogMode.ExponentialSquared;
+    RenderSettings.fogColor = p.fogColor;
+    RenderSettings.fogDensity = p.fogDensity;
   }
 
   private static void ApplySky(Palette p)
@@ -248,6 +417,9 @@ public static class EnvironmentTheme
   {
     switch (key)
     {
+      case "MEADOW": return GroundTextureFactory.Meadow();
+      case "SNOW": return GroundTextureFactory.Snow();
+      case "ASH": return GroundTextureFactory.Ash();
       case "SAND": return GroundTextureFactory.Sand();
       case "TOXIC": return GroundTextureFactory.Toxic();
       case "DARK": return GroundTextureFactory.Dark();

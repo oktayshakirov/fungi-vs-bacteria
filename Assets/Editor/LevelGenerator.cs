@@ -9,7 +9,7 @@ public static class LevelGenerator
   private const int GridWidth = 13;
   private const int GridHeight = 6;
 
-  private const int EnvironmentCount = 3;
+  private const int EnvironmentCount = 7;
   private const int LevelsPerEnvironment = 10;
 
   private const int MinPathLength = 14;

@@ -137,7 +137,7 @@ public class Enemy : MonoBehaviour
     if (GameManager.Instance != null)
     {
       GameManager.Instance.TakeDamage(damage);
-      AudioManager.Instance.PlaySound(AudioManager.SoundType.BaseDamage);
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.BaseDamage);
       Debug.Log($"Base took {damage} damage!");
     }
   }
@@ -162,7 +162,7 @@ public class Enemy : MonoBehaviour
       GameManager.Instance?.AddGold(goldReward);
       FloatingText.Spawn(popupPos + Vector3.up * 0.4f, $"+{goldReward}", GoldColor, 6f);
       DeathEffect.Spawn(transform.position + Vector3.up * baseScale.y * 0.5f, bodyColor, baseScale.y);
-      AudioManager.Instance.PlaySound(AudioManager.SoundType.EnemyDeath);
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.EnemyDeath);
       Remove();
     }
   }

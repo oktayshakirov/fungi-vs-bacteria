@@ -27,19 +27,22 @@ public class GameOverScreen : MonoBehaviour
 
         restartButton.onClick.AddListener(OnRestartClicked);
         mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+
+        // Losing screen: the retry button is the call to action, in danger red
+        ScreenTheme.Apply(transform, restartButton, UiSkin.Danger);
     }
 
     private void OnRestartClicked()
     {
         gameObject.SetActive(false);
         GameManager.Instance.RestartGame();
-        AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     }
 
     private void ReturnToMainMenu()
     {
         gameObject.SetActive(false);
         GameManager.Instance.ReturnToMainMenu();
-        AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     }
 }

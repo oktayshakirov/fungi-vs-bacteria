@@ -83,7 +83,7 @@ public class GameManager : MonoBehaviour
     }
 
     Debug.Log($"Victory! All waves cleared. Stars: {stars}");
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.Victory);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.Victory);
     CameraRig.Instance?.PlayEndOfLevelView();
     HUDManager.Instance.ShowVictoryScreen(stars);
     PauseGame();
@@ -137,7 +137,7 @@ public class GameManager : MonoBehaviour
     gameEnded = true;
 
     Debug.Log("Game Over!");
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.GameOver);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.GameOver);
     CameraRig.Instance?.PlayEndOfLevelView();
     HUDManager.Instance.ShowGameOverScreen();
     PauseGame();

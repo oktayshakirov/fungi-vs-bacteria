@@ -10,6 +10,40 @@ public static class GroundTextureFactory
   private static Texture2D sand;
   private static Texture2D toxic;
   private static Texture2D dark;
+  private static Texture2D meadow;
+
+  // Grass with broad patches, clumping and a fine blade grain, plus bare soil
+  // showing through here and there. Replaces the flat, visibly-tiling green
+  // photo the meadow used to use.
+  public static Texture2D Meadow()
+  {
+    if (meadow == null) meadow = BuildMeadow();
+    return meadow;
+  }
+
+  private static Texture2D BuildMeadow()
+  {
+    Color deep = new Color(0.20f, 0.38f, 0.15f);
+    Color mid = new Color(0.33f, 0.52f, 0.19f);
+    Color light = new Color(0.51f, 0.66f, 0.27f);
+    Color soil = new Color(0.32f, 0.26f, 0.16f);
+
+    return Build((u, v) =>
+    {
+      float patches = Fbm(u, v, 3, 4);
+      float clumps = Fbm(u + 3.1f, v + 7.4f, 9, 3);
+      float blades = Fbm(u, v, 40, 2);
+      float t = Mathf.Clamp01(patches * 0.52f + clumps * 0.34f + blades * 0.14f);
+
+      Color c = t < 0.5f
+        ? Color.Lerp(deep, mid, t * 2f)
+        : Color.Lerp(mid, light, (t - 0.5f) * 2f);
+
+      // Occasional worn patches where the earth shows through
+      float bare = SmoothStep(0.78f, 0.94f, Fbm(u + 11.3f, v + 5.7f, 4, 3));
+      return Color.Lerp(c, soil, bare * 0.4f);
+    });
+  }
 
   public static Texture2D Sand()
   {
@@ -31,10 +65,54 @@ public static class GroundTextureFactory
     return dark;
   }
 
+  private static Texture2D snow;
+  private static Texture2D ash;
+
+  // Wind-packed snow: drifts, a faint crust and a sparse sparkle.
+  public static Texture2D Snow()
+  {
+    if (snow == null) snow = Build((u, v) =>
+    {
+      Color shadow = new Color(0.72f, 0.78f, 0.88f);
+      Color lit = new Color(0.97f, 0.98f, 1f);
+
+      float drift = Fbm(u, v, 3, 4);
+      float crust = Fbm(u + 4.1f, v + 2.3f, 12, 3) * 0.3f;
+      Color c = Color.Lerp(shadow, lit, Mathf.Clamp01(drift * 0.75f + crust));
+
+      // Occasional bright glints where the crust catches the light
+      float glint = SmoothStep(0.93f, 0.99f, Fbm(u + 8.7f, v + 3.9f, 26, 2));
+      return Color.Lerp(c, Color.white, glint);
+    });
+    return snow;
+  }
+
+  // Cooled lava: dark ash split by cracks with embers still glowing in them.
+  public static Texture2D Ash()
+  {
+    if (ash == null) ash = Build((u, v) =>
+    {
+      Color soot = new Color(0.13f, 0.11f, 0.11f);
+      Color stone = new Color(0.26f, 0.23f, 0.22f);
+      Color ember = new Color(1f, 0.42f, 0.10f);
+
+      float plates = Fbm(u, v, 4, 4);
+      Color c = Color.Lerp(soot, stone, plates);
+
+      // Ridged noise gives a crack network rather than blobs
+      float veins = Mathf.Abs(Fbm(u + 2.7f, v + 6.1f, 6, 3) - 0.5f) * 2f;
+      float glow = SmoothStep(0.14f, 0.0f, veins);
+      return Color.Lerp(c, ember, glow * 0.85f);
+    });
+    return ash;
+  }
+
   private static Texture2D BuildDark()
   {
-    Color a = new Color(0.06f, 0.07f, 0.11f);
-    Color b = new Color(0.11f, 0.12f, 0.17f);
+    // Night, but still readable: at the old values the play area rendered as
+    // near-black and towers/path had nothing to sit against.
+    Color a = new Color(0.17f, 0.19f, 0.25f);
+    Color b = new Color(0.26f, 0.28f, 0.35f);
     return Build((u, v) =>
     {
       float n = Fbm(u, v, 3, 3);

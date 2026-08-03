@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7e69c58227146c096cae1862afe870c, type: 3}
+  m_Name: Level02
+  m_EditorClassIdentifier: Assembly-CSharp::LevelConfig
+  levelNumber: 2
+  environmentName: Environment 5
+  pathConfig: {fileID: 11400000, guid: 4452f4f44fc744ee2b59e1a62b79f990, type: 2}
+  waveConfig: {fileID: 11400000, guid: a47a146bf434e421880d13d23a63179e, type: 2}
+  startingGold: 1115
+  startingHealth: 100

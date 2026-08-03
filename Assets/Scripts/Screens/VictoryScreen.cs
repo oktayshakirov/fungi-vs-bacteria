@@ -25,6 +25,7 @@ public class VictoryScreen : MonoBehaviour
     bool hasNextLevel = LevelRepository.GetNextLevel(GameSession.SelectedLevel) != null;
     nextLevelButton.gameObject.SetActive(hasNextLevel);
 
+    ScreenTheme.Apply(transform, nextLevelButton);
     ShowStars(stars);
   }
 
@@ -53,14 +54,14 @@ public class VictoryScreen : MonoBehaviour
 
     GameSession.SelectedLevel = nextLevel;
     gameObject.SetActive(false);
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     GameManager.Instance.RestartGame();
   }
 
   private void ReturnToMainMenu()
   {
     gameObject.SetActive(false);
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     GameManager.Instance.ReturnToMainMenu();
   }
 }

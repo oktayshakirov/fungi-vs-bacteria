@@ -305,11 +305,11 @@ public static class DisplaySetup
 
     float worldWidth = grid.gridSize.x * grid.cellSize + 2f * BoardDecor.Margin;
     float worldDepth = grid.gridSize.y * grid.cellSize + 2f * BoardDecor.Margin;
-    const float thickness = 4f;
+    const float thickness = BoardDecor.SoilThickness;
 
     // Top sits just below the grass plane (y=0) with a matching footprint, so
     // the grass shows on top and only the soil sides are visible at the edges.
-    baseGo.transform.position = new Vector3(0f, -thickness * 0.5f - 0.1f, 0f);
+    baseGo.transform.position = new Vector3(0f, -thickness * 0.5f + BoardDecor.SoilTop, 0f);
     baseGo.transform.localScale = new Vector3(worldWidth, thickness, worldDepth);
 
     var renderer = baseGo.GetComponent<MeshRenderer>();

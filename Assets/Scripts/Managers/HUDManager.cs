@@ -73,10 +73,34 @@ public class HUDManager : MonoBehaviour
       UpdateStats(GameManager.Instance.currentHealth, GameManager.Instance.currentGold);
     }
 
+    // Built first, and before anything that can throw: these used to be created
+    // at the end of Start(), so a single missing screen prefab silently took the
+    // speed and view buttons down with it.
+    Transform uiRoot = HudUiRoot();
+    // TowersPanel is a direct child of the SafeArea HudUiRoot resolves to, and
+    // has no serialized reference here; its cards are built at runtime.
+    // Captured BEFORE theming: HudTheme reparents goldText into a chip, so
+    // reading its parent afterwards returns the 62px chip instead of the stats
+    // panel — which is what put the speed button back on top of the chips.
+    RectTransform statsRect = goldText != null ? (RectTransform)goldText.transform.parent : null;
+
+    HudTheme.Apply(
+      statsRect, goldText, healthText, waveText, timerText,
+      startWaveButton, pauseGameButton,
+      uiRoot.Find("TowersPanel") as RectTransform);
+
+    // Stacked under the stats panel, so they can never overlap it
+    GameSpeedButton.Create(uiRoot, statsRect, 0);
+    CameraViewButton.Create(uiRoot, statsRect, 1);
+
     // Initialize pause screen
-    pauseGameScreen = Instantiate(pauseGameScreenPrefab, transform);
-    pauseGameScreen.Initialize(OnPauseScreenClosed);
-    pauseGameScreen.gameObject.SetActive(false);
+    if (pauseGameScreenPrefab != null)
+    {
+      pauseGameScreen = Instantiate(pauseGameScreenPrefab, transform);
+      pauseGameScreen.Initialize(OnPauseScreenClosed);
+      pauseGameScreen.gameObject.SetActive(false);
+    }
+    else Debug.LogError("HUDManager: pauseGameScreenPrefab is not assigned.");
 
     if (towerActionsPanel != null)
     {
@@ -91,10 +115,6 @@ public class HUDManager : MonoBehaviour
       gameOverScreen.gameObject.SetActive(false);
     }
 
-    Transform uiRoot = HudUiRoot();
-    GameSpeedButton.Create(uiRoot);
-    CameraViewButton.Create(uiRoot);
-
     if (TutorialOverlay.ShouldShow())
     {
       TutorialOverlay.Show(uiRoot);
@@ -108,17 +128,30 @@ public class HUDManager : MonoBehaviour
   {
     if (hudUiRoot != null) return hudUiRoot;
 
+    // Anchor to a HUD element we already know renders. Picking a canvas by
+    // sorting order is a guess, and guessing wrong parents the buttons to
+    // something invisible.
     Canvas best = null;
-    foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+    if (goldText != null) best = goldText.canvas;
+    if (best == null && waveText != null) best = waveText.canvas;
+    if (best == null && startWaveButton != null) best = startWaveButton.GetComponentInParent<Canvas>();
+
+    if (best == null)
     {
-      if (c.renderMode != RenderMode.ScreenSpaceOverlay) continue;
-      if (best == null || c.sortingOrder < best.sortingOrder) best = c;
+      foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+      {
+        if (c.renderMode != RenderMode.ScreenSpaceOverlay) continue;
+        if (best == null || c.sortingOrder < best.sortingOrder) best = c;
+      }
     }
     if (best == null) { hudUiRoot = transform; return hudUiRoot; }
 
+    // Nested canvases render into their root, so always resolve up to it
+    Canvas root = best.rootCanvas != null ? best.rootCanvas : best;
+
     // Prefer the SafeArea so buttons align with the other HUD content
-    SafeArea safe = best.GetComponentInChildren<SafeArea>(true);
-    hudUiRoot = safe != null ? safe.transform : best.transform;
+    SafeArea safe = root.GetComponentInChildren<SafeArea>(true);
+    hudUiRoot = safe != null ? safe.transform : root.transform;
     return hudUiRoot;
   }
 
@@ -186,26 +219,26 @@ public class HUDManager : MonoBehaviour
     Debug.Log("Start Wave Button clicked");
     spawner.StartGame();
     Debug.Log("Starting game");
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.StartWave);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.StartWave);
   }
 
   public void UpdateStats(int health, int gold)
   {
-    Debug.Log($"Updating stats - Health: {health}, Gold: {gold}");
+    // The chips carry a heart and a coin icon, so the values need no label
     if (healthText != null)
     {
-      healthText.text = $"Health: {health}";
+      healthText.text = health.ToString();
 
       if (health <= 25)
-        healthText.color = Color.red;
+        healthText.color = UiSkin.Danger;
       else if (health <= 50)
-        healthText.color = Color.yellow;
+        healthText.color = UiSkin.Gold;
       else
-        healthText.color = Color.white;
+        healthText.color = UiSkin.TextPrimary;
     }
     if (goldText != null)
     {
-      goldText.text = $"Gold: {gold}";
+      goldText.text = gold.ToString();
     }
   }
 
@@ -244,7 +277,7 @@ public class HUDManager : MonoBehaviour
   {
     pauseGameButtonText.text = "PAUSED";
     pauseGameScreen.Show();
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
   }
 
   private void OnPauseScreenClosed()

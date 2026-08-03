@@ -222,6 +222,12 @@ public class TowerPlacement : MonoBehaviour
     {
       createdTower.SetGridPosition(gridPosition);
       gridManager?.SetCellBuildable(gridPosition, false);
+
+      // Shockwave tinted to the environment's accent so it reads against any
+      // of the three grounds, plus a spring-up on the tower itself
+      PlacementEffect.Spawn(worldPosition, EnvironmentTheme.Current.accentGlow);
+      TowerPopIn.Play(createdTower.gameObject);
+      CameraRig.Instance?.Shake(0.25f);
     }
     else
     {

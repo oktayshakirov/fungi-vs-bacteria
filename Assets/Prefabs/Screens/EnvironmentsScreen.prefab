@@ -63,19 +63,19 @@ MonoBehaviour:
     isLocked: 0
   - environmentSprite: {fileID: 21300000, guid: db63558d9b8d13a48830256fdbd327ad, type: 3}
     environmentName: Environment 3
-    isLocked: 1
+    isLocked: 0
   - environmentSprite: {fileID: 21300000, guid: db63558d9b8d13a48830256fdbd327ad, type: 3}
     environmentName: Environment 4
-    isLocked: 1
+    isLocked: 0
   - environmentSprite: {fileID: 21300000, guid: db63558d9b8d13a48830256fdbd327ad, type: 3}
     environmentName: Environment 5
-    isLocked: 1
+    isLocked: 0
   - environmentSprite: {fileID: 21300000, guid: db63558d9b8d13a48830256fdbd327ad, type: 3}
     environmentName: Environment 6
-    isLocked: 1
+    isLocked: 0
   - environmentSprite: {fileID: 21300000, guid: db63558d9b8d13a48830256fdbd327ad, type: 3}
     environmentName: Environment 7
-    isLocked: 1
+    isLocked: 0
 --- !u!1 &1206657613450289924
 GameObject:
   m_ObjectHideFlags: 0

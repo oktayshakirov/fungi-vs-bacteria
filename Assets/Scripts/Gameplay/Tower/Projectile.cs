@@ -15,7 +15,7 @@ public class Projectile : MonoBehaviour
   public void Initialize(ProjectileData data)
   {
     this.data = data;
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.Projectile);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.Projectile);
   }
 
   public void Seek(Transform target)
@@ -50,7 +50,7 @@ public class Projectile : MonoBehaviour
   private void HitTarget()
   {
     SpawnExplosionEffect();
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.TargetHit);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.TargetHit);
     if (data.IsAoE)
     {
       Explode();

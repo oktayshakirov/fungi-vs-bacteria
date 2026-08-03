@@ -130,6 +130,98 @@ public static class CameraPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
+  // Renders each environment into Assets/Resources/EnvPreviews as a Sprite, so
+  // the environment-selection cards show the actual in-game look instead of a
+  // placeholder. EnvironmentsScreen falls back to these when no sprite has been
+  // assigned in the inspector, so hand-made art can still override them later.
+  public static void RenderEnvironmentCards()
+  {
+    const string dir = "Assets/Resources/EnvPreviews";
+    Directory.CreateDirectory(dir);
+
+    EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
+    CameraRig rig = Object.FindFirstObjectByType<CameraRig>();
+    if (rig == null)
+    {
+      Debug.LogError("ENV CARDS FAIL: no CameraRig");
+      if (Application.isBatchMode) EditorApplication.Exit(1);
+      return;
+    }
+    Camera cam = rig.GetComponent<Camera>();
+
+    List<GameObject> towers = PlaceRealTowers();
+    GridManager grid = Object.FindFirstObjectByType<GridManager>();
+    Vector3[] pathPts = PreviewPathPoints(grid);
+
+    var decorGo = new GameObject("PreviewDecor");
+    var decor = decorGo.AddComponent<LevelDecorator>();
+
+    // 16:10-ish thumbnail, large enough to stay sharp on a tablet card
+    var card = new Device { name = "card", width = 640, height = 400 };
+    var written = new List<string>();
+
+    for (int i = 1; i <= 7; i++)
+    {
+      string env = $"Environment {i}";
+      EnvironmentTheme.Apply(env);
+      decor.BuildAt(pathPts);
+
+      string path = $"{dir}/{env}.png";
+      CaptureTo(rig, cam, card, path);
+      written.Add(path);
+    }
+
+    Object.DestroyImmediate(decorGo);
+    foreach (GameObject t in towers) Object.DestroyImmediate(t);
+
+    AssetDatabase.Refresh();
+    foreach (string path in written)
+    {
+      var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+      if (importer == null) continue;
+      importer.textureType = TextureImporterType.Sprite;
+      importer.spriteImportMode = SpriteImportMode.Single;
+      importer.mipmapEnabled = false;
+      importer.SaveAndReimport();
+    }
+
+    Debug.Log($"ENV CARDS OK: wrote {written.Count} previews to {dir}");
+    if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
+  private static void CaptureTo(CameraRig rig, Camera cam, Device device, string path)
+  {
+    float aspect = (float)device.width / device.height;
+    rig.EditorPreview(0, aspect);
+    rig.enabled = false;
+
+    var rt = new RenderTexture(device.width, device.height, 24, RenderTextureFormat.ARGB32)
+    {
+      antiAliasing = 2
+    };
+
+    RenderTexture previousTarget = cam.targetTexture;
+    RenderTexture previousActive = RenderTexture.active;
+
+    cam.targetTexture = rt;
+    cam.aspect = aspect;
+    cam.Render();
+
+    RenderTexture.active = rt;
+    var texture = new Texture2D(device.width, device.height, TextureFormat.RGB24, false);
+    texture.ReadPixels(new Rect(0, 0, device.width, device.height), 0, 0);
+    texture.Apply();
+
+    File.WriteAllBytes(path, texture.EncodeToPNG());
+
+    cam.targetTexture = previousTarget;
+    RenderTexture.active = previousActive;
+    rt.Release();
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(texture);
+    rig.enabled = true;
+  }
+
   private static Vector3[] PreviewPathPoints(GridManager grid)
   {
     LevelConfig level = AssetDatabase.LoadAssetAtPath<LevelConfig>(

@@ -38,25 +38,25 @@ public class SettingScreen : MonoBehaviour
     private void OnBackgroundMusicToggleChanged(bool isOn)
     {
         AudioManager.Instance.SetBackgroundMusicEnabled(isOn);
-        AudioManager.Instance.PlaySound(AudioManager.SoundType.Toggle);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.Toggle);
     }
 
     private void OnSfxToggleChanged(bool isOn)
     {
         AudioManager.Instance.SetSfxEnabled(isOn);
-        AudioManager.Instance.PlaySound(AudioManager.SoundType.Toggle);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.Toggle);
     }
 
     private void OnVibrationToggleChanged(bool isOn)
     {
         AudioManager.Instance.SetVibrationEnabled(isOn);
-        AudioManager.Instance.PlaySound(AudioManager.SoundType.Toggle);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.Toggle);
     }
 
     private void CloseSettings()
     {
         onScreenClosed?.Invoke();
-        AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
         if (previousMenu != null)
             previousMenu.SetActive(true);
         Destroy(gameObject);

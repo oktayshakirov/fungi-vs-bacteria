@@ -23,6 +23,8 @@ public class PauseGameScreen : MonoBehaviour
     {
       settingsButton.onClick.AddListener(OpenSettings);
     }
+
+    ScreenTheme.Apply(transform, resumeGameButton);
   }
 
   public void Show()
@@ -35,14 +37,14 @@ public class PauseGameScreen : MonoBehaviour
   {
     gameObject.SetActive(false);
     GameManager.Instance.ResumeGame();
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     onScreenClosed?.Invoke();
   }
 
   // Opens Settings on top of the paused game, without unloading the level.
   private void OpenSettings()
   {
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
 
     SettingScreen prefab = Resources.Load<SettingScreen>("Screens/SettingsScreen");
     if (prefab == null)
@@ -61,7 +63,7 @@ public class PauseGameScreen : MonoBehaviour
   {
     gameObject.SetActive(false);
     GameManager.Instance.ReturnToMainMenu();
-    AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     onScreenClosed?.Invoke();
   }
 }

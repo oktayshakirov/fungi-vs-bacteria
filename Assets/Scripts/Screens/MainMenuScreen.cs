@@ -27,6 +27,8 @@ public class MainMenu : MonoBehaviour
 
     playButton.onClick.AddListener(OnPlayClicked);
     settingsButton.onClick.AddListener(OnSettingsClicked);
+
+    ScreenTheme.ApplyMainMenu(transform, playButton, settingsButton);
   }
 
   private void OnPlayClicked()
@@ -35,7 +37,7 @@ public class MainMenu : MonoBehaviour
     {
       GameObject envScreenGO = Instantiate(environmentSelectionScreenPrefab, screensTransform);
       EnvironmentsScreen envScreen = envScreenGO.GetComponent<EnvironmentsScreen>();
-      AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
       if (envScreen != null)
       {
         envScreen.SetLevelSelectionPrefab(levelSelectionScreenPrefab);
@@ -50,7 +52,7 @@ public class MainMenu : MonoBehaviour
     {
       GameObject settingsScreenGO = Instantiate(settingsScreenPrefab, screensTransform);
       SettingScreen settingScreen = settingsScreenGO.GetComponent<SettingScreen>();
-      AudioManager.Instance.PlaySound(AudioManager.SoundType.ButtonClick);
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
       settingScreen.Initialize(() =>
       {
         gameObject.SetActive(true);
