@@ -38,68 +38,12 @@ public static class ScreenTheme
   {
     if (root == null) return;
 
-    if (play != null)
-    {
-      // Anchored to the bottom rather than the centre: the character art above
-      // is much taller than the 90px Logo rect suggests, and a centre-relative
-      // button sat on top of it.
-      var rect = (RectTransform)play.transform;
-      rect.anchorMin = new Vector2(0.5f, 0f);
-      rect.anchorMax = new Vector2(0.5f, 0f);
-      rect.pivot = new Vector2(0.5f, 0f);
-      rect.anchoredPosition = new Vector2(0f, 86f);
-      rect.sizeDelta = new Vector2(620f, 150f);
-
-      // The scene's own button artwork is kept — only its tint is normalised to
-      // the shared green so it matches Start Wave, Resume and the rest.
-      var image = play.GetComponent<Image>();
-      if (image != null)
-      {
-        image.color = UiSkin.Primary;
-        play.targetGraphic = image;
-      }
-      Press(play);
-
-      // The shared button size tops out at 36pt, which is small for the one
-      // primary action on the screen
-      TMP_Text label = play.GetComponentInChildren<TMP_Text>(true);
-      if (label != null)
-      {
-        UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
-        label.fontSizeMin = 44f;
-        label.fontSizeMax = 76f;
-        label.fontSize = 76f;
-        label.characterSpacing = 4f;
-      }
-    }
-
-    if (settings != null)
-    {
-      // The scene already has gear artwork on this button; it just sits at
-      // x=1969, off the right edge of a 1920 canvas. Reposition only.
-      var rect = (RectTransform)settings.transform;
-      rect.anchorMin = new Vector2(1f, 1f);
-      rect.anchorMax = new Vector2(1f, 1f);
-      rect.pivot = new Vector2(1f, 1f);
-      rect.anchoredPosition = new Vector2(-32f, -32f);
-      rect.sizeDelta = new Vector2(104f, 104f);
-      Press(settings);
-    }
+    // Delegates to MenuLayout, which DisplaySetup also bakes into the scene, so
+    // the editor and play mode cannot drift apart.
+    MenuLayout.ApplyPlay(play);
+    MenuLayout.ApplySettings(settings);
   }
 
-  // Press/disable feedback without touching the button's artwork.
-  private static void Press(Button button)
-  {
-    button.transition = Selectable.Transition.ColorTint;
-    var colors = button.colors;
-    colors.normalColor = Color.white;
-    colors.highlightedColor = new Color(1.08f, 1.08f, 1.08f, 1f);
-    colors.pressedColor = new Color(0.82f, 0.82f, 0.86f, 1f);
-    colors.selectedColor = Color.white;
-    colors.disabledColor = new Color(0.55f, 0.55f, 0.60f, 0.6f);
-    colors.fadeDuration = 0.08f;
-    button.colors = colors;
-  }
 
   // The list screens (select environment / select level): a title across the
   // top, a back button in the corner, and a scrollable body. Unlike the modals

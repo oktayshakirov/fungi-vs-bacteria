@@ -349,14 +349,18 @@ public static class MeshFactory
   public static Mesh Cliff(float halfW, float halfD, float depth) =>
     Cached($"cliff{halfW:F1}x{halfD:F1}x{depth:F1}", () =>
     {
-      const int sides = 48, rows = 18, seed = 1301;
+      const int sides = 48, rows = 12, seed = 1301;
       var b = new Builder();
+
+      // The underside closes with a broad, nearly flat floor — a deeper dome
+      // put a visible crease down the middle and read as a boat hull.
+      var floorCentre = new Vector3(0f, -depth * 1.04f, 0f);
 
       for (int r = 0; r < rows; r++)
       {
         float t0 = r / (float)rows;
         float t1 = (r + 1) / (float)rows;
-        bool tip = r == rows - 1;
+        bool last = r == rows - 1;
 
         for (int s = 0; s < sides; s++)
         {
@@ -370,14 +374,10 @@ public static class MeshFactory
           var v1 = new Vector2((s + 1) / (float)sides, t1);
           var v0 = new Vector2(s / (float)sides, t1);
 
-          if (tip)
-          {
-            // Converge the last row onto a single point so the cliff ends in a
-            // ragged spike instead of an open hole.
-            var point = new Vector3(0f, -depth, 0f);
-            b.Face(a0, a1, point, u0, u1, new Vector2(0.5f, 1f));
-          }
-          else b.Quad(a0, a1, c1, c0, u0, u1, v1, v0);
+          b.Quad(a0, a1, c1, c0, u0, u1, v1, v0);
+
+          // Fan the final ring into the centre to close the floor
+          if (last) b.Face(c1, c0, floorCentre, v1, v0, new Vector2(0.5f, 1f));
         }
       }
       return b.ToMesh();
@@ -393,21 +393,22 @@ public static class MeshFactory
     float fx = Mathf.Sign(cos) * Mathf.Pow(Mathf.Abs(cos), 2f / power);
     float fz = Mathf.Sign(sin) * Mathf.Pow(Mathf.Abs(sin), 2f / power);
 
-    // Narrows continuously to the tip. No outward flare and no horizontal
-    // banding: both produced shelves that jutted out sideways from the island,
-    // where the reference art is a rock mass that only ever tapers inward.
-    float taper = Mathf.Pow(1f - t, 0.55f);
+    // An elliptical profile: near-vertical where it meets the turf, then
+    // curving under to a wide floor (about 0.42 of the island's footprint)
+    // instead of running down to a point. Shallow and slightly domed, rather
+    // than a deep spike hanging below the board.
+    float taper = Mathf.Sqrt(Mathf.Max(0f, 1f - t * t * 0.58f));
 
     // Detail runs VERTICALLY: ridges and gullies around the circumference that
     // hold their shape all the way down, so the face reads as carved columns.
     // Two frequencies, both well under the segment count to avoid aliasing.
     float ridges = 1f
-      + 0.13f * Mathf.Sin(ang * 9f)
-      + 0.05f * Mathf.Sin(ang * 19f + 1.3f);
+      + 0.10f * Mathf.Sin(ang * 9f)
+      + 0.04f * Mathf.Sin(ang * 19f + 1.3f);
 
     // The noise varies quickly with angle but only slowly with depth, so it
     // roughens the silhouette without introducing horizontal bumps.
-    float rough = 1f + (Fbm(new Vector3(cos * 2.6f, t * 1.2f, sin * 2.6f), 3, seed) - 0.5f) * 0.22f;
+    float rough = 1f + (Fbm(new Vector3(cos * 2.6f, t * 1.2f, sin * 2.6f), 3, seed) - 0.5f) * 0.16f;
 
     // The very top stays clean so it meets the soil slab without a seam
     float ramp = Mathf.Clamp01(t / 0.06f);

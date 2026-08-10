@@ -99,7 +99,7 @@ public class LevelDecorator : MonoBehaviour
     mat.SetColor("_BaseColor", Color.white);
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.04f);
 
-    Mesh mesh = MeshFactory.Cliff(halfW, halfD, 46f);
+    Mesh mesh = MeshFactory.Cliff(halfW, halfD, 13f);
     Piece("IslandCliff", mesh, mat, new Vector3(0f, BoardDecor.CliffTop, 0f));
   }
 

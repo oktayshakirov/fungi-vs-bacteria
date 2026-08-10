@@ -20,8 +20,16 @@ public static class HudTheme
     StyleStats(statsPanel, goldText, healthText);
     StyleWaveReadout(waveText, timerText);
 
-    if (startWaveButton != null) UiSkin.StyleButton(startWaveButton, UiSkin.Primary, UiSkin.RadiusButton);
-    if (pauseButton != null) UiSkin.StyleButton(pauseButton, UiSkin.Neutral, UiSkin.RadiusButton);
+    if (startWaveButton != null)
+    {
+      UiSkin.StyleButton(startWaveButton, UiSkin.Primary, UiSkin.RadiusButton);
+      PullInside((RectTransform)startWaveButton.transform);
+    }
+    if (pauseButton != null)
+    {
+      UiSkin.StyleButton(pauseButton, UiSkin.Neutral, UiSkin.RadiusButton);
+      PullInside((RectTransform)pauseButton.transform);
+    }
 
     StyleTowersPanel(towersPanel);
   }
@@ -132,6 +140,8 @@ public static class HudTheme
 
     // A parent Image draws behind its children, so this backs the cards without
     // needing an extra object
+    PullInside(towersPanel);
+
     var bg = towersPanel.GetComponent<Image>();
     if (bg == null) bg = towersPanel.gameObject.AddComponent<Image>();
     UiSkin.Panel(bg, UiSkin.PanelDark, UiSkin.RadiusPanel);
@@ -157,6 +167,15 @@ public static class HudTheme
   public const float StackedButtonWidth = 132f;
   public const float StackedButtonHeight = 58f;
   public const float EdgeMargin = 20f;
+
+  // The scene anchors the right-hand HUD at x = +10, i.e. ten units past the
+  // screen edge. That was survivable at the old canvas scale; once the UI was
+  // scaled up it clipped the panel and both buttons.
+  private static void PullInside(RectTransform rect)
+  {
+    if (rect == null || rect.anchoredPosition.x <= 0f) return;
+    rect.anchoredPosition = new Vector2(-14f, rect.anchoredPosition.y);
+  }
 
   // Stacks a runtime HUD button under a reference panel, left edges aligned.
   // These used to sit at hardcoded offsets, which overlapped the stats chips as

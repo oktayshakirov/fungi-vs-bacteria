@@ -24,12 +24,17 @@ public static class SceneCost
     var decorGo = new GameObject("CliffDecor");
     decorGo.AddComponent<LevelDecorator>().BuildAt(PreviewPath(grid));
 
+    // Measured straight from the generator. Reading it off the scene renderer
+    // returns the merged static-batch mesh, which spans the whole island.
+    Mesh probe = MeshFactory.Cliff(31f, 18.5f, 13f);
+    Debug.Log($"CLIFF MESH size={probe.bounds.size}");
+
     Camera cam = Object.FindFirstObjectByType<Camera>();
     var rig = cam.GetComponent<CameraRig>();
     if (rig != null) rig.enabled = false;   // stop it re-framing on the board
 
-    cam.transform.position = new Vector3(-74f, -20f, -112f);
-    cam.transform.LookAt(new Vector3(0f, -16f, 0f));
+    cam.transform.position = new Vector3(-58f, -19f, -88f);
+    cam.transform.LookAt(new Vector3(0f, -11f, 0f));
     cam.fieldOfView = 40f;
 
     const int w = 1024, h = 576;

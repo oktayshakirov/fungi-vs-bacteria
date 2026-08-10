@@ -76,6 +76,8 @@ public static class DisplaySetup
           EnsureLevelDecorator(root);
         }
 
+        if (scenePath.Contains("MainMenu")) ConfigureMainMenu(root);
+
         foreach (Canvas canvas in root.GetComponentsInChildren<Canvas>(true))
         {
           if (ConfigureScaler(canvas)) scalers++;
@@ -215,17 +217,44 @@ public static class DisplaySetup
 
   // Landscape game: match the screen height so UI keeps a constant size
   // regardless of how wide (or notched) the device is.
+  // With match-height the scale factor is screenHeight / referenceHeight, so a
+  // 1080-tall phone against a 1080 reference drew every element at its authored
+  // pixel size — which is why the whole interface read as tiny. A 720 reference
+  // scales the entire UI up by 1.5x in one place.
+  private const float UiReferenceWidth = 1280f;
+  private const float UiReferenceHeight = 720f;
+
   private static bool ConfigureScaler(Canvas canvas)
   {
     CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
     if (scaler == null) return false;
     if (scaler.uiScaleMode != CanvasScaler.ScaleMode.ScaleWithScreenSize) return false;
-    if (Mathf.Approximately(scaler.matchWidthOrHeight, 1f)) return false;
+
+    bool already = Mathf.Approximately(scaler.matchWidthOrHeight, 1f)
+                && Mathf.Approximately(scaler.referenceResolution.y, UiReferenceHeight);
+    if (already) return false;
 
     scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
     scaler.matchWidthOrHeight = 1f;
+    scaler.referenceResolution = new Vector2(UiReferenceWidth, UiReferenceHeight);
     EditorUtility.SetDirty(scaler);
     return true;
+  }
+
+  // The main menu's Play and Settings buttons are laid out here rather than only
+  // at runtime, so the scene shows what the game shows. Previously ScreenTheme
+  // repositioned them on Start and the editor and play mode disagreed.
+  private static void ConfigureMainMenu(GameObject root)
+  {
+    foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+    {
+      var button = t.GetComponent<UnityEngine.UI.Button>();
+      if (button == null) continue;
+
+      if (t.name == "Play") MenuLayout.ApplyPlay(button);
+      else if (t.name == "Settings") MenuLayout.ApplySettings(button);
+      EditorUtility.SetDirty(button);
+    }
   }
 
   // Wrap a canvas's children in a full-stretch SafeArea object so nothing
