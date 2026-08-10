@@ -25,6 +25,7 @@ public static class EnemyPool
     if (instance == null)
     {
       instance = Object.Instantiate(prefab, position, rotation);
+      instance.transform.localScale *= UnitScale.Enemy;
       instance.AddComponent<PooledEnemy>().sourcePrefab = prefab;
     }
     else

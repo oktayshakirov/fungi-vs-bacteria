@@ -29,8 +29,11 @@ public static class DisplaySetup
   // A wide, shallow board fills a landscape phone like the PvZ lawn and keeps
   // towers/enemies large and readable; too many rows makes units tiny and
   // forces a flat top-down angle.
-  public const int BoardWidth = 13;
-  public const int BoardHeight = 6;
+  // 10x5 rather than 13x6: at 13 wide the camera had to frame 75 world units,
+  // leaving a tower about 64px on a 1080p phone. Fewer, larger tiles make the
+  // board readable and touchable.
+  public const int BoardWidth = 10;
+  public const int BoardHeight = 5;
 
   [MenuItem("Tools/Display/Apply Camera + Safe Area Setup")]
   public static void Apply()
@@ -117,8 +120,16 @@ public static class DisplaySetup
     // Low, wide-lens, close: a cinematic 3/4 view with real perspective depth.
     // A touch lower reveals more of the cliff/sky around the floating island.
     so.FindProperty("fieldOfView").floatValue = 50f;
-    so.FindProperty("playPitch").floatValue = 26f;
+    so.FindProperty("playPitch").floatValue = 34f;
     so.FindProperty("playYaw").floatValue = 0f;
+    // CameraRig.ResolvedPose() reads viewPresets whenever the array is
+    // non-empty, so playPitch alone is ignored. Preset 0 is the play view.
+    SetPresets(so, new[]
+    {
+      new Vector3(34f, 0f, 1f),    // play: fills the screen, tiles read clearly
+      new Vector3(52f, 0f, 1f),    // near-isometric
+      new Vector3(26f, 26f, 1f),   // low cinematic three-quarter
+    });
     so.FindProperty("adaptPitchToAspect").boolValue = false;
     so.FindProperty("minPitch").floatValue = 24f;
     so.FindProperty("maxPitch").floatValue = 40f;
@@ -132,6 +143,16 @@ public static class DisplaySetup
     so.FindProperty("outroDuration").floatValue = 2.5f;
     SetPose(so, "outroPose", pitch: 26f, yaw: 18f, zoom: 0.78f, height: 1.5f);
     so.ApplyModifiedPropertiesWithoutUndo();
+  }
+
+  private static void SetPresets(SerializedObject so, Vector3[] presets)
+  {
+    SerializedProperty array = so.FindProperty("viewPresets");
+    array.arraySize = presets.Length;
+    for (int i = 0; i < presets.Length; i++)
+    {
+      array.GetArrayElementAtIndex(i).vector3Value = presets[i];
+    }
   }
 
   private static void SetPose(SerializedObject so, string name, float pitch, float yaw, float zoom, float height)

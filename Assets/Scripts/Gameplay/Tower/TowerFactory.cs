@@ -16,7 +16,9 @@ public class TowerFactory : MonoBehaviour
       return null;
     }
 
-    return Instantiate(config.towerPrefab, position, Quaternion.identity);
+    GameObject tower = Instantiate(config.towerPrefab, position, Quaternion.identity);
+    tower.transform.localScale *= UnitScale.Tower;
+    return tower;
   }
 
   public Tower CreateTower(TowerConfig config, Vector3 position)

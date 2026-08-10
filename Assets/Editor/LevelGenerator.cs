@@ -6,14 +6,16 @@ using UnityEngine;
 public static class LevelGenerator
 {
   // Grid bounds must match the GridManager in the MainGame scene (see DisplaySetup).
-  private const int GridWidth = 13;
-  private const int GridHeight = 6;
+  private const int GridWidth = 10;
+  private const int GridHeight = 5;
 
   private const int EnvironmentCount = 7;
   private const int LevelsPerEnvironment = 10;
 
-  private const int MinPathLength = 14;
-  private const int MaxPathLength = 38;
+  // Rescaled for the 10x5 board: the shortest possible crossing is 10 cells,
+  // and a 38-cell path would fill three quarters of a 50-cell grid.
+  private const int MinPathLength = 12;
+  private const int MaxPathLength = 26;
   private const int BaseSeed = 4242;
 
   private const string LevelsFolder = "Assets/Resources/Levels";

@@ -349,7 +349,7 @@ public static class MeshFactory
   public static Mesh Cliff(float halfW, float halfD, float depth) =>
     Cached($"cliff{halfW:F1}x{halfD:F1}x{depth:F1}", () =>
     {
-      const int sides = 44, rows = 18, seed = 1301;
+      const int sides = 48, rows = 18, seed = 1301;
       var b = new Builder();
 
       for (int r = 0; r < rows; r++)
@@ -393,27 +393,25 @@ public static class MeshFactory
     float fx = Mathf.Sign(cos) * Mathf.Pow(Mathf.Abs(cos), 2f / power);
     float fz = Mathf.Sign(sin) * Mathf.Pow(Mathf.Abs(sin), 2f / power);
 
-    // Narrows toward the tip, with horizontal ledges where the rock steps in
-    float taper = Mathf.Pow(1f - t, 0.62f);
-    float ledges = 1f + 0.09f * Mathf.Sin(t * Mathf.PI * 5.5f);
+    // Narrows continuously to the tip. No outward flare and no horizontal
+    // banding: both produced shelves that jutted out sideways from the island,
+    // where the reference art is a rock mass that only ever tapers inward.
+    float taper = Mathf.Pow(1f - t, 0.55f);
 
-    // A rock lip that bulges out just below the rim before the taper takes over.
-    // Without it the cliff hides behind the soil slab at the game's low camera
-    // angle and the island reads as a flat brown band.
-    float k = t * 7f;
-    float lip = 1f + 0.5f * k * Mathf.Exp(-k);
+    // Detail runs VERTICALLY: ridges and gullies around the circumference that
+    // hold their shape all the way down, so the face reads as carved columns.
+    // Two frequencies, both well under the segment count to avoid aliasing.
+    float ridges = 1f
+      + 0.13f * Mathf.Sin(ang * 9f)
+      + 0.05f * Mathf.Sin(ang * 19f + 1.3f);
 
-    // Vertical gullies around the circumference plus rugged surface noise. Two
-    // frequencies, and deliberately deep: the camera only ever sees the top few
-    // units of the cliff, and without strong relief there it reads as a flat
-    // brown wall. The very top is left clean so it meets the soil slab cleanly.
-    float ramp = Mathf.Clamp01(t / 0.05f);
-    float gullies = 1f
-      + 0.20f * Mathf.Sin(ang * 7f + t * 3f) * ramp
-      + 0.07f * Mathf.Sin(ang * 17f - t * 5f) * ramp;
-    float rough = 1f + (Fbm(new Vector3(cos * 2.4f, t * 9f, sin * 2.4f), 3, seed) - 0.5f) * 0.40f * ramp;
+    // The noise varies quickly with angle but only slowly with depth, so it
+    // roughens the silhouette without introducing horizontal bumps.
+    float rough = 1f + (Fbm(new Vector3(cos * 2.6f, t * 1.2f, sin * 2.6f), 3, seed) - 0.5f) * 0.22f;
 
-    float scale = taper * lip * ledges * gullies * rough;
+    // The very top stays clean so it meets the soil slab without a seam
+    float ramp = Mathf.Clamp01(t / 0.06f);
+    float scale = taper * Mathf.Lerp(1f, ridges * rough, ramp);
     return new Vector3(fx * halfW * scale, -t * depth, fz * halfD * scale);
   }
 
@@ -454,19 +452,20 @@ public static class MeshFactory
       float t = y / (float)(h - 1);
       Color layer = Color.Lerp(top, bottom, Mathf.SmoothStep(0f, 1f, t));
 
-      // Bands of varying thickness, plus a fine grain across the face. The
-      // frequency is high enough that several layers fall inside the top of the
-      // cliff, which is the only part the game camera ever frames.
-      float band = Mathf.Sin(t * 90f + Mathf.Sin(t * 13f) * 2.4f) * 0.5f + 0.5f;
-
       // A dark line right under the turf, so the grass rim reads as sitting on
       // the rock rather than being painted onto it
       float rim = 1f - 0.38f * Mathf.Exp(-t * 34f);
 
       for (int x = 0; x < w; x++)
       {
+        // Streaks run down the face (they vary with x, which is the angle
+        // around the cliff). Horizontal banding was the texture equivalent of
+        // the ledges and read as sedimentary shelves.
+        float streak = Noise(new Vector3(x * 1.6f, 0f, 0f), 733);
+        float fine = Noise(new Vector3(x * 5.5f, 0f, 0f), 517);
         float grain = Noise(new Vector3(x * 0.35f, y * 0.6f, 0f), 991);
-        float shade = (0.80f + band * 0.30f + (grain - 0.5f) * 0.18f) * rim;
+
+        float shade = (0.78f + streak * 0.26f + fine * 0.08f + (grain - 0.5f) * 0.10f) * rim;
         pixels[y * w + x] = layer * shade;
       }
     }

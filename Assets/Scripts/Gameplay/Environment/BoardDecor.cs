@@ -3,7 +3,7 @@
 // ring of grass to place scenery props in, without touching the play grid.
 public static class BoardDecor
 {
-  public const float Margin = 9f;
+  public const float Margin = 6f;
 
   // Thickness of the soil rim under the grass plane. Kept thin: it is only the
   // dirt layer directly beneath the turf, and the sculpted cliff below carries

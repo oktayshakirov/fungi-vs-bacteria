@@ -93,6 +93,9 @@ public class HUDManager : MonoBehaviour
     GameSpeedButton.Create(uiRoot, statsRect, 0);
     CameraViewButton.Create(uiRoot, statsRect, 1);
 
+    // Frame timing can only be measured on the device; disable before shipping
+    PerfOverlay.Create(uiRoot);
+
     // Initialize pause screen
     if (pauseGameScreenPrefab != null)
     {

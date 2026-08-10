@@ -45,7 +45,7 @@ public class CameraRig : MonoBehaviour
   [SerializeField] private float towerHeadroom = 5f;
 
   [Header("Play view")]
-  [SerializeField] private float playPitch = 26f;
+  [SerializeField] private float playPitch = 34f;
   [SerializeField] private float playYaw = 0f;
   [Tooltip("Selectable camera angles (pitch, yaw, zoom) cycled by the view button.")]
   [SerializeField] private Vector3[] viewPresets =
@@ -329,7 +329,9 @@ public class CameraRig : MonoBehaviour
       // Frame close to the play grid (plus a little room for the base/portal at
       // the ends). Decorative props extend past this and spill off-frame, which
       // keeps the game area large and close instead of framing the whole island.
-      const float framingMargin = 5f; // world units added on each side
+      // Tight: the decorative ring is scenery, not board. Framing it cost most
+      // of the screen and shrank everything the player actually interacts with.
+      const float framingMargin = 2f; // world units added on each side
       Vector3 size = new Vector3(grid.gridSize.x * grid.cellSize, 0f, grid.gridSize.y * grid.cellSize);
       Vector3 center = grid.originPosition + size * 0.5f;
       size.x += framingMargin * 2f;

@@ -118,6 +118,10 @@ public static class CameraPreview
       decor.BuildAt(pathPts);
       string label = env.Replace(" ", "").ToLower(); // environment1, ...
       Capture(rig, cam, Devices[1], 0, label, false);
+
+      // The play camera barely sees the island's underside. Pose 1 is the low
+      // intro orbit, which is where the cliff silhouette can actually be judged.
+      if (env == "Environment 1") Capture(rig, cam, Devices[1], 1, label + "-cliff", false);
     }
 
     Object.DestroyImmediate(decorGo);
@@ -326,6 +330,9 @@ public static class CameraPreview
         if (prefab == null) { placed++; continue; }
 
         GameObject tower = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        // Matches TowerFactory, which the game uses; instantiating the prefab
+        // straight would otherwise preview them at the wrong size.
+        tower.transform.localScale *= UnitScale.Tower;
         Vector3 pos = grid.GridToWorld(cell);
         pos.y = 0f; // grass surface, matching how placement snaps
         tower.transform.position = pos;

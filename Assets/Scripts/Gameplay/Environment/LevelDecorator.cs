@@ -67,6 +67,13 @@ public class LevelDecorator : MonoBehaviour
       BuildPortal(pathPoints[0]);
       BuildBase(pathPoints[pathPoints.Length - 1]);
     }
+
+    // ~200 scenery renderers is ~200 draw calls, which dwarfs the rest of the
+    // frame on mobile. None of this moves once built, so merge it by material:
+    // that collapses the scenery to roughly one batch per material.
+    //
+    // Must run last — combined objects can no longer be moved or reparented.
+    StaticBatchingUtility.Combine(gameObject);
   }
 
   private void IslandExtent(out float halfW, out float halfD)
@@ -237,7 +244,7 @@ public class LevelDecorator : MonoBehaviour
       // Flattened hard toward the camera: a swell of turf in the foreground
       // becomes a green blob sitting over the board.
       float depth = Mathf.InverseLerp(-outerD, outerD, z);
-      float s = (3f + (float)rng.NextDouble() * 3.5f) * Mathf.Lerp(0.6f, 1f, depth);
+      float s = (2.2f + (float)rng.NextDouble() * 2.4f) * Mathf.Lerp(0.6f, 1f, depth);
       mound.transform.localScale = new Vector3(s, s * 0.28f * Mathf.Lerp(0.45f, 1f, depth), s * (0.7f + (float)rng.NextDouble() * 0.6f));
       mound.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
       placed++;
@@ -260,7 +267,7 @@ public class LevelDecorator : MonoBehaviour
       if (Mathf.Abs(x) < halfW - 0.5f && Mathf.Abs(z) < halfD - 0.5f) continue;
 
       GameObject patch = Piece("Grass", MeshFactory.GrassPatch(rng.Next(Variants)), grassMat, new Vector3(x, 0f, z));
-      float s = 1.6f + (float)rng.NextDouble() * 1.6f;
+      float s = 1.1f + (float)rng.NextDouble() * 1.1f;
       patch.transform.localScale = new Vector3(s, s * (0.9f + (float)rng.NextDouble() * 0.7f), s);
       patch.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
       // Thousands of thin blades casting shadows is noisy and expensive
@@ -351,7 +358,7 @@ public class LevelDecorator : MonoBehaviour
   private void SpawnRock(Vector3 pos, System.Random rng, float scale)
   {
     GameObject go = Piece("Boulder", MeshFactory.Boulder(rng.Next(Variants)), Pick(rockMats, rng), pos);
-    float s = (1.4f + (float)rng.NextDouble() * 3.2f) * scale;
+    float s = (1.0f + (float)rng.NextDouble() * 2.0f) * scale;
     go.transform.localScale = new Vector3(s, s * (0.7f + (float)rng.NextDouble() * 0.5f), s);
     go.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
   }
@@ -359,7 +366,7 @@ public class LevelDecorator : MonoBehaviour
   private void SpawnBush(Vector3 pos, System.Random rng, float scale)
   {
     GameObject go = Piece("Bush", MeshFactory.Bush(rng.Next(Variants)), Pick(plantMats, rng), pos);
-    float s = (1.6f + (float)rng.NextDouble() * 1.8f) * scale;
+    float s = (1.1f + (float)rng.NextDouble() * 1.2f) * scale;
     go.transform.localScale = new Vector3(s, s * 0.85f, s);
     go.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
   }
@@ -374,7 +381,7 @@ public class LevelDecorator : MonoBehaviour
     spawned.Add(root);
 
     int v = rng.Next(Variants);
-    float height = 4.4f + (float)rng.NextDouble() * 2.8f;
+    float height = 3.4f + (float)rng.NextDouble() * 2.0f;
     float girth = height * 0.55f;
 
     GameObject trunk = Piece("Trunk", MeshFactory.TreeTrunk(v), Pick(woodMats, rng), pos, root.transform);
@@ -390,7 +397,7 @@ public class LevelDecorator : MonoBehaviour
   private void SpawnCrystal(Vector3 pos, System.Random rng, float scale)
   {
     GameObject go = Piece("Crystal", MeshFactory.Crystal(rng.Next(Variants)), glowMat, pos);
-    float h = (2.6f + (float)rng.NextDouble() * 2.8f) * scale;
+    float h = (1.9f + (float)rng.NextDouble() * 2.0f) * scale;
     go.transform.localScale = new Vector3(h * 0.5f, h, h * 0.5f);
     go.transform.rotation = Quaternion.Euler(
       (float)(rng.NextDouble() * 24 - 12), (float)rng.NextDouble() * 360f, (float)(rng.NextDouble() * 24 - 12));
@@ -535,6 +542,8 @@ public class LevelDecorator : MonoBehaviour
   {
     var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.1f);
+    // Anything static batching cannot merge can still be instanced
+    mat.enableInstancing = true;
     return mat;
   }
 
@@ -573,6 +582,7 @@ public class LevelDecorator : MonoBehaviour
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.4f);
     mat.EnableKeyword("_EMISSION");
     if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", color * 1.1f);
+    mat.enableInstancing = true;
     return mat;
   }
 
