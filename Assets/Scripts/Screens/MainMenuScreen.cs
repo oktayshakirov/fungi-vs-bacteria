@@ -29,6 +29,18 @@ public class MainMenu : MonoBehaviour
     settingsButton.onClick.AddListener(OnSettingsClicked);
 
     ScreenTheme.ApplyMainMenu(transform, playButton, settingsButton);
+
+    // Hosted in the settings button's parent rather than on the menu root: that
+    // is the rect MenuLayout anchors against, so the chip and the gear share a
+    // coordinate space and stay in the same band on every aspect ratio.
+    CoinChip.Create(settingsButton != null ? settingsButton.transform.parent : transform,
+      OnWalletClicked);
+  }
+
+  private void OnWalletClicked()
+  {
+    if (screensTransform == null) return;
+    WalletScreen.Open(screensTransform);
   }
 
   private void OnPlayClicked()
@@ -41,6 +53,9 @@ public class MainMenu : MonoBehaviour
       if (envScreen != null)
       {
         envScreen.SetLevelSelectionPrefab(levelSelectionScreenPrefab);
+        // The menu deactivates itself below, so the environments screen needs a
+        // handle on it to come back — it has no other way to find it.
+        envScreen.SetReturnTarget(gameObject);
       }
       gameObject.SetActive(false);
     }

@@ -91,11 +91,56 @@ public class AudioManager : MonoBehaviour
 
     public void PlaySound(SoundType type)
     {
+        // Haptics run before the mute check on purpose: silencing sound effects
+        // should not silence the buttons' feel. The vibration toggle is what
+        // gates this, inside Haptics.
+        PlayHaptic(type);
+
         if (isSfxMuted) return;
 
         if (soundDictionary.TryGetValue(type, out VolumeData data) && data.clip != null)
         {
             sfxSource.PlayOneShot(data.clip, data.volume);
+        }
+    }
+
+    // Every UI press in the game already routes through PlaySound, so hooking
+    // haptics in here gives the whole interface feedback in one place instead of
+    // per button. Gameplay haptics (hits, deaths) should call Haptics directly.
+    private static void PlayHaptic(SoundType type)
+    {
+        switch (type)
+        {
+            // Toggles and list selections: the lightest tick.
+            case SoundType.Toggle:
+            case SoundType.EnvironmentPicked:
+            case SoundType.LevelPicked:
+                Haptics.Play(Haptics.Style.Selection);
+                break;
+
+            // Ordinary taps.
+            case SoundType.ButtonClick:
+            case SoundType.TowerDrag:
+                Haptics.Play(Haptics.Style.Light);
+                break;
+
+            // Presses that commit to something.
+            case SoundType.TowerDrop:
+            case SoundType.StartWave:
+            case SoundType.Sell:
+                Haptics.Play(Haptics.Style.Medium);
+                break;
+
+            case SoundType.Victory:
+                Haptics.Play(Haptics.Style.Success);
+                break;
+
+            case SoundType.GameOver:
+                Haptics.Play(Haptics.Style.Failure);
+                break;
+
+            // Everything else (music, projectiles, per-hit effects) stays silent
+            // to the touch — firing on those would buzz continuously.
         }
     }
 

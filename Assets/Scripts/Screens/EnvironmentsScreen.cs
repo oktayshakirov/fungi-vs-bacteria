@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
@@ -29,9 +30,22 @@ public class EnvironmentsScreen : MonoBehaviour
     Instance = this;
   }
 
+  private GameObject returnTarget;
+  private Button backButton;
+
+  // The main menu hands itself over before deactivating, so Back can restore it.
+  public void SetReturnTarget(GameObject menu)
+  {
+    returnTarget = menu;
+  }
+
   private void Start()
   {
-    ScreenTheme.ApplyListScreen(transform, null);
+    // The prefab has no back button — this was the only screen in the game with
+    // no way out except the OS back gesture — so one is built here and then
+    // positioned by the same ApplyListScreen call the levels screen uses.
+    backButton = BuildBackButton();
+    ScreenTheme.ApplyListScreen(transform, backButton);
     DimBackdrop();
     CentreCards();
     PopulateEnvironmentCards();
@@ -59,6 +73,40 @@ public class EnvironmentsScreen : MonoBehaviour
     }
 
     ScreenFade.In(transform);
+  }
+
+  private Button BuildBackButton()
+  {
+    var go = new GameObject("Back", typeof(RectTransform));
+    // Parented to the SafeArea when there is one, so the button clears a notch.
+    Transform host = transform.Find("SafeArea") ?? transform;
+    go.transform.SetParent(host, false);
+
+    go.AddComponent<Image>();
+    var button = go.AddComponent<Button>();
+
+    var labelGo = new GameObject("Label", typeof(RectTransform));
+    labelGo.transform.SetParent(go.transform, false);
+    var label = labelGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.ButtonLabel);
+    label.text = "BACK";
+    label.alignment = TextAlignmentOptions.Center;
+    label.raycastTarget = false;
+    UiSkin.Stretch((RectTransform)labelGo.transform);
+
+    // Above the scroll view, which ApplyListScreen stretches across the screen.
+    go.transform.SetAsLastSibling();
+
+    button.onClick.AddListener(OnBack);
+    return button;
+  }
+
+  private void OnBack()
+  {
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+
+    if (returnTarget != null) returnTarget.SetActive(true);
+    Destroy(gameObject);
   }
 
   // Darkens the menu art so the cards read as the foreground. Done by tinting

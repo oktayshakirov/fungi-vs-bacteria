@@ -1,5 +1,29 @@
 {
   "dependencies": {
+    "com.google.ads.mobile": {
+      "version": "10.4.2",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.google.external-dependency-manager": "1.2.186",
+        "com.unity.modules.androidjni": "1.0.0"
+      },
+      "url": "https://package.openupm.com"
+    },
+    "com.google.external-dependency-manager": {
+      "version": "1.2.187",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://package.openupm.com"
+    },
+    "com.unity.ads.ios-support": {
+      "version": "1.0.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.9",
       "depth": 0,
@@ -103,6 +127,13 @@
       "dependencies": {},
       "url": "https://packages.unity.com"
     },
+    "com.unity.nuget.newtonsoft-json": {
+      "version": "3.2.1",
+      "depth": 2,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://packages.unity.com"
+    },
     "com.unity.render-pipelines.core": {
       "version": "17.2.0",
       "depth": 1,
@@ -151,6 +182,26 @@
       "depth": 2,
       "source": "registry",
       "dependencies": {},
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.services.core": {
+      "version": "1.14.0",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.modules.androidjni": "1.0.0",
+        "com.unity.nuget.newtonsoft-json": "3.2.1",
+        "com.unity.modules.unitywebrequest": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.services.levelplay": {
+      "version": "8.10.2",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.services.core": "1.8.1"
+      },
       "url": "https://packages.unity.com"
     },
     "com.unity.shadergraph": {

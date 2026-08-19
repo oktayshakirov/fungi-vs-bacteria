@@ -318,7 +318,7 @@ public class HUDManager : MonoBehaviour
     DeselectCurrentTower();
   }
 
-  public void ShowVictoryScreen(int stars)
+  public void ShowVictoryScreen(int stars, int coinsEarned = 0)
   {
     if (victoryScreen == null)
     {
@@ -331,7 +331,7 @@ public class HUDManager : MonoBehaviour
       victoryScreen = Instantiate(prefab, transform);
     }
 
-    victoryScreen.Initialize(stars);
+    victoryScreen.Initialize(stars, coinsEarned);
     victoryScreen.gameObject.SetActive(true);
     towerActionsPanel?.SetActive(false);
     DeselectCurrentTower();

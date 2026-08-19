@@ -192,8 +192,11 @@ public static class UiSkin
 
   // Fills an existing GameObject out as an icon + label button. Used by the HUD
   // controls that are built at runtime.
+  // iconColor overrides the automatic light-on-dark choice. The coin glyph is
+  // recognisable by its colour more than its shape at this size, so a gold coin
+  // on a green button reads better than the dark ink the contrast rule picks.
   public static Button IconButton(GameObject host, Sprite icon, Color tint, out TMP_Text label,
-    int radius = RadiusChip)
+    int radius = RadiusChip, Color? iconColor = null)
   {
     host.AddComponent<Image>();
     var button = host.AddComponent<Button>();
@@ -221,7 +224,7 @@ public static class UiSkin
     textGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
 
     StyleButton(button, tint, radius);
-    glyph.color = LabelColorFor(tint);
+    glyph.color = iconColor ?? LabelColorFor(tint);
     return button;
   }
 

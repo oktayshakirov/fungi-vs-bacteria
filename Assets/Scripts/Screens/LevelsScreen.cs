@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
@@ -11,11 +12,15 @@ public class LevelSelectionScreen : MonoBehaviour
   [Header("Back Button")]
   [SerializeField] private Button backButton;
 
+  private Button boostButton;
+  private TMP_Text boostLabel;
+
   private void Start()
   {
     ScreenTheme.ApplyListScreen(transform, backButton, dimBackground: true);
     UseGridLayout();
     PopulateLevelCards();
+    BuildStartBoost();
 
     if (backButton != null)
     {
@@ -110,10 +115,81 @@ public class LevelSelectionScreen : MonoBehaviour
     }
   }
 
+  // The one place coins are spent before a run. It sits on the level screen
+  // rather than in a shop because the decision only means anything with a
+  // specific level in mind, and buying here costs the player no extra taps.
+  //
+  // Arming charges immediately and disarming refunds, so backing out of this
+  // screen without playing never costs anything (see OnDestroy).
+  private void BuildStartBoost()
+  {
+    var go = new GameObject("StartBoost", typeof(RectTransform));
+    Transform host = transform.Find("SafeArea") ?? transform;
+    go.transform.SetParent(host, false);
+
+    var rect = (RectTransform)go.transform;
+    rect.anchorMin = new Vector2(1f, 1f);
+    rect.anchorMax = new Vector2(1f, 1f);
+    rect.pivot = new Vector2(1f, 1f);
+    rect.anchoredPosition = new Vector2(-28f, -28f);
+    rect.sizeDelta = new Vector2(430f, 74f);
+
+    boostButton = UiSkin.IconButton(go, UiSprites.Coin(), UiSkin.Neutral, out boostLabel,
+      UiSkin.RadiusChip, UiSkin.Gold);
+    boostLabel.alignment = TextAlignmentOptions.MidlineLeft;
+    go.transform.SetAsLastSibling();
+
+    boostButton.onClick.AddListener(OnBoostClicked);
+    RefreshStartBoost();
+  }
+
+  private void OnBoostClicked()
+  {
+    if (Boosters.StartBoostArmed)
+    {
+      Boosters.DisarmStartBoost();
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.Toggle);
+    }
+    else if (Boosters.ArmStartBoost())
+    {
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.Sell);
+    }
+    else
+    {
+      // Not enough coins: send the player where coins come from rather than
+      // just refusing the tap.
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      WalletScreen.Open(transform, RefreshStartBoost);
+    }
+
+    RefreshStartBoost();
+  }
+
+  private void RefreshStartBoost()
+  {
+    if (boostButton == null) return;
+
+    bool armed = Boosters.StartBoostArmed;
+    boostLabel.text = armed
+      ? $"BOOST ARMED  +{Boosters.StartBoostGold} GOLD"
+      : $"START BOOST  {Boosters.StartBoostCost}";
+    UiSkin.StyleButton(boostButton, armed ? UiSkin.Primary : UiSkin.Neutral, UiSkin.RadiusChip);
+  }
+
+  // Leaving the screen without playing must not pocket the coins. The armed
+  // boost only survives into a level, where GameManager consumes it.
+  private void OnDestroy()
+  {
+    if (!launching) Boosters.DisarmStartBoost();
+  }
+
+  private bool launching;
+
   private void OnLevelSelected(LevelConfig level)
   {
     Debug.Log($"Selected Level: {level.levelNumber} ({level.environmentName})");
     GameSession.SelectedLevel = level;
+    launching = true;
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.LevelPicked);
     SceneController.Instance.LoadScene(SceneController.GameScene.MainGame);
     gameObject.SetActive(false);

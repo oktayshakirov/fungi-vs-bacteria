@@ -23,6 +23,8 @@ public class SettingScreen : MonoBehaviour
         sfxToggle.onValueChanged.AddListener(OnSfxToggleChanged);
         vibrationToggle.onValueChanged.AddListener(OnVibrationToggleChanged);
         closeSettingsButton.onClick.AddListener(CloseSettings);
+
+        ScreenTheme.ApplySettingsScreen(transform, closeSettingsButton);
     }
 
     public void Show(GameObject originatingMenu = null)

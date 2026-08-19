@@ -76,6 +76,48 @@ public static class ScreenTheme
     }
   }
 
+  // Settings is neither a modal card nor a list screen: three toggles stacked
+  // in the middle with a close button in the corner.
+  //
+  // The prefab authors Close at (846.9, 365.9) against a *centre* anchor, which
+  // needs a canvas wider than 1694x732 to be on screen at all — on the 1280x720
+  // reference it sits well past the right edge, so the button was invisible from
+  // every entry point. Re-anchoring it to the top-right corner here fixes both
+  // the main menu and the in-game pause route in one place.
+  public static void ApplySettingsScreen(Transform root, Button close)
+  {
+    if (root == null) return;
+
+    Dim(root);
+    Title(root);
+
+    if (close == null) return;
+
+    var rect = (RectTransform)close.transform;
+    rect.anchorMin = new Vector2(1f, 1f);
+    rect.anchorMax = new Vector2(1f, 1f);
+    rect.pivot = new Vector2(1f, 1f);
+    rect.anchoredPosition = new Vector2(-28f, -28f);
+    rect.sizeDelta = new Vector2(84f, 84f);
+
+    // The prefab's X icon is kept; only the tint and the press feedback come
+    // from the skin, so StyleButton (which would replace the sprite) is not used.
+    var image = close.GetComponent<Image>();
+    if (image != null)
+    {
+      image.color = Color.white;
+      close.targetGraphic = image;
+    }
+
+    close.transition = Selectable.Transition.ColorTint;
+    var colors = close.colors;
+    colors.normalColor = Color.white;
+    colors.highlightedColor = new Color(1.08f, 1.08f, 1.08f, 1f);
+    colors.pressedColor = new Color(0.82f, 0.82f, 0.86f, 1f);
+    colors.fadeDuration = 0.08f;
+    close.colors = colors;
+  }
+
   // The backdrop darkens the running game behind the modal.
   private static void Dim(Transform root)
   {

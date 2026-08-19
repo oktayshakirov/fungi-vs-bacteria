@@ -1,6 +1,6 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-08-03. Working tree clean at `ff39acb` on `main`.
+Last updated 2026-08-19. Working tree clean at `ff39acb` on `main`.
 This state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 ## 1. The goal
@@ -37,6 +37,12 @@ Roughly in order. Each is committed.
    reshaped island underside, static batching. (`0bec495`)
 5. **UI scale-up + pooling** — global 1.5x UI, flattened platform, pooled
    per-hit effects, unified main menu. (`ff39acb`)
+6. **First device-test fixes** — iOS audio session, splash removed, settings
+   close button, UI haptics, Xcode scheme name.
+7. **Ads + coin economy** — LevelPlay mediation behind an `Ads` facade, a
+   persistent `Wallet`, rewarded ads, paced interstitials, the wallet screen,
+   the start boost and the continue offer. See `ADS.md`. **No keys are set**:
+   until they are, every ad call no-ops by design.
 
 ## 4. How to verify work — read this before changing anything
 
@@ -97,6 +103,19 @@ allocation, and `FloatingText` + enemy health bars have been pooled since — bu
 **the fix has not been re-measured on device**. `DeathEffect` is still
 unpooled (once per kill, so lower priority).
 
+**Priority 0 — Fill in the ad keys and playtest the economy.** `ADS.md` lists
+the eight values needed (six LevelPlay, two AdMob). Until they are set the ad
+buttons show "AD UNAVAILABLE" and everything else works. The coin prices
+(`Boosters`) and the interstitial pacing (`Ads`) are first-guess numbers that
+have never been played against; both are single constants at the top of their
+file specifically so a playtest can move them.
+
+**Priority 4 — Gameplay haptics.** UI presses now have haptics (`Utils/Haptics`,
+hooked centrally into `AudioManager.PlaySound`). Gameplay does not: tower shots,
+enemy deaths, base hits and wave starts should call `Haptics.Play` directly with
+styles chosen so a busy wave does not buzz continuously. Requested by the user
+after the 2026-08-19 device test.
+
 **User's queued list**, in their words: change enemy colours per environment;
 improve the onboarding UI layout; improve the tile green/red indicators;
 improve the sell/upgrade UI for towers; add an info box explaining what each
@@ -109,6 +128,19 @@ and store art; replace the synthesized SFX. See `DISTRIBUTION.md`.
 ## 6. Things that will bite you
 
 These each cost real debugging time. They are not obvious from the code.
+
+**Platform settings that only show up on a real device**
+- iOS audio is silenced by the **ringer switch** unless
+  `muteOtherAudioSources` is on, which puts the audio session in the Playback
+  category. This is why the first device test had no sound at all; the editor
+  and the simulator never reproduce it.
+- The Unity splash screen is off (`m_ShowUnitySplashScreen: 0`). Unity 6 makes
+  this legal on a Personal licence; on older versions it silently comes back.
+- Unity always names the exported Xcode project, target and scheme
+  `Unity-iPhone`. `IosPostProcess` renames the **scheme** on export, which is
+  what Xcode shows in its toolbar. The `.xcodeproj` folder name is left alone —
+  renaming it breaks append builds. The shipped app is unaffected either way:
+  `CFBundleDisplayName` comes from `productName`.
 
 **Configuration**
 - `DisplaySetup` is the **source of truth** for board size, camera presets,
@@ -134,6 +166,16 @@ These each cost real debugging time. They are not obvious from the code.
   Probe `MeshFactory` directly.
 - `String.GetHashCode()` is not stable across runtimes. The per-level scatter
   seed uses a hand-rolled hash so levels don't re-scatter between sessions.
+
+**Ads and economy**
+- `Ads` is a facade. Nothing outside `Assets/Scripts/Ads` may reference the
+  LevelPlay SDK, or the game stops running without keys.
+- The star payout reads `LevelProgress.GetStars` **before** `SetStars`
+  overwrites it. Reorder those two and every replay pays out again.
+- `levelStartingHealth` is captured **before** the start boost is applied, or a
+  boosted run starts above 100% health and 3-stars every level.
+- Coins (`Wallet`) and gold (`GameManager.currentGold`) are different
+  currencies that share a coin icon. Gold is per-level and resets; coins do not.
 
 **Art and text**
 - The TMP atlases are **static and ASCII-only** (~97 glyphs). No stars, arrows

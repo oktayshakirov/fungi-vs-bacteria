@@ -497,6 +497,64 @@ MonoBehaviour:
   levelSelectionScreenPrefab: {fileID: 914948801459067705, guid: e11e29090a2dcae49b26cd1e4ef727f8, type: 3}
   settingsScreenPrefab: {fileID: 914948801459067705, guid: 76643bb17a3f2e94c9ed4e872b47bd0a, type: 3}
   mainCanvas: {fileID: 1257799247}
+--- !u!1 &1053140276
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1053140278}
+  - component: {fileID: 1053140277}
+  m_Layer: 0
+  m_Name: Ads
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1053140277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053140276}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a672ff92bbb5444c3bd8e114aeb5c561, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LevelPlayAds
+  androidAppKey: 
+  iosAppKey: 
+  androidInterstitialAdUnitId: 
+  iosInterstitialAdUnitId: 
+  androidRewardedAdUnitId: 
+  iosRewardedAdUnitId: 
+  fallbackRewardAmount: 75
+  retryDelay: 4
+  maxRetries: 5
+  consentUpdateTimeout: 15
+  consentFormTimeout: 60
+  attTimeout: 30
+  launchTestSuiteOnInit: 0
+  verboseLogging: 0
+--- !u!4 &1053140278
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053140276}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1092559443
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1171,8 +1229,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -607.6484, y: -405}
-  m_SizeDelta: {x: 1620.3956, y: 1080}
+  m_AnchoredPosition: {x: -405.09894, y: -270.00003}
+  m_SizeDelta: {x: 1080.2638, y: 720.00006}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1850629623
 MonoBehaviour:
@@ -1410,3 +1468,4 @@ SceneRoots:
   - {fileID: 1874173816}
   - {fileID: 2136641085}
   - {fileID: 1257799248}
+  - {fileID: 1053140278}

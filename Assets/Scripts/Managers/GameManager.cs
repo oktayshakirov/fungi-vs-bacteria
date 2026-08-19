@@ -37,7 +37,16 @@ public class GameManager : MonoBehaviour
     LevelConfig level = GameSession.SelectedLevel;
     currentGold = level != null ? level.startingGold : startingGold;
     currentHealth = level != null ? level.startingHealth : startingHealth;
+
+    // Captured before the boost is applied, so the star rating still measures
+    // how much of the *level's* health survived. Otherwise a boosted run would
+    // start above 100% and every level would 3-star.
     levelStartingHealth = currentHealth;
+
+    // Paid for on the level screen; consuming it here means it is spent exactly
+    // once, on the run that actually starts.
+    currentGold += Boosters.ConsumeStartBoost();
+    Boosters.BeginRun();
 
     PlaySpeed = 1f;
     Time.timeScale = 1f;
@@ -76,16 +85,24 @@ public class GameManager : MonoBehaviour
     int stars = LevelProgress.StarsForHealth(currentHealth, levelStartingHealth);
 
     LevelConfig level = GameSession.SelectedLevel;
+    int coinsEarned = 0;
     if (level != null)
     {
+      // Read before SetStars overwrites it: the payout is for the improvement,
+      // not the total, so replaying a cleared level cannot farm coins.
+      int previousStars = LevelProgress.GetStars(level.environmentName, level.levelNumber);
+
       LevelProgress.MarkLevelCompleted(level.environmentName, level.levelNumber);
       LevelProgress.SetStars(level.environmentName, level.levelNumber, stars);
+
+      coinsEarned = Wallet.AwardForLevel(level.environmentName, level.levelNumber,
+        stars, previousStars);
     }
 
-    Debug.Log($"Victory! All waves cleared. Stars: {stars}");
+    Debug.Log($"Victory! All waves cleared. Stars: {stars}, coins: {coinsEarned}");
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.Victory);
     CameraRig.Instance?.PlayEndOfLevelView();
-    HUDManager.Instance.ShowVictoryScreen(stars);
+    HUDManager.Instance.ShowVictoryScreen(stars, coinsEarned);
     PauseGame();
   }
 
@@ -141,6 +158,28 @@ public class GameManager : MonoBehaviour
     CameraRig.Instance?.PlayEndOfLevelView();
     HUDManager.Instance.ShowGameOverScreen();
     PauseGame();
+  }
+
+  // Resumes a lost run in place, paid for with coins or a rewarded ad. The
+  // enemies still on the board are left alone: clearing them would make a
+  // continue strictly better than a clean run, and surviving the wave you died
+  // to is the whole point of buying one.
+  public void ContinueRun(int extraHealth)
+  {
+    if (!gameEnded || currentHealth > 0) return;
+
+    gameEnded = false;
+    currentHealth = extraHealth;
+    Boosters.MarkContinueUsed();
+
+    UpdateUI();
+    HUDManager.Instance.HideGameOverScreen();
+    ResumeGame();
+
+    // A continue can leave the board already empty — the last enemy may have
+    // died in the same frame as the base fell — which would otherwise strand
+    // the player in a level that can never end.
+    CheckVictory();
   }
 
   public void PauseGame()

@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,7 +9,7 @@ public class VictoryScreen : MonoBehaviour
 
   private RectTransform starsRow;
 
-  public void Initialize(int stars = 3)
+  public void Initialize(int stars = 3, int coinsEarned = 0)
   {
     if (nextLevelButton == null || mainMenuButton == null)
     {
@@ -27,6 +28,39 @@ public class VictoryScreen : MonoBehaviour
 
     ScreenTheme.Apply(transform, nextLevelButton);
     ShowStars(stars);
+    ShowCoinPayout(coinsEarned);
+
+    // Asked once per level end; Ads decides whether an ad is actually due.
+    // Deliberately here rather than on the button presses: the screen appearing
+    // is the moment the level is over, and the player has not yet chosen what
+    // to do next.
+    Ads.OnLevelEnded();
+  }
+
+  // Silent when nothing was earned — a "+0 coins" line on a replay reads as a
+  // punishment for playing again.
+  private void ShowCoinPayout(int coins)
+  {
+    if (coins <= 0) return;
+
+    var go = new GameObject("CoinPayout", typeof(RectTransform));
+    go.transform.SetParent(transform, false);
+
+    var rect = (RectTransform)go.transform;
+    rect.anchorMin = new Vector2(0.5f, 0.52f);
+    rect.anchorMax = new Vector2(0.5f, 0.52f);
+    rect.pivot = new Vector2(0.5f, 0.5f);
+    rect.anchoredPosition = Vector2.zero;
+    rect.sizeDelta = new Vector2(560f, 60f);
+    rect.SetAsLastSibling();
+
+    // A LayoutGroup on an ancestor would otherwise reposition this.
+    go.AddComponent<LayoutElement>().ignoreLayout = true;
+
+    var label = go.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.Heading, UiSkin.Gold);
+    label.text = $"+{coins} COINS";
+    label.alignment = TextAlignmentOptions.Center;
   }
 
   // Builds a row of star sprites at runtime, so no prefab wiring is required.

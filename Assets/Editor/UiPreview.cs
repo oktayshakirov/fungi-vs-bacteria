@@ -40,6 +40,14 @@ public static class UiPreview
     ShootScreen(cam, "Assets/Resources/Screens/VictoryScreen.prefab", "NextLevelButton", "screen-victory");
     ShootScreen(cam, "Assets/Prefabs/Screens/GameOverScreen.prefab", "RestartNewGame", "screen-gameover");
 
+    // Settings is themed by its own entry point rather than ScreenTheme.Apply,
+    // so it needs the matching call here or the preview would not show the
+    // corner the close button actually lands in.
+    ShootScreen(cam, "Assets/Resources/Screens/SettingsScreen.prefab", null, "screen-settings",
+      settings: true);
+
+    ShootWallet(cam, "screen-wallet");
+
     // Screens whose look depends on Start() running (cards populated, sliders
     // skinned). Start is invoked by reflection rather than widening the
     // production API just for this tool.
@@ -172,7 +180,47 @@ public static class UiPreview
     }
   }
 
-  private static void ShootScreen(Camera cam, string prefabPath, string primaryName, string name)
+  // The wallet has no prefab — it is built entirely in code — so it is
+  // constructed here the same way the game constructs it.
+  private static void ShootWallet(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    GameObject host = HostCanvas(cam);
+    WalletScreen.Open(host.transform);
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)host.transform);
+
+    Capture(cam, width, height, name);
+    Object.DestroyImmediate(host);
+  }
+
+  // Renders whatever is currently on the preview camera to a PNG.
+  private static void Capture(Camera cam, int width, int height, string name)
+  {
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    RenderTexture previous = RenderTexture.active;
+    RenderTexture.active = rt;
+    var shot = new Texture2D(width, height, TextureFormat.RGB24, false);
+    shot.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+    shot.Apply();
+    RenderTexture.active = previous;
+
+    File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
+
+    cam.targetTexture = null;
+    Object.DestroyImmediate(rt);
+  }
+
+  private static void ShootScreen(Camera cam, string prefabPath, string primaryName, string name,
+    bool settings = false)
   {
     const int width = 1920, height = 1080;
     ClearCanvases();
@@ -200,8 +248,28 @@ public static class UiPreview
       if (b.name == primaryName) primary = b;
     }
 
-    ScreenTheme.Apply(go.transform, primary,
-      name.Contains("gameover") ? UiSkin.Danger : (Color?)null);
+    // Game over builds its continue offer in Initialize(), so calling the real
+    // entry point is the only way to see the screen the player actually gets.
+    // Initialize also runs ScreenTheme itself, so nothing else is needed here.
+    var gameOver = go.GetComponent<GameOverScreen>();
+    if (gameOver != null)
+    {
+      gameOver.Initialize();
+    }
+    else if (settings)
+    {
+      Button close = null;
+      foreach (Button b in go.GetComponentsInChildren<Button>(true))
+      {
+        if (b.name == "Close") close = b;
+      }
+      ScreenTheme.ApplySettingsScreen(go.transform, close);
+    }
+    else
+    {
+      ScreenTheme.Apply(go.transform, primary,
+        name.Contains("gameover") ? UiSkin.Danger : (Color?)null);
+    }
 
     Canvas.ForceUpdateCanvases();
     if (canvas != null) LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvas.transform);

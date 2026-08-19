@@ -44,6 +44,8 @@ public static class DisplaySetup
     {
       Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
+      if (scenePath.Contains("MainMenu")) EnsureAdsManager(scene);
+
       foreach (GameObject root in scene.GetRootGameObjects())
       {
         foreach (GridManager grid in root.GetComponentsInChildren<GridManager>(true))
@@ -112,6 +114,23 @@ public static class DisplaySetup
     AssetDatabase.SaveAssets();
     Debug.Log($"DISPLAY SETUP: camera rigs added={cameras}, safe areas added={safeAreas}, scalers updated={scalers}");
     if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
+  // The ads host lives in the main menu only: it marks itself DontDestroyOnLoad,
+  // so one instance covers the whole session. Its ad unit IDs are left empty on
+  // purpose — with no keys set LevelPlayAds logs a warning and every ad call
+  // no-ops, which is exactly what a developer build without dashboard access
+  // should do. Fill them in on the component in Scenes/MainMenu.unity.
+  private static void EnsureAdsManager(Scene scene)
+  {
+    foreach (GameObject root in scene.GetRootGameObjects())
+    {
+      if (root.GetComponentInChildren<LevelPlayAds>(true) != null) return;
+    }
+
+    var go = new GameObject("Ads");
+    go.AddComponent<LevelPlayAds>();
+    Debug.Log("DISPLAY SETUP: added the Ads host to the main menu scene.");
   }
 
   // Values already serialized in the scene win over the C# defaults, so the
