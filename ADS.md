@@ -3,49 +3,61 @@
 Mirrors the setup in **snowman-run**: Unity LevelPlay (ironSource) as the
 mediation layer, with AdMob as a demand source and Google's UMP SDK for consent.
 
-## What you need to supply
+## The identifiers
 
-Nothing in this repo contains a real key — every field is blank, and with blank
-fields `LevelPlayAds` logs a warning and every ad call quietly no-ops. Fill these
-in and the ads turn on.
+All of them live in **`Assets/Editor/AdsSetup.cs`**, and
+**Tools -> Ads -> Apply Ad Keys** writes them into the two places the SDKs
+actually read:
 
-### 1. ironSource / LevelPlay dashboard
+* the `Ads` component in `Assets/Scenes/MainMenu.unity` (LevelPlay), and
+* `Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset` (AdMob).
 
-On the component **`Ads`** in `Assets/Scenes/MainMenu.unity`:
+Edit the constants, re-run the menu item; never edit the scene or the asset by
+hand, or the two drift.
 
-| Field | Where it comes from |
+These are not secrets — ad unit IDs ship inside every APK and IPA and are
+readable by anyone who unzips one. The dashboards are what authenticate.
+
+### LevelPlay (configured)
+
+| | Android | iOS |
+|---|---|---|
+| App key | `278709fa5` | `27870661d` |
+| Interstitial | `c47fie8fgtkqqwes` | `iuhic3ldrsi2p2o1` |
+| Rewarded | `2g3ezdg4mymfssc8` | `7juzu67ubc1el0b3` |
+
+### AdMob app IDs (configured)
+
+| | App ID |
 |---|---|
-| Android App Key | LevelPlay -> your Android app -> App Settings -> App Key |
-| iOS App Key | LevelPlay -> your iOS app -> App Settings -> App Key |
-| Android Interstitial Ad Unit Id | LevelPlay -> Ad Units -> Interstitial (Android) |
-| iOS Interstitial Ad Unit Id | LevelPlay -> Ad Units -> Interstitial (iOS) |
-| Android Rewarded Ad Unit Id | LevelPlay -> Ad Units -> Rewarded Video (Android) |
-| iOS Rewarded Ad Unit Id | LevelPlay -> Ad Units -> Rewarded Video (iOS) |
+| Android | `ca-app-pub-5852582960793521~5375331742` |
+| iOS | `ca-app-pub-5852582960793521~8390056055` |
 
-Six values. The two app keys are per-platform *apps*; the four ad unit IDs are
-per-platform *placements*.
+Note the `~`. The Android App ID is **not optional** — a build without it
+crashes on launch.
 
-### 2. AdMob
+### AdMob ad unit IDs — dashboard only, NOT in Unity
 
-Open **Assets -> Google Mobile Ads -> Settings** once (this creates
-`Assets/GoogleMobileAds/Resources/GoogleMobileAdsSettings.asset`) and set:
+These belong on the LevelPlay dashboard, entered against each placement when
+AdMob is added as a network. Nothing in this project reads them; they are
+recorded here so they are not lost.
 
-| Field | Where it comes from |
-|---|---|
-| Google Mobile Ads Android App ID | AdMob -> App settings -> App ID (`ca-app-pub-XXXX~YYYY`) |
-| Google Mobile Ads iOS App ID | AdMob -> App settings -> App ID |
+| | Android | iOS |
+|---|---|---|
+| Interstitial | `ca-app-pub-5852582960793521/2719192906` | `ca-app-pub-5852582960793521/7394990424` |
+| Rewarded | `ca-app-pub-5852582960793521/4898633682` | `ca-app-pub-5852582960793521/9582170060` |
 
-**The Android App ID is not optional** — a build without it crashes on launch.
-Note the `~` in an App ID; an ad *unit* ID uses `/` and is a different thing.
+(Ad *unit* IDs use `/`; app IDs use `~`. Mixing them up is the classic no-fill
+cause.)
 
-The AdMob **ad unit** IDs are not needed in Unity at all: they are entered on the
-LevelPlay dashboard when AdMob is added as a network for each placement.
+### Still to do on the dashboards
 
-### 3. Set the reward amount on the dashboard
-
-The rewarded placement's reward amount is read from LevelPlay at runtime, so the
-payout can be changed without shipping a build. `fallbackRewardAmount` (75) is
-only used when the dashboard supplies nothing.
+1. Add AdMob as a network on each of the four LevelPlay placements, using the
+   ad unit IDs above.
+2. Set the **reward amount** on both rewarded placements. It is read from
+   LevelPlay at runtime, so the coin payout can be retuned without shipping a
+   build. `fallbackRewardAmount` (75) is only used when the dashboard supplies
+   nothing.
 
 ## Where ads appear
 

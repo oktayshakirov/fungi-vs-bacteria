@@ -41,8 +41,9 @@ Roughly in order. Each is committed.
    close button, UI haptics, Xcode scheme name.
 7. **Ads + coin economy** — LevelPlay mediation behind an `Ads` facade, a
    persistent `Wallet`, rewarded ads, paced interstitials, the wallet screen,
-   the start boost and the continue offer. See `ADS.md`. **No keys are set**:
-   until they are, every ad call no-ops by design.
+   the start boost and the continue offer. See `ADS.md`. Keys are set
+   (`Tools/Ads/Apply Ad Keys`); the LevelPlay dashboard still needs AdMob added
+   as a network on each placement.
 
 ## 4. How to verify work — read this before changing anything
 
@@ -103,9 +104,9 @@ allocation, and `FloatingText` + enemy health bars have been pooled since — bu
 **the fix has not been re-measured on device**. `DeathEffect` is still
 unpooled (once per kill, so lower priority).
 
-**Priority 0 — Fill in the ad keys and playtest the economy.** `ADS.md` lists
-the eight values needed (six LevelPlay, two AdMob). Until they are set the ad
-buttons show "AD UNAVAILABLE" and everything else works. The coin prices
+**Priority 0 — Playtest the economy on a device.** The keys are in; what is
+untested is whether ads actually fill and whether the prices feel right. The
+coin prices
 (`Boosters`) and the interstitial pacing (`Ads`) are first-guess numbers that
 have never been played against; both are single constants at the top of their
 file specifically so a playtest can move them.
@@ -168,6 +169,9 @@ These each cost real debugging time. They are not obvious from the code.
   seed uses a hand-rolled hash so levels don't re-scatter between sessions.
 
 **Ads and economy**
+- Ad identifiers live in `Assets/Editor/AdsSetup.cs` and are written into the
+  scene and the AdMob asset by `Tools/Ads/Apply Ad Keys`. Editing either target
+  by hand drifts from the source.
 - `Ads` is a facade. Nothing outside `Assets/Scripts/Ads` may reference the
   LevelPlay SDK, or the game stops running without keys.
 - The star payout reads `LevelProgress.GetStars` **before** `SetStars`

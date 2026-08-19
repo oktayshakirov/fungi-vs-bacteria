@@ -526,12 +526,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a672ff92bbb5444c3bd8e114aeb5c561, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LevelPlayAds
-  androidAppKey: 
-  iosAppKey: 
-  androidInterstitialAdUnitId: 
-  iosInterstitialAdUnitId: 
-  androidRewardedAdUnitId: 
-  iosRewardedAdUnitId: 
+  androidAppKey: 278709fa5
+  iosAppKey: 27870661d
+  androidInterstitialAdUnitId: c47fie8fgtkqqwes
+  iosInterstitialAdUnitId: iuhic3ldrsi2p2o1
+  androidRewardedAdUnitId: 2g3ezdg4mymfssc8
+  iosRewardedAdUnitId: 7juzu67ubc1el0b3
   fallbackRewardAmount: 75
   retryDelay: 4
   maxRetries: 5
@@ -1229,7 +1229,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -405.09894, y: -270.00003}
+  m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 1080.2638, y: 720.00006}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1850629623
