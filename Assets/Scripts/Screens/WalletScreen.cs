@@ -13,7 +13,7 @@ using UnityEngine.UI;
 // changed and re-rendered through UiPreview without opening the editor.
 public class WalletScreen : MonoBehaviour
 {
-  private const int RewardFallback = 75;
+  private const int RewardFallback = 300;
 
   private TMP_Text balanceLabel;
   private Button watchButton;

@@ -33,7 +33,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
 
   [Header("Reward")]
   [Tooltip("Used when the mediation dashboard does not supply an amount.")]
-  [SerializeField] private int fallbackRewardAmount = 75;
+  [SerializeField] private int fallbackRewardAmount = 300;
 
   [Header("Retry")]
   [SerializeField] private float retryDelay = 4f;

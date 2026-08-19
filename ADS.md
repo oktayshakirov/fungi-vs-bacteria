@@ -56,7 +56,7 @@ cause.)
    ad unit IDs above.
 2. Set the **reward amount** on both rewarded placements. It is read from
    LevelPlay at runtime, so the coin payout can be retuned without shipping a
-   build. `fallbackRewardAmount` (75) is only used when the dashboard supplies
+   build. `fallbackRewardAmount` (300) is only used when the dashboard supplies
    nothing.
 
 ## Where ads appear

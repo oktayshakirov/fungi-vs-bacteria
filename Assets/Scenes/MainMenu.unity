@@ -532,7 +532,7 @@ MonoBehaviour:
   iosInterstitialAdUnitId: iuhic3ldrsi2p2o1
   androidRewardedAdUnitId: 2g3ezdg4mymfssc8
   iosRewardedAdUnitId: 7juzu67ubc1el0b3
-  fallbackRewardAmount: 75
+  fallbackRewardAmount: 300
   retryDelay: 4
   maxRetries: 5
   consentUpdateTimeout: 15
