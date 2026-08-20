@@ -59,6 +59,46 @@ cause.)
    build. `fallbackRewardAmount` (300) is only used when the dashboard supplies
    nothing.
 
+## If Xcode says `IronSource/IronSource.h` file not found
+
+LevelPlay's native iOS/Android SDK is not part of the UPM package — it is
+fetched separately by a "Network Manager" installer the first time the
+**Unity Editor** (not batch mode) registers the package, and it writes the
+result to `Assets/LevelPlay/Editor/*.xml` (read by EDM4U to add the CocoaPods
+entry). If those files are missing, EDM4U never adds `pod 'IronSourceSDK'` to
+the Podfile, and Xcode fails on the header.
+
+Already fixed once (2026-08-20) by installing the same two dependency
+descriptors the Editor's installer would have written — `IronSourceSDKDependencies.xml`
+and `ISAdMobAdapterDependencies.xml`, both now committed in
+`Assets/LevelPlay/Editor/`. If this happens again (e.g. after bumping the
+LevelPlay package version), the fix is:
+
+1. **Tools -> Build -> iOS (Update existing Xcode export in place)** —
+   re-exports into the checked-in `iOS/` folder rather than a scratch
+   location, which is what regenerates `iOS/Podfile` from every
+   `Dependencies.xml` under `Assets`.
+2. In `iOS/`, run `pod install`. If CocoaPods errors with a Ruby
+   `UnicodeNormalize`/`ASCII-8BIT` crash, your shell's locale isn't UTF-8 —
+   run `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install` instead.
+3. Open `Unity-iPhone.xcworkspace` (never the `.xcodeproj` — CocoaPods only
+   links correctly through the workspace) and build.
+
+If the LevelPlay package version changes, the compatible SDK/adapter versions
+also change. They are resolved the same way LevelPlay's own installer does:
+read `Assets/LevelPlay/Editor/Json` — no, that path is package-internal;
+instead open the package's bundled
+`Editor/Json/LevelPlayVersions.json` (inside
+`Library/PackageCache/com.unity.services.levelplay@<version>/`), find
+`unityPackage.versions["<installed package version>"].ironSourceSdkVersion`
+(a range), pick the newest `IronSourceSdk.versions` entry inside that range,
+then the newest `adapters.AdMob.versions` entry whose own range covers *that*
+SDK version. Their `dependencyXmlURL` (with `${VERSION}` substituted) is a
+plain HTTPS S3 URL — fetch both and drop them at
+`Assets/LevelPlay/Editor/<dependencyXmlFileName>`, then repeat steps 1-3
+above. This is exactly what **Ads Mediation -> Network Manager** does from
+inside a normal (non-batch) Editor session, if you would rather use the GUI.
+
 ## Where ads appear
 
 **Rewarded** — always opt-in, never forced:
