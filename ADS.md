@@ -136,9 +136,54 @@ Re-export (Tools -> Build -> iOS...) is required after any change here for it
 to take effect - the link.xml is only read during the Unity export step, not
 by Xcode or CocoaPods afterward.
 
+## "Mediation No fill" (error 509) - no ad networks configured yet
+
+If init succeeds (`[Ads] LevelPlay init succeeded.`) but every load fails with
+
+```
+[Ads] Rewarded load failed: 509 - Mediation No fill
+```
+
+then the SDK is working correctly and the problem is entirely dashboard-side:
+LevelPlay asked its waterfall for an ad and no network in it had one. On a new
+app the usual reason is simply that **the waterfall is empty** - the app keys
+and ad unit IDs are right (a wrong ad unit gives a different error), the
+networks just have not been attached to the ad units yet.
+
+This is the "add AdMob as a network on each placement" step; nothing in the
+Unity project can fix it.
+
+### Getting a guaranteed test ad
+
+Google publishes demo ad units that always fill. Configuring an AdMob instance
+on the LevelPlay dashboard with these proves the whole pipeline end to end,
+without touching your real AdMob account or risking invalid traffic:
+
+| | Android | iOS |
+|---|---|---|
+| Interstitial | `ca-app-pub-3940256099942544/1033173712` | `ca-app-pub-3940256099942544/4411468910` |
+| Rewarded | `ca-app-pub-3940256099942544/5224354917` | `ca-app-pub-3940256099942544/1712485313` |
+
+(Source: Google's own test-ads pages for
+[Android](https://developers.google.com/admob/android/test-ads) and
+[iOS](https://developers.google.com/admob/ios/test-ads).)
+
+On the LevelPlay dashboard:
+
+1. **Setup -> SDK Networks -> Google (AdMob)** - add the network and enter the
+   AdMob App IDs (the `~` ones, already listed above).
+2. **Setup -> Instances** (or the ad unit's own page) - for *each* of the four
+   placements (Interstitial + Rewarded, Android + iOS) add an AdMob instance
+   and paste the matching ad unit ID. Use the demo IDs above first to confirm
+   fill, then swap in your real `/`-style ad unit IDs.
+3. Real AdMob units on a brand-new app can legitimately return no fill for a
+   while - the app has no traffic history and may still be under review. The
+   demo IDs are how you tell that apart from a broken integration.
+
 ## Verifying ads are actually serving (test ads)
 
-`launchTestSuiteOnInit` on the `Ads` component (off by default) launches
+`launchTestSuiteOnInit` on the `Ads` component (**currently ON**, for the
+no-fill investigation - turn it off before any real build) launches
 LevelPlay's Test Suite after init, which shows every configured network and
 whether each one can currently serve a real test ad - the fastest way to tell
 "no fill because nothing's configured on the dashboard yet" apart from "still

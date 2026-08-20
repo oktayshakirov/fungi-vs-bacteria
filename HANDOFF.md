@@ -169,6 +169,10 @@ These each cost real debugging time. They are not obvious from the code.
   seed uses a hand-rolled hash so levels don't re-scatter between sessions.
 
 **Ads and economy**
+- `launchTestSuiteOnInit` and `verboseLogging` are currently **ON** in
+  `MainMenu.unity` for the no-fill investigation. Both must be off before any
+  build real players see - the test suite puts a debug overlay in front of
+  them. Init logs a loud warning while it is on.
 - LevelPlay's native SDK is not in the UPM package - it is fetched by a
   Network Manager step that only runs inside a normal (non-batch) Editor
   session. Missing `Assets/LevelPlay/Editor/*.xml` is why Xcode fails on

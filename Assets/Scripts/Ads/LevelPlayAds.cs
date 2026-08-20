@@ -60,6 +60,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
   private bool rewardedLoaded, rewardedLoading, rewardedShowing;
   private int rewardedRetryCount;
   private bool interstitialLoaded, interstitialLoading, interstitialShowing;
+  private int interstitialRetryCount;
 
   private Action<int> pendingReward;
   private Action pendingFailure;
@@ -223,7 +224,14 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       return;
     }
 
-    if (launchTestSuiteOnInit) IronSource.Agent.setMetaData("is_test_suite", "enable");
+    if (launchTestSuiteOnInit)
+    {
+      // Deliberately loud and not gated behind verboseLogging: shipping with
+      // the test suite on puts a debug overlay in front of real players.
+      Debug.LogWarning("[Ads] TEST SUITE ENABLED - turn launchTestSuiteOnInit off " +
+                       "on the Ads object in MainMenu.unity before any real build.");
+      IronSource.Agent.setMetaData("is_test_suite", "enable");
+    }
 
     Log("Initializing LevelPlay...");
     LevelPlay.Init(appKey, null, new[]
@@ -400,14 +408,42 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     if (string.IsNullOrEmpty(adUnitId)) return;
 
     interstitial = new LevelPlayInterstitialAd(adUnitId);
-    interstitial.OnAdLoaded += info => { interstitialLoaded = true; interstitialLoading = false; };
+    interstitial.OnAdLoaded += info =>
+    {
+      interstitialLoaded = true;
+      interstitialLoading = false;
+      interstitialRetryCount = 0;
+    };
     interstitial.OnAdLoadFailed += error =>
     {
       Debug.LogWarning($"[Ads] Interstitial load failed: {error.ErrorCode} - {error.ErrorMessage}");
       interstitialLoading = false;
+
+      // Retries on a timer, like the rewarded does. Without this the only
+      // other caller of LoadInterstitial is a *failed* ShowInterstitial, so a
+      // failure at startup meant the first level-end that was allowed to show
+      // an ad always found nothing loaded and merely kicked off a load - one
+      // wasted opportunity per failure, every session.
+      if (interstitialRetryCount < maxRetries)
+      {
+        interstitialRetryCount++;
+        StartCoroutine(RetryLoadInterstitial(retryDelay));
+      }
+      else
+      {
+        interstitialRetryCount = 0;
+        StartCoroutine(RetryLoadInterstitial(retryDelay * 4f));
+      }
     };
     interstitial.OnAdDisplayFailed += error => { interstitialShowing = false; LoadInterstitial(); };
     interstitial.OnAdClosed += info => { interstitialShowing = false; LoadInterstitial(); };
+  }
+
+  private IEnumerator RetryLoadInterstitial(float delay)
+  {
+    // Realtime: the menus and the pause screen run at timeScale 0.
+    yield return new WaitForSecondsRealtime(delay);
+    LoadInterstitial();
   }
 
   private void LoadInterstitial()

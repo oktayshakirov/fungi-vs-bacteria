@@ -538,8 +538,8 @@ MonoBehaviour:
   consentUpdateTimeout: 15
   consentFormTimeout: 60
   attTimeout: 30
-  launchTestSuiteOnInit: 0
-  verboseLogging: 0
+  launchTestSuiteOnInit: 1
+  verboseLogging: 1
 --- !u!4 &1053140278
 Transform:
   m_ObjectHideFlags: 0
