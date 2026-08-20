@@ -1,0 +1,22 @@
+<!--
+  Google's own link.xml (Library/PackageCache/com.google.ads.mobile/GoogleMobileAds/link.xml)
+  tries to preserve the platform-specific UMP assemblies with a <namespace preserve="all">
+  child element. That is not valid Unity link.xml syntax (preserve="all" is only
+  recognized on <assembly> and <type>, see
+  https://docs.unity3d.com/Manual/managed-code-stripping-xml-formatting.html) so
+  UnityLinker treats it as an empty rule and strips the whole assembly.
+
+  GoogleMobileAds.Ump.Api.Utils.GetClientFactory() resolves the platform
+  implementation only via Type.GetType("GoogleMobileAds.Ump.iOS.UmpClientFactory,
+  GoogleMobileAds.Ump.iOS") - a plain string, invisible to static reachability
+  analysis - then Activator.CreateInstance(type) on the result. With the type
+  stripped, GetType returns null and CreateInstance throws
+  ArgumentNullException("type"), which is the exact "[Ads] UMP unavailable,
+  continuing without it: Value cannot be null. Parameter name: type" seen in
+  device logs. This overrides that with the correct, documented syntax.
+-->
+<linker>
+  <assembly fullname="GoogleMobileAds.Ump.iOS" preserve="all" ignoreIfMissing="1" />
+  <assembly fullname="GoogleMobileAds.Ump.Android" preserve="all" ignoreIfMissing="1" />
+  <assembly fullname="GoogleMobileAds.Ump.Unity" preserve="all" ignoreIfMissing="1" />
+</linker>

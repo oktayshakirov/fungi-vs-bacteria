@@ -99,6 +99,60 @@ plain HTTPS S3 URL — fetch both and drop them at
 above. This is exactly what **Ads Mediation -> Network Manager** does from
 inside a normal (non-batch) Editor session, if you would rather use the GUI.
 
+## If ads never load and the log shows "UMP unavailable... Value cannot be null. Parameter name: type"
+
+This is a real bug, not a dashboard/config problem, and it will keep the UMP
+consent flow (and possibly ad fill on networks that check consent) broken on
+every device build until `Assets/GoogleMobileAds/link.xml` exists.
+
+**Cause:** the GoogleMobileAds package's own bundled `link.xml`
+(`Library/PackageCache/com.google.ads.mobile@<version>/GoogleMobileAds/link.xml`)
+tries to preserve the platform UMP assemblies with a `<namespace preserve="all">`
+child element. That is not valid Unity link.xml syntax - `preserve="all"` is
+only recognized on `<assembly>` and `<type>` - so UnityLinker treats the rule
+as empty and strips the entire `GoogleMobileAds.Ump.iOS` (and `...Ump.Android`)
+assembly as unreachable, since nothing else references it statically -
+`GoogleMobileAds.Ump.Api.Utils.GetClientFactory()` only resolves it via
+`Type.GetType("GoogleMobileAds.Ump.iOS.UmpClientFactory, GoogleMobileAds.Ump.iOS")`,
+a plain runtime string invisible to the linker's reachability analysis. With
+the type gone, `Type.GetType` returns null and the following
+`Activator.CreateInstance(type)` throws exactly
+`ArgumentNullException: Value cannot be null. Parameter name: type`.
+
+**Fix (already applied, 2026-08-20):** `Assets/GoogleMobileAds/link.xml` adds
+the same preservation with the correct, documented syntax:
+
+```xml
+<assembly fullname="GoogleMobileAds.Ump.iOS" preserve="all" ignoreIfMissing="1" />
+```
+
+Verified by checking the generated IL2Cpp output before/after: before the fix,
+no `GoogleMobileAds.Ump.iOS.cpp` existed anywhere in
+`iOS/Il2CppOutputProject/Source/il2cppOutput/`; after, it exists with a fully
+compiled `UmpClientFactory` (was 0 lines of generated code, is 2600+ after).
+Confirmed with a full unsigned `xcodebuild` through the workspace both times.
+
+Re-export (Tools -> Build -> iOS...) is required after any change here for it
+to take effect - the link.xml is only read during the Unity export step, not
+by Xcode or CocoaPods afterward.
+
+## Verifying ads are actually serving (test ads)
+
+`launchTestSuiteOnInit` on the `Ads` component (off by default) launches
+LevelPlay's Test Suite after init, which shows every configured network and
+whether each one can currently serve a real test ad - the fastest way to tell
+"no fill because nothing's configured on the dashboard yet" apart from "still
+broken." Turn it on, test on device, turn it back off before any build meant
+for real play - the tooltip says so for a reason, and it is easy to forget.
+`verboseLogging` (also off by default) additionally logs the full
+consent/init sequence.
+
+Ad load failures now log a warning either way (`[Ads] Rewarded load failed:
+...` / `[Ads] Interstitial load failed: ...`) regardless of `verboseLogging` -
+previously they were completely silent, which is why the UMP crash above had
+to be diagnosed from a single unrelated line in a device log rather than a
+clear failure trail.
+
 ## Where ads appear
 
 **Rewarded** — always opt-in, never forced:

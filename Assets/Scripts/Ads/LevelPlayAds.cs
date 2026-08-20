@@ -235,7 +235,10 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
 
   private void OnInitSuccess(com.unity3d.mediation.LevelPlayConfiguration configuration)
   {
-    Log("LevelPlay init complete.");
+    // Not gated behind verboseLogging: this is the one line that proves ads
+    // ever got off the ground at all, and its absence from a device log is
+    // the first thing to check when "ads don't work".
+    Debug.Log("[Ads] LevelPlay init succeeded.");
     initialized = true;
 
     CreateInterstitial();
@@ -248,7 +251,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
 
   private void OnInitFailed(com.unity3d.mediation.LevelPlayInitError error)
   {
-    Debug.LogError($"[Ads] LevelPlay init failed: {error.ErrorCode} - {error.ErrorMessage}");
+    Debug.LogWarning($"[Ads] LevelPlay init failed: {error.ErrorCode} - {error.ErrorMessage}");
 
     if (initRetryCount >= maxRetries) return;
     initRetryCount++;
@@ -301,6 +304,11 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
 
   private void OnRewardedLoadFailed(com.unity3d.mediation.LevelPlayAdError error)
   {
+    // No fill is routine (empty inventory, no test ads configured) and not
+    // worth alarming over, but it must be visible somewhere - this used to be
+    // completely silent, which is exactly why "ads don't work" had no trail to
+    // follow. LogWarning rather than LogError: expected during normal testing.
+    Debug.LogWarning($"[Ads] Rewarded load failed: {error.ErrorCode} - {error.ErrorMessage}");
     rewardedLoading = false;
     Ads.NotifyRewardedAvailability();
 
@@ -393,7 +401,11 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
 
     interstitial = new LevelPlayInterstitialAd(adUnitId);
     interstitial.OnAdLoaded += info => { interstitialLoaded = true; interstitialLoading = false; };
-    interstitial.OnAdLoadFailed += error => { interstitialLoading = false; };
+    interstitial.OnAdLoadFailed += error =>
+    {
+      Debug.LogWarning($"[Ads] Interstitial load failed: {error.ErrorCode} - {error.ErrorMessage}");
+      interstitialLoading = false;
+    };
     interstitial.OnAdDisplayFailed += error => { interstitialShowing = false; LoadInterstitial(); };
     interstitial.OnAdClosed += info => { interstitialShowing = false; LoadInterstitial(); };
   }
