@@ -169,6 +169,12 @@ These each cost real debugging time. They are not obvious from the code.
   seed uses a hand-rolled hash so levels don't re-scatter between sessions.
 
 **Ads and economy**
+- Opening a scene in batchmode can dirty it: `SafeArea` is `[ExecuteAlways]`
+  and `BackgroundFill` sizes itself in `OnEnable`, so both recalculate against
+  the batch-mode screen size and bake wrong anchors/sizes into
+  `MainMenu.unity`. Check `git diff` on the scene after any batch run and
+  revert stray `m_AnchorMin`/`m_SizeDelta` changes - one such edit would have
+  permanently inset the menu UI by 23%.
 - `launchTestSuiteOnInit` and `verboseLogging` are currently **ON** in
   `MainMenu.unity` for the no-fill investigation. Both must be off before any
   build real players see - the test suite puts a debug overlay in front of

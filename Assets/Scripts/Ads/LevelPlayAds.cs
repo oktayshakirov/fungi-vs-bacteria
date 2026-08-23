@@ -249,6 +249,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     Debug.Log("[Ads] LevelPlay init succeeded.");
     initialized = true;
 
+    LogAdvertisingId();
+
     CreateInterstitial();
     CreateRewarded();
     LoadRewarded();
@@ -469,6 +471,41 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     interstitialShowing = true;
     interstitialLoaded = false;
     interstitial.ShowAd();
+  }
+
+  // The LevelPlay dashboard's Settings -> Test devices list is keyed by the
+  // device's advertising ID (IDFA on iOS, AAID on Android). Until this device
+  // is in that list, every network in the waterfall is asked for *real*
+  // inventory - which a brand-new app with no traffic history simply does not
+  // have, giving error 509 "Mediation No fill" forever.
+  //
+  // Reading it off the device is otherwise a nuisance (iOS hides the IDFA and
+  // the usual advice is to install a third-party app to find it), so it is
+  // printed here instead. Debug-flag gated: a shipping build must not log it.
+  private void LogAdvertisingId()
+  {
+    if (!launchTestSuiteOnInit && !verboseLogging) return;
+
+    try
+    {
+      Application.RequestAdvertisingIdentifierAsync((string id, bool trackingEnabled, string error) =>
+      {
+        if (string.IsNullOrEmpty(error) && !string.IsNullOrEmpty(id))
+        {
+          Debug.Log($"[Ads] Advertising ID (paste into LevelPlay -> Settings -> " +
+                    $"Test devices): {id}  [tracking enabled: {trackingEnabled}]");
+        }
+        else
+        {
+          Debug.LogWarning($"[Ads] Could not read the advertising ID: " +
+                           $"{(string.IsNullOrEmpty(error) ? "empty id" : error)}");
+        }
+      });
+    }
+    catch (Exception e)
+    {
+      Debug.LogWarning($"[Ads] Advertising ID unavailable: {e.Message}");
+    }
   }
 
   private void Log(string message)

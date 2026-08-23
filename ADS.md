@@ -153,7 +153,28 @@ networks just have not been attached to the ad units yet.
 This is the "add AdMob as a network on each placement" step; nothing in the
 Unity project can fix it.
 
-### Getting a guaranteed test ad
+### First: register the device as a test device
+
+Both networks being *present* in the Test Suite but still not filling means
+they are being asked for **real** inventory, which a brand-new app has none of.
+The supported fix is to tell LevelPlay this is a test device:
+
+1. Build and run with `launchTestSuiteOnInit` or `verboseLogging` on. Init
+   logs the advertising ID:
+   `[Ads] Advertising ID (paste into LevelPlay -> Settings -> Test devices): ...`
+   (iOS hides the IDFA otherwise; this saves installing a third-party app to
+   find it. It is debug-flag gated so a shipping build never prints it.)
+2. LevelPlay dashboard -> **Settings -> Test devices -> Add test device** -
+   device name, that advertising ID, platform.
+3. Rebuild and run. The Test Suite's per-ad-unit **Load ad** button now runs
+   the auction against test inventory, and bidding line items expose a
+   **Live/Test** toggle.
+
+Note that mediated test ads render **without** the "Test mode" label that
+Google's own direct-integration test ads carry - do not take the missing label
+as a sign it did not work.
+
+### Also: a guaranteed test ad, bypassing the networks entirely
 
 Google publishes demo ad units that always fill. Configuring an AdMob instance
 on the LevelPlay dashboard with these proves the whole pipeline end to end,
@@ -179,6 +200,13 @@ On the LevelPlay dashboard:
 3. Real AdMob units on a brand-new app can legitimately return no fill for a
    while - the app has no traffic history and may still be under review. The
    demo IDs are how you tell that apart from a broken integration.
+
+These demo IDs come from Google's own docs and are the **same for every
+developer in the world** - they live under Google's test publisher account
+(`ca-app-pub-3940256099942544`), not yours (`ca-app-pub-5852582960793521`). They
+are not, and should not be, your IDs. What *should* match is the ad unit ID in
+the LevelPlay Google/AdMob instance and the one in the AdMob console - those are
+the same value, copied across.
 
 ## Verifying ads are actually serving (test ads)
 
