@@ -248,6 +248,43 @@ When testing the form afterwards, the SDK prints a debug identifier at launch
 UMPDebugSettings.testDeviceIdentifiers = @[...]`) - note it is a *different*
 identifier from the advertising ID used for the test-device lists.
 
+## AdMob dashboard shows 0 requests
+
+This is the single most useful diagnostic, because it splits the problem
+cleanly in two:
+
+* **Requests > 0, no impressions** - AdMob is being asked and is declining.
+  That is genuine no-fill: new app, no traffic history, possibly still under
+  review. Wait it out, or force test ads.
+* **Requests == 0** - AdMob is never being asked at all. No amount of
+  test-device or test-ad-unit configuration will help, because nothing is
+  reaching Google. The problem is in the LevelPlay waterfall, not in AdMob.
+
+Note AdMob reporting lags several hours, so check that a zero is really a zero
+and not just today's stats not having landed yet.
+
+When it is genuinely zero, the instance is not in the served waterfall. Things
+to check on the LevelPlay dashboard, in order:
+
+1. The AdMob **instance** exists on *each specific ad unit* (Interstitial and
+   Rewarded, per platform) - not merely that Google is enabled under
+   **SDK Networks**. Network-enabled but instance-missing is the usual cause,
+   and the Test Suite still lists Google in that state, which is what makes it
+   misleading.
+2. The instance is **enabled** (not paused) and its ad unit ID is the AdMob
+   `/`-style id.
+3. The instance has an **eCPM / rate** set. An instance with no rate can sort
+   below everything and never get called.
+4. The app-level **AdMob App ID** in LevelPlay's Google network settings is the
+   `~`-style id and matches `GADApplicationIdentifier` in the exported
+   `Info.plist`.
+
+`verboseLogging` now also turns on `IronSource.Agent.setAdaptersDebug(true)`
+(before init) and `IronSource.Agent.validateIntegration()` (after init). The
+first makes each adapter log its own load attempts - so the log shows whether
+AdMob was invoked at all; the second prints every adapter ironSource found,
+its version, and anything it considers misconfigured.
+
 ## Verifying ads are actually serving (test ads)
 
 `launchTestSuiteOnInit` on the `Ads` component (**currently ON**, for the

@@ -224,6 +224,15 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       return;
     }
 
+    // Adapter-level logging, and it must be set BEFORE init to take effect.
+    // The mediation layer's own logs stop at "no fill" and never say whether a
+    // given adapter was even asked - which is the exact question when the
+    // AdMob dashboard reports zero requests.
+    if (verboseLogging)
+    {
+      IronSource.Agent.setAdaptersDebug(true);
+    }
+
     if (launchTestSuiteOnInit)
     {
       // Deliberately loud and not gated behind verboseLogging: shipping with
@@ -250,6 +259,15 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     initialized = true;
 
     LogAdvertisingId();
+
+    // ironSource's own integration check: prints each adapter it found, its
+    // version, and any configuration it considers broken. Cheap, and the
+    // fastest way to see whether the AdMob adapter is actually wired into the
+    // waterfall rather than merely present in the binary.
+    if (verboseLogging)
+    {
+      IronSource.Agent.validateIntegration();
+    }
 
     CreateInterstitial();
     CreateRewarded();
