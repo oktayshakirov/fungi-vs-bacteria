@@ -175,12 +175,14 @@ These each cost real debugging time. They are not obvious from the code.
   `MainMenu.unity`. Check `git diff` on the scene after any batch run and
   revert stray `m_AnchorMin`/`m_SizeDelta` changes - one such edit would have
   permanently inset the menu UI by 23%.
-- Ads do not fill because the app is set to **"Not live yet"** on the
-  LevelPlay dashboard, so there is no real inventory for it. The client is
-  verified correct and identical to the working snowman-run setup. Register the
-  device under LevelPlay -> Settings -> Test devices to get ironSource test ads
-  meanwhile; real fill starts when the app is published and switched to
-  "Live app". See the top of `ADS.md` - do not re-debug the integration.
+- **The ads integration is done and verified**: ironSource bidding serves test
+  ads on device, which exercises the whole chain. Google bidding returns 509
+  and will until the app is live - bidding is real advertiser demand and there
+  is no Google test inventory, so a not-yet-published app gets nothing. That is
+  expected, not a bug. Develop against ironSource bidding; see the top of
+  `ADS.md`, and do not re-debug the integration.
+- Before release: test mode off for both networks, and `verboseLogging` off on
+  the `Ads` component.
   `launchTestSuiteOnInit` is now off; `verboseLogging` is left on and should be
   turned off before a store build.
 - LevelPlay's native SDK is not in the UPM package - it is fetched by a

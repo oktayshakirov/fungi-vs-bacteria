@@ -136,7 +136,44 @@ Re-export (Tools -> Build -> iOS...) is required after any change here for it
 to take effect - the link.xml is only read during the Unity export step, not
 by Xcode or CocoaPods afterward.
 
-## FIRST: the app is "Not live yet" - that is why there is no fill
+## Status: the integration works
+
+**ironSource bidding serves test ads in the app.** That exercises the entire
+chain - consent, init, ad unit resolution, auction, adapter, load, show - so
+the client integration is done and correct. Do not re-debug it.
+
+**Google bidding returns 509 and will keep doing so until the app is live.**
+That is expected, not a fault:
+
+* Test mode gives you *ironSource* test inventory. ironSource's wording is
+  specific: "activate test mode to ensure that you always have **ironSource
+  test inventory** available." There is no equivalent test inventory for Google
+  bidding.
+* Bidding demand is real advertiser demand. Google has nothing to bid on for an
+  app that is not live in a store, so it declines - which surfaces as
+  `509 Mediation No fill` and as zero requests on the AdMob dashboard.
+
+So the split the device shows - ironSource bidding fills, Google bidding does
+not - is exactly what a correctly integrated, not-yet-published app looks like.
+
+### What to do
+
+1. Develop and test against **ironSource bidding**. It is enough to verify the
+   rewarded flow, the coin payout, the continue offer and the interstitial
+   pacing.
+2. Publish the app, then set **Store availability -> Live app** on the
+   dashboard.
+3. Re-enable Google bidding and confirm fill once AdMob has approved the app.
+4. **Before release, turn test mode off** for both ironSource and AdMob, and
+   set `verboseLogging` (and `launchTestSuiteOnInit`, already off) to false on
+   the `Ads` component.
+
+One log line that looks alarming and is not: AdQuality prints `AdMob SDK
+version: Not fetched` while reporting `Status: OK`. The integration helper
+separately reports the Google adapter and SDK 12.9.0 as VERIFIED, so the SDK is
+present - AdQuality simply did not query its version.
+
+## Background: the app is "Not live yet"
 
 On the LevelPlay dashboard, **Edit app -> Store availability** is set to
 **Not live yet** (the alternative is *Live app*). An app in that state has no
