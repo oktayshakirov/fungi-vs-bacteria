@@ -136,72 +136,51 @@ Re-export (Tools -> Build -> iOS...) is required after any change here for it
 to take effect - the link.xml is only read during the Unity export step, not
 by Xcode or CocoaPods afterward.
 
-## FIRST: compare against a working app on the same account
+## FIRST: the app is "Not live yet" - that is why there is no fill
 
-The dashboard shows a banner:
+On the LevelPlay dashboard, **Edit app -> Store availability** is set to
+**Not live yet** (the alternative is *Live app*). An app in that state has no
+real ad inventory: ironSource cannot match requests to a published store
+listing, so the waterfall comes back empty. That produces exactly the symptoms
+seen here - init succeeds, ad units resolve, and every load returns 509 with
+**no adapter ever invoked**, while the AdMob dashboard records zero requests.
 
-> Your ironSource Ads account is pending approval.
+There is no bundle ID field to fill in while an app is "Not live yet"; the
+bundle is associated when the app goes live. Nothing is missing from the setup.
 
-Do **not** stop there. If another app on the same ironSource account serves ads
-normally, the account can clearly serve, and the banner is not a blanket block
-- whatever is wrong is scoped to this app, not the account.
+This is also the whole difference from the working app on the same account -
+that one is **Live app**, this one is not. The ironSource account is fine.
 
-Everything client-side has been verified and matches a known-good project
-(snowman-run) exactly, so none of this is worth re-checking:
+### Working around it during development
 
-* Package versions identical - LevelPlay 8.10.2, GoogleMobileAds 10.4.2,
-  ios-support 1.0.1.
-* Ad unit IDs in `AdsSetup.cs` match the dashboard exactly, both platforms.
-* Both ad units Active, 2 networks, 1 mediation group each.
-* Adapter/SDK/versions VERIFIED, ATS VERIFIED, `GADApplicationIdentifier`,
-  ATT description and SKAdNetwork ids all present.
+ironSource's guidance: *"If your app has not been released to the App Store or
+Google Play with the LevelPlay SDK, you should activate test mode to ensure
+that you always have ironSource test inventory available."*
 
-Since a working reference app exists, the fastest diagnosis is a **side-by-side
-comparison of the two apps' dashboard settings**, not more client debugging.
-Open the mediation group on each and compare:
+**LevelPlay -> Settings -> Test devices -> Add test device**, with the device
+name, platform, and the advertising ID. Init prints it under `verboseLogging`:
 
-1. **Country targeting.** A mediation group scoped to countries that exclude the
-   test device's location produces an empty waterfall - which looks exactly
-   like this: instant 509, no adapter invoked. This is the top suspect.
-2. **Which instances are in the group**, and whether each is enabled rather
-   than merely existing on the ad unit.
-3. **Instance rate / eCPM.** An instance with no rate can sort below everything.
-4. **The bundle ID registered for the app on the dashboard** must be exactly
-   `com.oktayshakirov.fungivsbacteria`. The SDK reports the running bundle on
-   every request; if the ironSource app was created with a placeholder or a
-   typo, requests do not match a known app and the waterfall comes back empty -
-   again matching the observed 509 with no adapter invoked. Easy to get wrong on
-   a hastily created app and easy to overlook afterwards.
-5. **App status.** ironSource generally expects a real store listing; an app
-   that is not published anywhere can be restricted in ways a live app is not.
-   That is the biggest structural difference between this app and the working
-   one.
+```
+[Ads] Advertising ID (paste into LevelPlay -> Settings -> Test devices): ...
+IntegrationHelper IDFA is ... (use this for test devices).
+```
 
-### Do not "just copy" the working app's keys into this build
+Note this is the **LevelPlay** test-device list, which is separate from AdMob's
+- registering in AdMob does nothing for this.
 
-Tempting as a bisection, and it is the one test that would definitively
-separate client from dashboard - but the ad networks tie each app key and ad
-unit to a registered bundle ID. Requesting another app's ad units from
-`com.oktayshakirov.fungivsbacteria` is a bundle mismatch, which is precisely
-the pattern invalid-traffic detection looks for. Risking a flag on an account
-that already has a live, earning game is a bad trade for information that a
-dashboard comparison gives for free.
+Expect test ads from **ironSource only**. AdMob will keep returning no fill
+until the app is live and approved on its side too; that is normal and not
+worth chasing until then.
 
-Copying the working app's *dashboard* settings onto this app is the safe half
-of that idea and answers the same question.
+### When the app goes live
 
-If those match and it still fails, it is worth an ironSource support ticket
-quoting the 509 with no adapter activity - that combination is a server-side
-waterfall answer, not something the SDK integration can cause.
-
-### Optional: a third demand source
-
-The working project also ships the **UnityAds** adapter
-(`ISUnityAdsAdapterDependencies.xml`), which this project does not. More demand
-sources means more chance of fill, especially for a new app. Adding it needs
-both the adapter (fetch the dependency xml the same way as the AdMob one - see
-the header troubleshooting section) *and* the network configured on the
-dashboard; the adapter alone does nothing.
+Set **Store availability -> Live app**, supply the store listing, and real fill
+starts. Nothing in the Unity project needs to change - it is verified correct
+and matches the working snowman-run project exactly: identical package versions
+(LevelPlay 8.10.2, GoogleMobileAds 10.4.2, ios-support 1.0.1), matching ad unit
+IDs, adapters/SDK/ATS all VERIFIED, and `GADApplicationIdentifier`, the ATT
+description, ironSource's `su67r6k2v3.skadnetwork` and the rest of the
+SKAdNetwork ids all present in the exported `Info.plist`.
 
 ## "Mediation No fill" (error 509) - other causes
 

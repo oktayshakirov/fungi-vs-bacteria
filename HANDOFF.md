@@ -175,11 +175,12 @@ These each cost real debugging time. They are not obvious from the code.
   `MainMenu.unity`. Check `git diff` on the scene after any batch run and
   revert stray `m_AnchorMin`/`m_SizeDelta` changes - one such edit would have
   permanently inset the menu UI by 23%.
-- Ads return 509 with no adapter ever invoked, i.e. an empty waterfall from
-  the mediation server. Everything client-side is verified correct and matches
-  the working snowman-run project exactly, so it is a dashboard question -
-  compare this app's mediation group against a working app on the same
-  account. See the top of `ADS.md` before debugging ad fill again.
+- Ads do not fill because the app is set to **"Not live yet"** on the
+  LevelPlay dashboard, so there is no real inventory for it. The client is
+  verified correct and identical to the working snowman-run setup. Register the
+  device under LevelPlay -> Settings -> Test devices to get ironSource test ads
+  meanwhile; real fill starts when the app is published and switched to
+  "Live app". See the top of `ADS.md` - do not re-debug the integration.
   `launchTestSuiteOnInit` is now off; `verboseLogging` is left on and should be
   turned off before a store build.
 - LevelPlay's native SDK is not in the UPM package - it is fetched by a
