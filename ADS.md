@@ -174,6 +174,24 @@ Note that mediated test ads render **without** the "Test mode" label that
 Google's own direct-integration test ads carry - do not take the missing label
 as a sign it did not work.
 
+### ironSource fills but Google does not: two separate test-device lists
+
+These are independent, and registering in one does nothing for the other:
+
+* **LevelPlay -> Settings -> Test devices** makes *ironSource* serve test ads.
+* **AdMob console -> Settings -> Test devices** makes *AdMob* serve test ads.
+
+The Test Suite's Live/Test toggle is a LevelPlay/bidding control - it does not
+reach into AdMob. For a waterfall AdMob instance LevelPlay simply calls the
+AdMob adapter with the real ad unit ID, and AdMob alone decides whether to
+return a test ad, a real ad, or nothing. So "ironSource test ads work, Google
+509s" is the expected symptom of having registered the device with LevelPlay
+only, on an app whose real AdMob units have no inventory yet.
+
+Google's docs also warn that mediated ads render **without** the "Test mode"
+label, and that it is on you to enable test mode per network - the label's
+absence is not evidence of failure.
+
 ### Also: a guaranteed test ad, bypassing the networks entirely
 
 Google publishes demo ad units that always fill. Configuring an AdMob instance
@@ -207,6 +225,28 @@ developer in the world** - they live under Google's test publisher account
 are not, and should not be, your IDs. What *should* match is the ad unit ID in
 the LevelPlay Google/AdMob instance and the one in the AdMob console - those are
 the same value, copied across.
+
+## UMP: "no form(s) configured for the input app ID"
+
+```
+[Ads] UMP update did not complete (Failed to read publisher's account
+configuration; no form(s) configured for the input app ID ...); continuing.
+```
+
+Separate from ad fill, and dashboard-side: no consent message exists yet for
+this app. **AdMob console -> Privacy & messaging** -> create and *publish* a
+GDPR message (and the ATT/IDFA message) for the app, then it resolves.
+
+The flow already degrades safely - `GatherConsent` bounds every wait and always
+falls through to `Initialize()`, so a missing form costs no ads. But it means
+**no consent signal is being gathered at all**, which is a GDPR problem for EEA
+users and can depress fill on networks that require a TCF string. Fix before
+release; it is on the pre-release list below.
+
+When testing the form afterwards, the SDK prints a debug identifier at launch
+(`<UMP SDK> To enable debug mode for this device, set:
+UMPDebugSettings.testDeviceIdentifiers = @[...]`) - note it is a *different*
+identifier from the advertising ID used for the test-device lists.
 
 ## Verifying ads are actually serving (test ads)
 
