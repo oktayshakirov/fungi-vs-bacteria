@@ -535,6 +535,7 @@ MonoBehaviour:
   fallbackRewardAmount: 300
   retryDelay: 4
   maxRetries: 5
+  maxRetryDelay: 300
   consentUpdateTimeout: 15
   consentFormTimeout: 60
   attTimeout: 30

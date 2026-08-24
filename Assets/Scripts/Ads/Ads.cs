@@ -25,9 +25,11 @@ public static class Ads
   {
     bool IsInitialized { get; }
     bool IsRewardedReady { get; }
+    bool IsRewardedLoading { get; }
     bool IsAnyAdShowing { get; }
     void ShowRewarded(Action<int> onReward, Action onFailed);
     void ShowInterstitial();
+    void Prewarm();
   }
 
   private static IAdProvider provider;
@@ -45,6 +47,24 @@ public static class Ads
   }
 
   public static bool IsRewardedReady => provider != null && provider.IsRewardedReady;
+
+  // Distinguishes "an ad is on its way" from "there is no ad". Without it, UI
+  // offering a rewarded ad has to choose between claiming it is loading
+  // forever or claiming it is unavailable while a load is in flight.
+  public static bool IsRewardedLoading => provider != null && provider.IsRewardedLoading;
+
+  // Raised after any full-screen ad is dismissed. Ads take over the iOS audio
+  // session, so the game has to restore it afterwards.
+  public static event Action OnFullScreenAdClosed;
+
+  public static void NotifyFullScreenAdClosed() => OnFullScreenAdClosed?.Invoke();
+
+  // Called when the game is about to need an ad - opening a screen that offers
+  // one, or reaching a point where one is likely. Retry backoff is there to
+  // stop pointless background polling, not to make a player wait once they
+  // have actually arrived at the offer, so this collapses the wait and tries
+  // now.
+  public static void Prewarm() => provider?.Prewarm();
 
   public static void NotifyRewardedAvailability() => OnRewardedAvailabilityChanged?.Invoke();
 

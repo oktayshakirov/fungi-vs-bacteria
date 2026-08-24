@@ -10,6 +10,8 @@ public class GameOverScreen : MonoBehaviour
     private Button continueButton, watchButton;
     private TMP_Text continueLabel, watchLabel, statusLabel;
     private string statusText = "";
+    private bool awaitingAd;
+    private bool levelEndCounted;
 
     private void Awake()
     {
@@ -36,7 +38,52 @@ public class GameOverScreen : MonoBehaviour
         ScreenTheme.Apply(transform, restartButton, UiSkin.Danger);
 
         BuildContinueOffer();
-        Ads.OnLevelEnded();
+
+        // Also run the per-show pass here. Depending on whether the prefab root
+        // is active, OnEnable can fire during Instantiate - before the buttons
+        // exist - and then not fire again for the SetActive(true) that follows,
+        // because the object was already active. PrepareForShow is idempotent,
+        // so running it from both places is safe and neither path can miss it.
+        PrepareForShow();
+    }
+
+    // HUDManager instantiates this screen once and re-shows it, so Initialize
+    // runs a single time while the screen can be shown several times in one run
+    // - die, continue, die again. Everything that depends on current state has
+    // to live here instead, or the second death shows the first death's UI:
+    // a stale "Loading ad..." that never resolves, and a continue offer that
+    // was already spent.
+    private void OnEnable()
+    {
+        Ads.OnRewardedAvailabilityChanged += Refresh;
+        PrepareForShow();
+    }
+
+    private void PrepareForShow()
+    {
+        statusText = "";
+        awaitingAd = false;
+
+        // A continue is allowed once per run, so the offer has to disappear
+        // after it is used rather than staying on screen and clickable.
+        bool offerContinue = !Boosters.ContinueUsedThisRun;
+        if (continueButton != null) continueButton.gameObject.SetActive(offerContinue);
+        if (watchButton != null) watchButton.gameObject.SetActive(offerContinue);
+        if (statusLabel != null) statusLabel.gameObject.SetActive(offerContinue);
+
+        // The player is one tap from wanting an ad; stop waiting out any backoff.
+        if (offerContinue) Ads.Prewarm();
+
+        // Counted once per run, not once per death: continuing means the level
+        // did not actually end, and pacing interstitials off death count would
+        // punish players who continue.
+        if (!levelEndCounted)
+        {
+            levelEndCounted = true;
+            Ads.OnLevelEnded();
+        }
+
+        Refresh();
     }
 
     // The single highest-value moment for both currencies: the player has just
@@ -127,8 +174,8 @@ public class GameOverScreen : MonoBehaviour
     {
         AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
 
-        watchButton.interactable = false;
-        statusText = "Loading ad...";
+        awaitingAd = true;
+        statusText = "";
         Refresh();
 
         Ads.ShowRewarded(
@@ -143,13 +190,19 @@ public class GameOverScreen : MonoBehaviour
             },
             () =>
             {
+                // Always clears awaitingAd: this is the callback that used to
+                // leave the button dead on a second death, because nothing
+                // reset the pending state once the first attempt finished.
+                awaitingAd = false;
                 statusText = "No ad available right now.";
+                Ads.Prewarm();
                 Refresh();
             });
     }
 
     private void Continue()
     {
+        awaitingAd = false;
         Haptics.Play(Haptics.Style.Success);
         gameObject.SetActive(false);
         GameManager.Instance.ContinueRun(Boosters.ContinueHealth);
@@ -165,9 +218,15 @@ public class GameOverScreen : MonoBehaviour
 
         if (watchButton != null)
         {
+            // Three distinct states rather than a status string that can get
+            // stuck: an ad in hand, one on the way, or none to be had.
             bool ready = Ads.IsRewardedReady;
-            watchButton.interactable = ready;
-            watchLabel.text = ready ? "CONTINUE - WATCH AD" : "AD UNAVAILABLE";
+            bool loading = awaitingAd || Ads.IsRewardedLoading;
+
+            watchButton.interactable = ready && !awaitingAd;
+            watchLabel.text = ready ? "CONTINUE - WATCH AD"
+                            : loading ? "LOADING AD..."
+                            : "AD UNAVAILABLE";
         }
 
         if (statusLabel != null)
@@ -176,11 +235,6 @@ public class GameOverScreen : MonoBehaviour
             var element = statusLabel.GetComponent<LayoutElement>();
             if (element != null) element.preferredHeight = string.IsNullOrEmpty(statusText) ? 0f : 34f;
         }
-    }
-
-    private void OnEnable()
-    {
-        Ads.OnRewardedAvailabilityChanged += Refresh;
     }
 
     private void OnDisable()

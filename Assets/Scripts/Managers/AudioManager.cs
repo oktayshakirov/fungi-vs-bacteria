@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 [Serializable]
 public class VolumeData
@@ -50,18 +51,56 @@ public class AudioManager : MonoBehaviour
     public bool IsSfxEnabled => !isSfxMuted;
     public bool IsVibrationEnabled => isVibrationEnabled;
 
+#if UNITY_IOS && !UNITY_EDITOR
+    [DllImport("__Internal")] private static extern void _fvbSetAudioSessionPlayback();
+#endif
+
+    // iOS silences the Ambient and SoloAmbient categories when the hardware
+    // Ring/Silent switch is on, and those are the only two Unity's "Mute Other
+    // Audio Sources" setting picks between - so the game was silent on a
+    // switched-off phone no matter what that setting said. Playback is the
+    // category that ignores the switch, and it can only be selected natively.
+    //
+    // Public because it has to be re-applied: a full-screen video ad
+    // reconfigures the shared session, leaving the game muted again afterwards.
+    public void ApplyPlaybackAudioSession()
+    {
+#if UNITY_IOS && !UNITY_EDITOR
+        try
+        {
+            _fvbSetAudioSessionPlayback();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[Audio] Could not apply the playback session: {e.Message}");
+        }
+#endif
+    }
+
     private void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            ApplyPlaybackAudioSession();
         }
         else
         {
             Destroy(gameObject);
             return;
         }
+    }
+
+    private void OnEnable()
+    {
+        // Ads are the only thing in the game that takes the audio session away.
+        Ads.OnFullScreenAdClosed += ApplyPlaybackAudioSession;
+    }
+
+    private void OnDisable()
+    {
+        Ads.OnFullScreenAdClosed -= ApplyPlaybackAudioSession;
     }
 
     private void Start()

@@ -70,6 +70,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
 
   public bool IsInitialized => initialized;
   public bool IsRewardedReady => rewardedLoaded && rewarded != null && rewarded.IsAdReady();
+  public bool IsRewardedLoading => rewardedLoading;
   public bool IsAnyAdShowing => rewardedShowing || interstitialShowing;
 
   private void Awake()
@@ -296,6 +297,22 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     Initialize();
   }
 
+  // Collapses any pending backoff and attempts a load now. Safe to call
+  // repeatedly - LoadRewarded/LoadInterstitial no-op while a load is already in
+  // flight or an ad is already held.
+  public void Prewarm()
+  {
+    if (!initialized) return;
+
+    // Reset the counters too, so a failure right after the player asked starts
+    // from a short delay again rather than resuming a 128s wait.
+    rewardedRetryCount = 0;
+    interstitialRetryCount = 0;
+
+    LoadRewarded();
+    LoadInterstitial();
+  }
+
   // ----------------------------------------------------------- rewarded
 
   private void CreateRewarded()
@@ -402,6 +419,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
   private void OnRewardedDisplayFailed(com.unity3d.mediation.LevelPlayAdDisplayInfoError error)
   {
     rewardedShowing = false;
+    Ads.NotifyFullScreenAdClosed();
     ResolveRewardedFailure();
     LoadRewarded();
   }
@@ -410,6 +428,10 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
   {
     rewardedShowing = false;
     rewardedLoaded = false;
+
+    // Before the callbacks below: the ad has left the screen, so the game's
+    // audio session should be restored whatever else happens next.
+    Ads.NotifyFullScreenAdClosed();
 
     // Closed without the reward event means the player skipped out early. The
     // caller has to hear about it, or a screen waiting on the callback hangs.
@@ -462,8 +484,18 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       interstitialRetryCount++;
       StartCoroutine(RetryLoadInterstitial(BackoffDelay(interstitialRetryCount)));
     };
-    interstitial.OnAdDisplayFailed += error => { interstitialShowing = false; LoadInterstitial(); };
-    interstitial.OnAdClosed += info => { interstitialShowing = false; LoadInterstitial(); };
+    interstitial.OnAdDisplayFailed += error =>
+    {
+      interstitialShowing = false;
+      Ads.NotifyFullScreenAdClosed();
+      LoadInterstitial();
+    };
+    interstitial.OnAdClosed += info =>
+    {
+      interstitialShowing = false;
+      Ads.NotifyFullScreenAdClosed();
+      LoadInterstitial();
+    };
   }
 
   private IEnumerator RetryLoadInterstitial(float delay)
