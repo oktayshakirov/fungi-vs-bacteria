@@ -166,10 +166,29 @@ Open the mediation group on each and compare:
 2. **Which instances are in the group**, and whether each is enabled rather
    than merely existing on the ad unit.
 3. **Instance rate / eCPM.** An instance with no rate can sort below everything.
-4. **App status.** ironSource generally expects a real store listing; an app
+4. **The bundle ID registered for the app on the dashboard** must be exactly
+   `com.oktayshakirov.fungivsbacteria`. The SDK reports the running bundle on
+   every request; if the ironSource app was created with a placeholder or a
+   typo, requests do not match a known app and the waterfall comes back empty -
+   again matching the observed 509 with no adapter invoked. Easy to get wrong on
+   a hastily created app and easy to overlook afterwards.
+5. **App status.** ironSource generally expects a real store listing; an app
    that is not published anywhere can be restricted in ways a live app is not.
    That is the biggest structural difference between this app and the working
    one.
+
+### Do not "just copy" the working app's keys into this build
+
+Tempting as a bisection, and it is the one test that would definitively
+separate client from dashboard - but the ad networks tie each app key and ad
+unit to a registered bundle ID. Requesting another app's ad units from
+`com.oktayshakirov.fungivsbacteria` is a bundle mismatch, which is precisely
+the pattern invalid-traffic detection looks for. Risking a flag on an account
+that already has a live, earning game is a bad trade for information that a
+dashboard comparison gives for free.
+
+Copying the working app's *dashboard* settings onto this app is the safe half
+of that idea and answers the same question.
 
 If those match and it still fails, it is worth an ironSource support ticket
 quoting the 509 with no adapter activity - that combination is a server-side
