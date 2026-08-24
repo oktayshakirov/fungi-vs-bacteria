@@ -278,12 +278,49 @@ to check on the LevelPlay dashboard, in order:
 4. The app-level **AdMob App ID** in LevelPlay's Google network settings is the
    `~`-style id and matches `GADApplicationIdentifier` in the exported
    `Info.plist`.
+5. The AdMob **account** is fully approved (billing/payee details complete) and
+   the app's status in AdMob is Ready. An account still in review serves
+   nothing, on any app.
 
 `verboseLogging` now also turns on `IronSource.Agent.setAdaptersDebug(true)`
 (before init) and `IronSource.Agent.validateIntegration()` (after init). The
 first makes each adapter log its own load attempts - so the log shows whether
 AdMob was invoked at all; the second prints every adapter ironSource found,
 its version, and anything it considers misconfigured.
+
+## What validateIntegration proves - and what it cannot
+
+`IronSource.Agent.validateIntegration()` (on under `verboseLogging`) prints a
+per-network report. A healthy one for this project looks like:
+
+```
+IntegrationHelper --- Google (AdMob and Ad Manager) ---
+IntegrationHelper Adapter VERIFIED
+IntegrationHelper SDK - Version 12.9.0 - VERIFIED
+IntegrationHelper Adapter - Version 4.3.70 - VERIFIED
+IntegrationHelper --- IronSource ---
+IntegrationHelper Adapter VERIFIED
+```
+
+Every other network showing `*** MISSING ***` is expected and harmless - those
+adapters simply are not installed, because they are not being used.
+
+It checks the **client** only: adapter present, SDK present, versions
+compatible. It says nothing about the server-side waterfall, so a fully
+VERIFIED report is still consistent with a network never being requested
+because no instance is attached to the ad unit on the dashboard. Do not read
+"Google VERIFIED" as "Google is in the waterfall".
+
+It also prints both device identifiers, which saves hunting for them:
+
+```
+IntegrationHelper IDFA is ... (use this for test devices).
+IntegrationHelper IDFV is ...
+```
+
+The **IDFA** is the one both test-device lists want. The IDFV is what the UMP
+SDK's debug settings use - different identifier, different purpose, easy to mix
+up because the UMP log line prints the IDFV.
 
 ## Verifying ads are actually serving (test ads)
 

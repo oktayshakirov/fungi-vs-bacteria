@@ -1,6 +1,7 @@
 using System.IO;
 using UnityEditor;
 using UnityEditor.Callbacks;
+using UnityEditor.iOS.Xcode;
 using UnityEngine;
 
 // Unity always names the exported Xcode project, target and scheme
@@ -18,10 +19,43 @@ public static class IosPostProcess
 {
   private const string SchemeName = "Fungi vs Bacteria";
 
+  // LevelPlay requires ATS to allow arbitrary loads: some mediated networks
+  // still serve creatives over HTTP, and without this their ad requests are
+  // blocked by the OS. `IronSource.Agent.validateIntegration()` reports
+  // "App Transport Security settings MISSING" until this is set.
+  //
+  // ironSource is explicit that NSAllowsArbitraryLoads must be the *only* key
+  // in the dictionary - sibling exceptions conflict with it - so the whole
+  // dictionary is replaced rather than merged into.
+  //
+  // App Store review: Apple expects a justification for this, and "the app
+  // displays ads from third-party networks" is an accepted one. It is a
+  // documented requirement of every major mediation SDK.
+  private static void ApplyAppTransportSecurity(string pathToBuiltProject)
+  {
+    string plistPath = Path.Combine(pathToBuiltProject, "Info.plist");
+    if (!File.Exists(plistPath))
+    {
+      Debug.LogWarning($"IOS POST-PROCESS: no Info.plist at {plistPath}; ATS not applied.");
+      return;
+    }
+
+    var plist = new PlistDocument();
+    plist.ReadFromFile(plistPath);
+
+    PlistElementDict ats = plist.root.CreateDict("NSAppTransportSecurity");
+    ats.SetBoolean("NSAllowsArbitraryLoads", true);
+
+    plist.WriteToFile(plistPath);
+    Debug.Log("IOS POST-PROCESS: NSAllowsArbitraryLoads set for ad network traffic.");
+  }
+
   [PostProcessBuild(100)]
   public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject)
   {
     if (target != BuildTarget.iOS) return;
+
+    ApplyAppTransportSecurity(pathToBuiltProject);
 
     string schemeFolder = Path.Combine(
       pathToBuiltProject, "Unity-iPhone.xcodeproj", "xcshareddata", "xcschemes");
