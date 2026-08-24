@@ -288,6 +288,30 @@ first makes each adapter log its own load attempts - so the log shows whether
 AdMob was invoked at all; the second prints every adapter ironSource found,
 its version, and anything it considers misconfigured.
 
+## Bidding vs waterfall instances (`bidderExclusive`)
+
+Init logs one line per format that is worth reading:
+
+```
+rewarded settings:     {parallelLoad=2, bidderExclusive=YES}
+interstitial settings: {parallelLoad=2, bidderExclusive=NO}
+```
+
+`bidderExclusive=YES` means that ad unit is running **bidding-exclusive**: only
+in-app-bidding instances take part in the auction. A network added as a
+*traditional waterfall* instance on such an ad unit is simply never called -
+which looks identical to no-fill from the app, and produces **zero requests**
+on that network's own dashboard.
+
+So if AdMob shows no requests, check whether it is set up on the LevelPlay
+dashboard as **Google bidding** or as a **traditional/waterfall** instance, and
+whether that matches how the ad unit itself is configured. A traditional AdMob
+instance on a bidder-exclusive rewarded unit will never be requested no matter
+what else is right.
+
+This is an inference from the log, not something the client can confirm - the
+app only sees the resulting auction, not the dashboard's instance types.
+
 ## What validateIntegration proves - and what it cannot
 
 `IronSource.Agent.validateIntegration()` (on under `verboseLogging`) prints a
