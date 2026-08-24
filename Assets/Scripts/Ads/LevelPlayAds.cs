@@ -38,6 +38,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
   [Header("Retry")]
   [SerializeField] private float retryDelay = 4f;
   [SerializeField] private int maxRetries = 5;
+  [Tooltip("Ceiling for the exponential backoff between failed load retries.")]
+  [SerializeField] private float maxRetryDelay = 300f;
 
   [Header("Consent timeouts (seconds)")]
   [Tooltip("Every wait is bounded: a stalled consent step must never leave the game without ads.")]
@@ -340,11 +342,24 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     rewardedLoading = false;
     Ads.NotifyRewardedAvailability();
 
-    // Backs off rather than hammering: a failure is usually no fill, and
-    // retrying instantly just burns battery.
-    float delay = rewardedRetryCount < maxRetries ? retryDelay : retryDelay * 4f;
-    rewardedRetryCount = rewardedRetryCount < maxRetries ? rewardedRetryCount + 1 : 0;
-    StartCoroutine(RetryLoadRewarded(delay));
+    rewardedRetryCount++;
+    StartCoroutine(RetryLoadRewarded(BackoffDelay(rewardedRetryCount)));
+  }
+
+  // Exponential backoff, capped. The previous version cycled a handful of fast
+  // retries and then reset, so a device that simply cannot fill - no inventory
+  // in the region, or a brand-new app with no demand - retried every few
+  // seconds indefinitely. That is a real battery and data cost for a request
+  // that is not going to start succeeding, and it buried the useful lines in
+  // the device log.
+  //
+  // maxRetries is now the point at which the backoff reaches its ceiling
+  // rather than a stopping condition: retrying must continue, because fill can
+  // legitimately appear later in a session.
+  private float BackoffDelay(int attempt)
+  {
+    float exponent = Mathf.Min(attempt - 1, Mathf.Max(1, maxRetries));
+    return Mathf.Min(retryDelay * Mathf.Pow(2f, exponent), maxRetryDelay);
   }
 
   private IEnumerator RetryLoadRewarded(float delay)
@@ -444,16 +459,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       // failure at startup meant the first level-end that was allowed to show
       // an ad always found nothing loaded and merely kicked off a load - one
       // wasted opportunity per failure, every session.
-      if (interstitialRetryCount < maxRetries)
-      {
-        interstitialRetryCount++;
-        StartCoroutine(RetryLoadInterstitial(retryDelay));
-      }
-      else
-      {
-        interstitialRetryCount = 0;
-        StartCoroutine(RetryLoadInterstitial(retryDelay * 4f));
-      }
+      interstitialRetryCount++;
+      StartCoroutine(RetryLoadInterstitial(BackoffDelay(interstitialRetryCount)));
     };
     interstitial.OnAdDisplayFailed += error => { interstitialShowing = false; LoadInterstitial(); };
     interstitial.OnAdClosed += info => { interstitialShowing = false; LoadInterstitial(); };

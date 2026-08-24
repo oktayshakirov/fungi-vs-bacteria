@@ -288,6 +288,34 @@ first makes each adapter log its own load attempts - so the log shows whether
 AdMob was invoked at all; the second prints every adapter ironSource found,
 its version, and anything it considers misconfigured.
 
+## No adapter logs at all = the waterfall is empty
+
+The sharpest signal available, and it needs `verboseLogging` on so
+`setAdaptersDebug(true)` is applied.
+
+Confirm the flag actually took effect - init logs it:
+
+```
+[LevelPlay SDK] API: ... [IronSource setAdaptersDebug:] - flag: YES
+```
+
+Then, when a load fails, look for **any** adapter chatter. There are two very
+different pictures:
+
+* **Adapter lines present, then 509** - the adapters were called and each
+  declined. Genuine no-fill: new app, no inventory, account under review.
+* **No adapter lines at all, just `509 Mediation No fill`** - no adapter was
+  ever invoked. The mediation server returned an empty waterfall for that ad
+  unit and LevelPlay failed immediately. Nothing client-side can fix this, and
+  no test-device or demo-ad-unit change will help, because no network is being
+  asked in the first place.
+
+The second case means the ad unit ID the app requests has no enabled instances
+attached to it on the dashboard. Worth checking that the ad unit IDs in
+`AdsSetup.cs` belong to the *same app* as the app key being initialised - an ad
+unit from a different app (or the other platform's app) initialises fine and
+then never has a waterfall.
+
 ## Bidding vs waterfall instances (`bidderExclusive`)
 
 Init logs one line per format that is worth reading:
