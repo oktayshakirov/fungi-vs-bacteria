@@ -175,10 +175,11 @@ These each cost real debugging time. They are not obvious from the code.
   `MainMenu.unity`. Check `git diff` on the scene after any batch run and
   revert stray `m_AnchorMin`/`m_SizeDelta` changes - one such edit would have
   permanently inset the menu UI by 23%.
-- `launchTestSuiteOnInit` and `verboseLogging` are currently **ON** in
-  `MainMenu.unity` for the no-fill investigation. Both must be off before any
-  build real players see - the test suite puts a debug overlay in front of
-  them. Init logs a loud warning while it is on.
+- Ads do not serve because the **ironSource Ads account is pending approval**
+  (banner on the LevelPlay dashboard). Everything client-side is verified
+  correct - see the top of `ADS.md` before debugging ad fill again.
+  `launchTestSuiteOnInit` is now off; `verboseLogging` is left on and should be
+  turned off before a store build.
 - LevelPlay's native SDK is not in the UPM package - it is fetched by a
   Network Manager step that only runs inside a normal (non-batch) Editor
   session. Missing `Assets/LevelPlay/Editor/*.xml` is why Xcode fails on

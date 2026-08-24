@@ -136,7 +136,39 @@ Re-export (Tools -> Build -> iOS...) is required after any change here for it
 to take effect - the link.xml is only read during the Unity export step, not
 by Xcode or CocoaPods afterward.
 
-## "Mediation No fill" (error 509) - no ad networks configured yet
+## FIRST: is the ironSource Ads account approved?
+
+If the LevelPlay dashboard shows
+
+> Your ironSource Ads account is pending approval. We'll notify you by email
+> when your account is approved.
+
+then **that is the answer**, and everything below is a distraction. A pending
+account serves no live ads; ironSource's own guidance is that live ads start
+serving immediately once approval lands. Reports from other developers say
+even test ads can be dead in this state, which matches what this project saw:
+init succeeds, ad units resolve, and every load returns 509 with no adapter
+ever invoked.
+
+Two things worth knowing, because they cost time here:
+
+* Approval is **not** purely a waiting game. ironSource emails asking for extra
+  information, and the account stays pending until you reply. Check the inbox
+  (and spam) for that mail - an unanswered email can stall approval
+  indefinitely.
+* AdMob has its own separate review. A new AdMob app can no-fill for its own
+  reasons even after ironSource is approved, so expect to verify the two
+  independently.
+
+Confirmed correct for this project on 2026-08-24, so none of it is worth
+re-checking when ads are still not serving:
+
+* Ad unit IDs in `AdsSetup.cs` match the dashboard exactly, on both platforms.
+* Both ad units are Active with 2 networks and 1 mediation group each.
+* Adapter, SDK and versions all VERIFIED; ATS VERIFIED.
+* `GADApplicationIdentifier`, ATT description and SKAdNetwork ids all present.
+
+## "Mediation No fill" (error 509) - other causes
 
 If init succeeds (`[Ads] LevelPlay init succeeded.`) but every load fails with
 
@@ -376,8 +408,9 @@ up because the UMP log line prints the IDFV.
 
 ## Verifying ads are actually serving (test ads)
 
-`launchTestSuiteOnInit` on the `Ads` component (**currently ON**, for the
-no-fill investigation - turn it off before any real build) launches
+`launchTestSuiteOnInit` on the `Ads` component (off; `verboseLogging` is left
+on so the next test still logs load failures and the integration report)
+launches
 LevelPlay's Test Suite after init, which shows every configured network and
 whether each one can currently serve a real test ad - the fastest way to tell
 "no fill because nothing's configured on the dashboard yet" apart from "still

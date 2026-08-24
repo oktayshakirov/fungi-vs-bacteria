@@ -538,7 +538,7 @@ MonoBehaviour:
   consentUpdateTimeout: 15
   consentFormTimeout: 60
   attTimeout: 30
-  launchTestSuiteOnInit: 1
+  launchTestSuiteOnInit: 0
   verboseLogging: 1
 --- !u!4 &1053140278
 Transform:
