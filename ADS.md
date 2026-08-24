@@ -168,6 +168,23 @@ not - is exactly what a correctly integrated, not-yet-published app looks like.
    set `verboseLogging` (and `launchTestSuiteOnInit`, already off) to false on
    the `Ads` component.
 
+Keep the device registered in **both** test-device lists, for different
+reasons:
+
+| List | Why |
+|---|---|
+| LevelPlay -> Settings -> Test devices | Supplies ironSource test inventory - this is what makes ads appear today. |
+| AdMob -> Settings -> Test devices | Protects the AdMob account once Google bidding goes live. |
+
+The AdMob one does nothing for fill and is easy to dismiss as pointless, but it
+matters the moment Google bidding starts serving: testing then means tapping
+**real** ads on your own device, which is invalid traffic. Google puts that
+responsibility on the publisher when a third-party mediator is involved -
+"mediated ads do not render a Test mode label. You are responsible for ensuring
+that test mode is enabled for each of your mediation networks so these networks
+don't flag your account for invalid activity." There is no visual cue that an
+ad is real, and the account at risk is the same one earning from other apps.
+
 One log line that looks alarming and is not: AdQuality prints `AdMob SDK
 version: Not fetched` while reporting `Status: OK`. The integration helper
 separately reports the Google adapter and SDK 12.9.0 as VERIFIED, so the SDK is
