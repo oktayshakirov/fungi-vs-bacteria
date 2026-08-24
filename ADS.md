@@ -136,37 +136,53 @@ Re-export (Tools -> Build -> iOS...) is required after any change here for it
 to take effect - the link.xml is only read during the Unity export step, not
 by Xcode or CocoaPods afterward.
 
-## FIRST: is the ironSource Ads account approved?
+## FIRST: compare against a working app on the same account
 
-If the LevelPlay dashboard shows
+The dashboard shows a banner:
 
-> Your ironSource Ads account is pending approval. We'll notify you by email
-> when your account is approved.
+> Your ironSource Ads account is pending approval.
 
-then **that is the answer**, and everything below is a distraction. A pending
-account serves no live ads; ironSource's own guidance is that live ads start
-serving immediately once approval lands. Reports from other developers say
-even test ads can be dead in this state, which matches what this project saw:
-init succeeds, ad units resolve, and every load returns 509 with no adapter
-ever invoked.
+Do **not** stop there. If another app on the same ironSource account serves ads
+normally, the account can clearly serve, and the banner is not a blanket block
+- whatever is wrong is scoped to this app, not the account.
 
-Two things worth knowing, because they cost time here:
+Everything client-side has been verified and matches a known-good project
+(snowman-run) exactly, so none of this is worth re-checking:
 
-* Approval is **not** purely a waiting game. ironSource emails asking for extra
-  information, and the account stays pending until you reply. Check the inbox
-  (and spam) for that mail - an unanswered email can stall approval
-  indefinitely.
-* AdMob has its own separate review. A new AdMob app can no-fill for its own
-  reasons even after ironSource is approved, so expect to verify the two
-  independently.
+* Package versions identical - LevelPlay 8.10.2, GoogleMobileAds 10.4.2,
+  ios-support 1.0.1.
+* Ad unit IDs in `AdsSetup.cs` match the dashboard exactly, both platforms.
+* Both ad units Active, 2 networks, 1 mediation group each.
+* Adapter/SDK/versions VERIFIED, ATS VERIFIED, `GADApplicationIdentifier`,
+  ATT description and SKAdNetwork ids all present.
 
-Confirmed correct for this project on 2026-08-24, so none of it is worth
-re-checking when ads are still not serving:
+Since a working reference app exists, the fastest diagnosis is a **side-by-side
+comparison of the two apps' dashboard settings**, not more client debugging.
+Open the mediation group on each and compare:
 
-* Ad unit IDs in `AdsSetup.cs` match the dashboard exactly, on both platforms.
-* Both ad units are Active with 2 networks and 1 mediation group each.
-* Adapter, SDK and versions all VERIFIED; ATS VERIFIED.
-* `GADApplicationIdentifier`, ATT description and SKAdNetwork ids all present.
+1. **Country targeting.** A mediation group scoped to countries that exclude the
+   test device's location produces an empty waterfall - which looks exactly
+   like this: instant 509, no adapter invoked. This is the top suspect.
+2. **Which instances are in the group**, and whether each is enabled rather
+   than merely existing on the ad unit.
+3. **Instance rate / eCPM.** An instance with no rate can sort below everything.
+4. **App status.** ironSource generally expects a real store listing; an app
+   that is not published anywhere can be restricted in ways a live app is not.
+   That is the biggest structural difference between this app and the working
+   one.
+
+If those match and it still fails, it is worth an ironSource support ticket
+quoting the 509 with no adapter activity - that combination is a server-side
+waterfall answer, not something the SDK integration can cause.
+
+### Optional: a third demand source
+
+The working project also ships the **UnityAds** adapter
+(`ISUnityAdsAdapterDependencies.xml`), which this project does not. More demand
+sources means more chance of fill, especially for a new app. Adding it needs
+both the adapter (fetch the dependency xml the same way as the AdMob one - see
+the header troubleshooting section) *and* the network configured on the
+dashboard; the adapter alone does nothing.
 
 ## "Mediation No fill" (error 509) - other causes
 
