@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.Runtime.InteropServices;
 
 [Serializable]
@@ -115,8 +116,22 @@ public class AudioManager : MonoBehaviour
             musicSource.clip = bgMusic.clip;
             musicSource.loop = true;
             musicSource.volume = bgMusic.volume;
-            musicSource.Play();
+            StartCoroutine(PlayMusicAfterLaunchSettles());
         }
+    }
+
+    // Cold launch is the single busiest moment in the app's life: the engine is
+    // still standing up its own audio session, and LevelPlayAds.Start() is
+    // about to fire consent/init work (network calls, ATT, and native ad SDK
+    // setup that spawns its own WebViews) on the very same frame. Starting
+    // playback into that window is what produced the reported crackle - a
+    // fresh AudioSource.Play() landing while the OS is still negotiating the
+    // audio route glitches audibly. A short wait costs nothing a player would
+    // notice and moves Play() past the worst of it.
+    private IEnumerator PlayMusicAfterLaunchSettles()
+    {
+        yield return new WaitForSecondsRealtime(0.3f);
+        musicSource.Play();
     }
 
     private void BuildSoundDictionary()
