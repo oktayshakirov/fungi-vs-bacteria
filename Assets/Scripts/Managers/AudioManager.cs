@@ -96,12 +96,67 @@ public class AudioManager : MonoBehaviour
     private void OnEnable()
     {
         // Ads are the only thing in the game that takes the audio session away.
-        Ads.OnFullScreenAdClosed += ApplyPlaybackAudioSession;
+        Ads.OnFullScreenAdWillShow += DuckMusicForAd;
+        Ads.OnFullScreenAdClosed += RestoreMusicAfterAd;
     }
 
     private void OnDisable()
     {
-        Ads.OnFullScreenAdClosed -= ApplyPlaybackAudioSession;
+        Ads.OnFullScreenAdWillShow -= DuckMusicForAd;
+        Ads.OnFullScreenAdClosed -= RestoreMusicAfterAd;
+    }
+
+    private Coroutine musicFade;
+
+    // An ad taking over the audio session mid-playback is what the player hears
+    // as a crackle, both going in and coming out. Fading the music down first
+    // and back up afterwards means the switch happens in silence, so there is
+    // nothing audible to glitch - far more reliable than trying to make the
+    // session change itself seamless.
+    private void DuckMusicForAd()
+    {
+        if (musicSource == null) return;
+        if (musicFade != null) StopCoroutine(musicFade);
+        musicFade = StartCoroutine(FadeMusic(0f, 0.15f, pauseAtEnd: true));
+    }
+
+    private void RestoreMusicAfterAd()
+    {
+        ApplyPlaybackAudioSession();
+
+        if (musicSource == null || isMusicMuted) return;
+        if (musicFade != null) StopCoroutine(musicFade);
+        musicFade = StartCoroutine(RestoreMusicRoutine());
+    }
+
+    private IEnumerator RestoreMusicRoutine()
+    {
+        // The session restore above is asynchronous and the ad SDK is still
+        // tearing its player down; coming back instantly is what produced the
+        // crackle on returning to the game.
+        yield return new WaitForSecondsRealtime(0.35f);
+
+        musicSource.UnPause();
+        float target = soundDictionary != null
+            && soundDictionary.TryGetValue(SoundType.BackgroundMusic, out VolumeData bg)
+            ? bg.volume : 1f;
+        yield return FadeMusic(target, 0.4f, pauseAtEnd: false);
+    }
+
+    private IEnumerator FadeMusic(float target, float seconds, bool pauseAtEnd)
+    {
+        float from = musicSource.volume;
+        for (float t = 0f; t < seconds; t += Time.unscaledDeltaTime)
+        {
+            musicSource.volume = Mathf.Lerp(from, target, t / seconds);
+            yield return null;
+        }
+        musicSource.volume = target;
+
+        // Paused rather than stopped: Stop() would restart the track from the
+        // beginning when the player comes back from a 30 second ad.
+        if (pauseAtEnd) musicSource.Pause();
+        musicFade = null;
     }
 
     private void Start()

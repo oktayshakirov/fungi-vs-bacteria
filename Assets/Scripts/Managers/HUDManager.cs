@@ -59,6 +59,24 @@ public class HUDManager : MonoBehaviour
     }
   }
 
+  // The balance is shared with the menu now, and towers/enemies/waves all move
+  // it through Wallet rather than through this class, so the readout follows
+  // the wallet directly instead of relying on every mutator to call UpdateStats.
+  private void OnEnable()
+  {
+    Wallet.OnCoinsChanged += OnCoinsChanged;
+  }
+
+  private void OnDisable()
+  {
+    Wallet.OnCoinsChanged -= OnCoinsChanged;
+  }
+
+  private void OnCoinsChanged(int coins)
+  {
+    if (goldText != null) goldText.text = coins.ToString();
+  }
+
   private void Start()
   {
     spawner = FindFirstObjectByType<EnemySpawner>();

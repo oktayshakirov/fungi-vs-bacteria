@@ -19,6 +19,9 @@ public class WalletScreen : MonoBehaviour
   private Button watchButton;
   private TMP_Text watchLabel;
   private TMP_Text statusLabel;
+  private Button streakButton;
+  private TMP_Text streakLabel;
+  private bool awaitingAd;
   private Action onClosed;
 
   public static WalletScreen Open(Transform parent, Action onClosed = null)
@@ -43,6 +46,7 @@ public class WalletScreen : MonoBehaviour
     RectTransform card = Panel();
     Title(card, "WALLET");
     BalanceRow(card);
+    StreakRow(card);
     WatchAdRow(card);
     Explainer(card);
     CloseButton();
@@ -146,6 +150,136 @@ public class WalletScreen : MonoBehaviour
     statusGo.AddComponent<LayoutElement>().preferredHeight = 30f;
   }
 
+  // Five pips, one per streak day, with the reward under each. Claimed days are
+  // filled gold, today's is outlined in the call-to-action colour, and future
+  // days are dimmed - readable at a glance without any text explaining it.
+  private void StreakRow(RectTransform parent)
+  {
+    var go = new GameObject("Streak", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+    UiSkin.Panel(go.AddComponent<Image>(), UiSkin.PanelRaised, UiSkin.RadiusChip);
+
+    var column = go.AddComponent<VerticalLayoutGroup>();
+    column.padding = new RectOffset(16, 16, 12, 12);
+    column.spacing = 8f;
+    column.childAlignment = TextAnchor.UpperCenter;
+    column.childControlWidth = true;
+    column.childControlHeight = true;
+    column.childForceExpandWidth = true;
+    column.childForceExpandHeight = false;
+
+    var headingGo = new GameObject("Heading", typeof(RectTransform));
+    headingGo.transform.SetParent(go.transform, false);
+    var heading = headingGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(heading, UiSkin.Role.Caption, UiSkin.TextMuted);
+    heading.alignment = TextAlignmentOptions.Center;
+    heading.text = DailyStreak.ClaimedToday
+      ? "DAILY STREAK - COME BACK TOMORROW"
+      : "DAILY STREAK";
+    headingGo.AddComponent<LayoutElement>().preferredHeight = 26f;
+
+    var pipsGo = new GameObject("Pips", typeof(RectTransform));
+    pipsGo.transform.SetParent(go.transform, false);
+    var row = pipsGo.AddComponent<HorizontalLayoutGroup>();
+    row.spacing = 10f;
+    row.childAlignment = TextAnchor.MiddleCenter;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = true;
+    row.childForceExpandHeight = false;
+    pipsGo.AddComponent<LayoutElement>().preferredHeight = 74f;
+
+    int claimed = DailyStreak.ClaimedInStreak;
+    int todayIndex = DailyStreak.CurrentDay - 1;
+
+    for (int i = 0; i < DailyStreak.Length; i++)
+    {
+      bool isDone = i < claimed;
+      bool isToday = !DailyStreak.ClaimedToday && i == todayIndex;
+      BuildPip(pipsGo.transform, DailyStreak.Rewards[i], isDone, isToday);
+    }
+
+    streakButton = BuildStreakButton(go.transform);
+    go.AddComponent<LayoutElement>().preferredHeight = 210f;
+  }
+
+  private void BuildPip(Transform parent, int reward, bool isDone, bool isToday)
+  {
+    var go = new GameObject("Day", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+
+    var column = go.AddComponent<VerticalLayoutGroup>();
+    column.spacing = 2f;
+    column.childAlignment = TextAnchor.UpperCenter;
+    column.childControlWidth = true;
+    column.childControlHeight = true;
+    column.childForceExpandWidth = true;
+    column.childForceExpandHeight = false;
+
+    var discGo = new GameObject("Disc", typeof(RectTransform));
+    discGo.transform.SetParent(go.transform, false);
+    var disc = discGo.AddComponent<Image>();
+    disc.sprite = UiSprites.Circle();
+    // The row stretches each column to equal width, which would flatten the
+    // disc into an ellipse.
+    disc.preserveAspect = true;
+    disc.color = isDone ? UiSkin.Gold
+               : isToday ? UiSkin.Primary
+               : UiSkin.Neutral;
+    discGo.AddComponent<LayoutElement>().preferredHeight = 40f;
+
+    var labelGo = new GameObject("Reward", typeof(RectTransform));
+    labelGo.transform.SetParent(go.transform, false);
+    var label = labelGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.Caption,
+      isDone || isToday ? UiSkin.TextPrimary : UiSkin.TextMuted);
+    label.alignment = TextAlignmentOptions.Center;
+    label.text = reward.ToString();
+    labelGo.AddComponent<LayoutElement>().preferredHeight = 24f;
+  }
+
+  private Button BuildStreakButton(Transform parent)
+  {
+    var go = new GameObject("ClaimStreak", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+
+    Button button = UiSkin.IconButton(go, UiSprites.Coin(), UiSkin.Primary,
+      out streakLabel, UiSkin.RadiusButton, UiSkin.Gold);
+    streakLabel.alignment = TextAlignmentOptions.Center;
+    go.AddComponent<LayoutElement>().preferredHeight = 74f;
+
+    button.onClick.AddListener(OnClaimStreakClicked);
+    return button;
+  }
+
+  private void OnClaimStreakClicked()
+  {
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+    if (DailyStreak.ClaimedToday) return;
+
+    awaitingAd = true;
+    RefreshWatchButton();
+
+    Ads.ShowRewarded(
+      _ =>
+      {
+        awaitingAd = false;
+        int reward = DailyStreak.Claim();
+        Ads.DeferInterstitial();
+        Haptics.Play(Haptics.Style.Success);
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.LevelPicked);
+        statusLabel.text = $"Day {DailyStreak.CurrentDay - 1} claimed: +{reward}!";
+        RefreshWatchButton();
+      },
+      () =>
+      {
+        awaitingAd = false;
+        statusLabel.text = "No ad available right now. Try again shortly.";
+        Ads.Prewarm();
+        RefreshWatchButton();
+      });
+  }
+
   private void Explainer(RectTransform parent)
   {
     var go = new GameObject("Explainer", typeof(RectTransform));
@@ -155,9 +289,11 @@ public class WalletScreen : MonoBehaviour
     UiSkin.Label(label, UiSkin.Role.Body, UiSkin.TextMuted);
     label.alignment = TextAlignmentOptions.TopLeft;
     label.text =
-      $"Coins carry over between levels.\n\n" +
-      $"- Start a level with +{Boosters.StartBoostGold} gold for {Boosters.StartBoostCost} coins.\n" +
-      $"- Continue a lost run with +{Boosters.ContinueHealth} health for {Boosters.ContinueCost} coins.\n" +
+      $"Coins are your only currency - the same balance buys towers in a level, " +
+      $"revives you, and is what ads pay out.\n\n" +
+
+      $"- Continue a lost run with +{Boosters.ContinueHealth} health, from {Boosters.FirstContinueCost} coins.\n" +
+      $"- {RewardedGate.WatchesLeftToday} ad rewards left today.\n" +
       $"- Earn coins by clearing levels and by raising your star rating.";
 
     go.AddComponent<LayoutElement>().preferredHeight = 210f;
@@ -194,13 +330,21 @@ public class WalletScreen : MonoBehaviour
   private void OnWatchClicked()
   {
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+    if (!RewardedGate.IsReady) return;
 
-    watchButton.interactable = false;
-    statusLabel.text = "Loading ad...";
+    awaitingAd = true;
+    statusLabel.text = "";
+    RefreshWatchButton();
 
     Ads.ShowRewarded(
       amount =>
       {
+        awaitingAd = false;
+
+        // Recorded only on a completed watch, so a failed or skipped ad never
+        // costs the player a slot or starts a cooldown.
+        RewardedGate.RecordWatch();
+
         Wallet.Add(amount);
         Ads.DeferInterstitial();
         Haptics.Play(Haptics.Style.Success);
@@ -210,10 +354,22 @@ public class WalletScreen : MonoBehaviour
       },
       () =>
       {
+        awaitingAd = false;
         statusLabel.text = "No ad available right now. Try again shortly.";
+        Ads.Prewarm();
         RefreshWatchButton();
       });
   }
+
+  // Drives the countdown. Realtime, because the menu can sit at timeScale 0.
+  private void Update()
+  {
+    if (Time.unscaledTime < nextTick) return;
+    nextTick = Time.unscaledTime + 1f;
+    RefreshWatchButton();
+  }
+
+  private float nextTick;
 
   private void OnEnable()
   {
@@ -237,11 +393,44 @@ public class WalletScreen : MonoBehaviour
   // understand; a greyed button with a reason does not.
   private void RefreshWatchButton()
   {
+    if (streakButton != null)
+    {
+      bool streakClaimable = !DailyStreak.ClaimedToday && !awaitingAd;
+      streakButton.interactable = streakClaimable && Ads.IsRewardedReady;
+      streakLabel.text = DailyStreak.ClaimedToday
+        ? "CLAIMED TODAY"
+        : $"DAY {DailyStreak.CurrentDay}: WATCH AD  +{DailyStreak.TodayReward}";
+    }
+
     if (watchButton == null) return;
 
-    bool ready = Ads.IsRewardedReady;
-    watchButton.interactable = ready;
-    watchLabel.text = ready ? $"WATCH AD  +{RewardFallback}" : "AD UNAVAILABLE";
+    // Four states, in the order the player runs into them: out of watches for
+    // today, waiting out a cooldown, no ad loaded, or good to go.
+    if (RewardedGate.CapReached)
+    {
+      watchButton.interactable = false;
+      watchLabel.text = "BACK TOMORROW";
+    }
+    else if (!RewardedGate.IsReady)
+    {
+      watchButton.interactable = false;
+      watchLabel.text = $"NEXT IN  {RewardedGate.RemainingText()}";
+    }
+    else if (awaitingAd || Ads.IsRewardedLoading)
+    {
+      watchButton.interactable = false;
+      watchLabel.text = "LOADING AD...";
+    }
+    else if (!Ads.IsRewardedReady)
+    {
+      watchButton.interactable = false;
+      watchLabel.text = "AD UNAVAILABLE";
+    }
+    else
+    {
+      watchButton.interactable = true;
+      watchLabel.text = $"WATCH AD  +{RewardFallback}";
+    }
   }
 
   private void Close()

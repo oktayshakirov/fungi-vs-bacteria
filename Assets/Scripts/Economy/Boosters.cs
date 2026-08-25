@@ -1,60 +1,40 @@
-using UnityEngine;
-
-// The coin sinks. Two of them, both bought at the moment they are wanted rather
-// than stockpiled in a shop: a currency with a stockpile needs an inventory UI,
-// a "which do I equip" decision, and balancing across 70 levels that have not
-// been balanced yet.
+// The coin sinks.
 //
-// StartBoost is armed on the level screen and consumed by GameManager on level
-// start. Continue is bought on the game over screen and applied immediately.
+// The start-gold boost that used to live here was removed when the currencies
+// merged: paying 100 coins for 300 coins of starting budget is simply free
+// money once both are the same balance.
 public static class Boosters
 {
-  public const int StartBoostCost = 100;
-  public const int StartBoostGold = 300;
-
-  public const int ContinueCost = 200;
+  public const int FirstContinueCost = 200;
   public const int ContinueHealth = 50;
 
-  // Armed, not owned: paid for when the level launches, so backing out of the
-  // level screen never charges the player. Cleared on consumption.
-  public static bool StartBoostArmed { get; private set; }
+  // Continues are never blocked outright, they just get more expensive:
+  // 200, 400, 800, ... Price is a better cap than a hard limit because a
+  // player who is genuinely invested can push on, while nobody can refuse to
+  // lose indefinitely.
+  public static int ContinuesUsedThisRun { get; private set; }
 
-  // One continue per run. Without a cap a player with coins can never lose, and
-  // the difficulty curve stops meaning anything.
-  public static bool ContinueUsedThisRun { get; private set; }
+  // The rewarded ad continue is free, so that one *is* limited - to once per
+  // run. Everything after it costs coins.
+  public static bool AdContinueUsedThisRun { get; private set; }
 
-  public static bool ArmStartBoost()
-  {
-    if (StartBoostArmed) return true;
-    if (!Wallet.TrySpend(StartBoostCost)) return false;
-    StartBoostArmed = true;
-    return true;
-  }
+  public static bool CanContinueWithAd => !AdContinueUsedThisRun;
 
-  // Refunds rather than silently pockets the coins: the player armed it and
-  // then changed their mind before playing.
-  public static void DisarmStartBoost()
-  {
-    if (!StartBoostArmed) return;
-    StartBoostArmed = false;
-    Wallet.Add(StartBoostCost);
-  }
-
-  // Called by GameManager at level start. Returns the extra gold to grant.
-  public static int ConsumeStartBoost()
-  {
-    if (!StartBoostArmed) return 0;
-    StartBoostArmed = false;
-    return StartBoostGold;
-  }
+  public static int ContinueCost =>
+    FirstContinueCost * (1 << Mathf_Min(ContinuesUsedThisRun, 5));
 
   public static void BeginRun()
   {
-    ContinueUsedThisRun = false;
+    ContinuesUsedThisRun = 0;
+    AdContinueUsedThisRun = false;
   }
 
-  public static void MarkContinueUsed()
+  public static void MarkContinueUsed(bool viaAd)
   {
-    ContinueUsedThisRun = true;
+    ContinuesUsedThisRun++;
+    if (viaAd) AdContinueUsedThisRun = true;
   }
+
+  // Clamped so the doubling cannot overflow into nonsense on a very long run.
+  private static int Mathf_Min(int a, int b) => a < b ? a : b;
 }

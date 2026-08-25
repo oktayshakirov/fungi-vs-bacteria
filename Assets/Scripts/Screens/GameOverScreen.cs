@@ -64,15 +64,12 @@ public class GameOverScreen : MonoBehaviour
         statusText = "";
         awaitingAd = false;
 
-        // A continue is allowed once per run, so the offer has to disappear
-        // after it is used rather than staying on screen and clickable.
-        bool offerContinue = !Boosters.ContinueUsedThisRun;
-        if (continueButton != null) continueButton.gameObject.SetActive(offerContinue);
-        if (watchButton != null) watchButton.gameObject.SetActive(offerContinue);
-        if (statusLabel != null) statusLabel.gameObject.SetActive(offerContinue);
-
-        // The player is one tap from wanting an ad; stop waiting out any backoff.
-        if (offerContinue) Ads.Prewarm();
+        // Coin continues are always offered - the escalating price is what caps
+        // them. The free ad continue is the part limited to once per run, so
+        // only that button comes and goes.
+        bool adAvailable = Boosters.CanContinueWithAd;
+        if (watchButton != null) watchButton.gameObject.SetActive(adAvailable);
+        if (adAvailable) Ads.Prewarm();
 
         // Counted once per run, not once per death: continuing means the level
         // did not actually end, and pacing interstitials off death count would
@@ -95,8 +92,6 @@ public class GameOverScreen : MonoBehaviour
     // stops meaning anything.
     private void BuildContinueOffer()
     {
-        if (Boosters.ContinueUsedThisRun) return;
-
         Transform panel = restartButton.transform.parent;
 
         continueButton = BuildCardButton(panel, "ContinueCoins", UiSkin.Gold,
@@ -167,7 +162,7 @@ public class GameOverScreen : MonoBehaviour
             return;
         }
 
-        Continue();
+        Continue(false);
     }
 
     private void OnContinueWithAd()
@@ -186,7 +181,7 @@ public class GameOverScreen : MonoBehaviour
                 // one from the wallet.
                 Wallet.Add(amount);
                 Ads.DeferInterstitial();
-                Continue();
+                Continue(true);
             },
             () =>
             {
@@ -200,12 +195,12 @@ public class GameOverScreen : MonoBehaviour
             });
     }
 
-    private void Continue()
+    private void Continue(bool viaAd)
     {
         awaitingAd = false;
         Haptics.Play(Haptics.Style.Success);
         gameObject.SetActive(false);
-        GameManager.Instance.ContinueRun(Boosters.ContinueHealth);
+        GameManager.Instance.ContinueRun(Boosters.ContinueHealth, viaAd);
     }
 
     private void Refresh()

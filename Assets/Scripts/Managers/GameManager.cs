@@ -7,7 +7,10 @@ public class GameManager : MonoBehaviour
   [SerializeField] private int startingGold = 500;
   [SerializeField] private int startingHealth = 100;
 
-  public int currentGold;
+  // Reads straight through to the shared wallet. Kept as a property with the
+  // old name so every existing call site (towers, enemies, waves) is unchanged
+  // by the merge.
+  public int currentGold => Wallet.Coins;
   public int currentHealth;
 
   private EnemySpawner spawner;
@@ -35,17 +38,14 @@ public class GameManager : MonoBehaviour
   private void Start()
   {
     LevelConfig level = GameSession.SelectedLevel;
-    currentGold = level != null ? level.startingGold : startingGold;
+
+    // The wallet carries over between levels now; this only tops it up when the
+    // player arrives below what this level was balanced for.
+    Wallet.EnsureMinimum(level != null ? level.startingGold : startingGold);
+
     currentHealth = level != null ? level.startingHealth : startingHealth;
 
-    // Captured before the boost is applied, so the star rating still measures
-    // how much of the *level's* health survived. Otherwise a boosted run would
-    // start above 100% and every level would 3-star.
     levelStartingHealth = currentHealth;
-
-    // Paid for on the level screen; consuming it here means it is spent exactly
-    // once, on the run that actually starts.
-    currentGold += Boosters.ConsumeStartBoost();
     Boosters.BeginRun();
 
     PlaySpeed = 1f;
@@ -111,25 +111,18 @@ public class GameManager : MonoBehaviour
     HUDManager.Instance.UpdateStats(currentHealth, currentGold);
   }
 
-  public bool CanAfford(int cost)
-  {
-    return currentGold >= cost;
-  }
+  public bool CanAfford(int cost) => Wallet.CanAfford(cost);
 
   public bool TryPurchase(int cost)
   {
-    if (CanAfford(cost))
-    {
-      currentGold -= cost;
-      UpdateUI();
-      return true;
-    }
-    return false;
+    if (!Wallet.TrySpend(cost)) return false;
+    UpdateUI();
+    return true;
   }
 
   public void AddGold(int amount)
   {
-    currentGold += amount;
+    Wallet.Add(amount);
     UpdateUI();
   }
 
@@ -164,13 +157,13 @@ public class GameManager : MonoBehaviour
   // enemies still on the board are left alone: clearing them would make a
   // continue strictly better than a clean run, and surviving the wave you died
   // to is the whole point of buying one.
-  public void ContinueRun(int extraHealth)
+  public void ContinueRun(int extraHealth, bool viaAd)
   {
     if (!gameEnded || currentHealth > 0) return;
 
     gameEnded = false;
     currentHealth = extraHealth;
-    Boosters.MarkContinueUsed();
+    Boosters.MarkContinueUsed(viaAd);
 
     UpdateUI();
     HUDManager.Instance.HideGameOverScreen();

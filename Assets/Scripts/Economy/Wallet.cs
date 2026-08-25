@@ -1,9 +1,15 @@
 using System;
 using UnityEngine;
 
-// The persistent meta currency, kept deliberately separate from GameManager's
-// `currentGold`. Gold is per-level and resets every run; coins survive across
-// runs and are what rewarded ads pay out.
+// The game's single currency. Towers, boosts, continues and ad rewards all
+// draw on this one balance, so the number the player sees never changes
+// meaning between the menu and a level.
+//
+// Merging the old per-level gold into it removed a whole class of confusion but
+// introduced a risk: spending on towers now drains a persistent balance, so a
+// player who loses badly could arrive at the next level unable to afford
+// anything and never recover. EnsureMinimum is the floor that makes that
+// impossible - see its comment.
 //
 // PlayerPrefs is the store, matching LevelProgress. This is client-side and
 // trivially editable by a determined player — acceptable for a single-player
@@ -35,6 +41,23 @@ public static class Wallet
   }
 
   public static bool CanAfford(int amount) => Coins >= amount;
+
+  // Guarantees a level always opens with at least the budget it was designed
+  // around, topping up only when the player is short. Without it the merged
+  // currency death-spirals: lose a level with an empty wallet and there is no
+  // way to buy the towers needed to win the next one.
+  //
+  // Using the level's own startingGold as the floor keeps all 70 levels' tuning
+  // meaningful - it becomes a guaranteed minimum rather than a fixed handout,
+  // and anything earned above it genuinely carries over.
+  public static int EnsureMinimum(int floor)
+  {
+    int shortfall = floor - Coins;
+    if (shortfall <= 0) return 0;
+
+    Set(floor);
+    return shortfall;
+  }
 
   // Pays out for a level result, and only for the part that is new: clearing a
   // level you already 3-starred pays nothing, but improving 1 star to 3 pays

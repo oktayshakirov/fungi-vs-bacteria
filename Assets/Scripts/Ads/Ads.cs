@@ -46,6 +46,8 @@ public static class Ads
     NotifyRewardedAvailability();
   }
 
+  public static bool IsInitialized => provider != null && provider.IsInitialized;
+
   public static bool IsRewardedReady => provider != null && provider.IsRewardedReady;
 
   // Distinguishes "an ad is on its way" from "there is no ad". Without it, UI
@@ -58,6 +60,12 @@ public static class Ads
   public static event Action OnFullScreenAdClosed;
 
   public static void NotifyFullScreenAdClosed() => OnFullScreenAdClosed?.Invoke();
+
+  // Raised immediately before a full-screen ad is presented, so the game can
+  // fade its own audio out rather than being cut off mid-note.
+  public static event Action OnFullScreenAdWillShow;
+
+  public static void NotifyFullScreenAdWillShow() => OnFullScreenAdWillShow?.Invoke();
 
   // Called when the game is about to need an ad - opening a screen that offers
   // one, or reaching a point where one is likely. Retry backoff is there to

@@ -35,6 +35,13 @@ public class MainMenu : MonoBehaviour
     // coordinate space and stay in the same band on every aspect ratio.
     CoinChip.Create(settingsButton != null ? settingsButton.transform.parent : transform,
       OnWalletClicked);
+
+    // Cold launch only. The ad SDK does its main-thread startup work behind
+    // this rather than over a live menu.
+    if (BootSplash.ShouldShow && screensTransform != null)
+    {
+      BootSplash.Create(screensTransform);
+    }
   }
 
   private void OnWalletClicked()

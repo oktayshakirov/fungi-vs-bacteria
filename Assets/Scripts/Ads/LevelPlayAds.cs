@@ -40,6 +40,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
   [SerializeField] private int maxRetries = 5;
   [Tooltip("Ceiling for the exponential backoff between failed load retries.")]
   [SerializeField] private float maxRetryDelay = 300f;
+  [Tooltip("Pause after an ad closes before loading the next one, so the load does not stutter the frame the game resumes on.")]
+  [SerializeField] private float postAdLoadDelay = 2f;
 
   [Header("Consent timeouts (seconds)")]
   [Tooltip("Every wait is bounded: a stalled consent step must never leave the game without ads.")]
@@ -394,6 +396,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       return;
     }
 
+    Ads.NotifyFullScreenAdWillShow();
+
     pendingReward = onReward;
     pendingFailure = onFailed;
     rewardGranted = false;
@@ -438,7 +442,24 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     ResolveRewardedFailure();
 
     Ads.NotifyRewardedAvailability();
+    StartCoroutine(LoadRewardedAfterSettle());
+  }
+
+  // Loading the next ad is network and WebView work on the main thread. Firing
+  // it the instant an ad closes puts it on exactly the frame the game resumes
+  // and the music comes back - the stutter and crackle players reported on
+  // returning from an ad. The next ad is not needed for minutes, so waiting a
+  // couple of seconds costs nothing.
+  private IEnumerator LoadRewardedAfterSettle()
+  {
+    yield return new WaitForSecondsRealtime(postAdLoadDelay);
     LoadRewarded();
+  }
+
+  private IEnumerator LoadInterstitialAfterSettle()
+  {
+    yield return new WaitForSecondsRealtime(postAdLoadDelay);
+    LoadInterstitial();
   }
 
   private void ResolveRewardedFailure()
@@ -488,13 +509,13 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     {
       interstitialShowing = false;
       Ads.NotifyFullScreenAdClosed();
-      LoadInterstitial();
+      StartCoroutine(LoadInterstitialAfterSettle());
     };
     interstitial.OnAdClosed += info =>
     {
       interstitialShowing = false;
       Ads.NotifyFullScreenAdClosed();
-      LoadInterstitial();
+      StartCoroutine(LoadInterstitialAfterSettle());
     };
   }
 
@@ -524,6 +545,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     }
 
     if (IsAnyAdShowing) return;
+
+    Ads.NotifyFullScreenAdWillShow();
 
     interstitialShowing = true;
     interstitialLoaded = false;
