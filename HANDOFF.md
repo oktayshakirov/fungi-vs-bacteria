@@ -1,6 +1,6 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-08-19. Working tree clean at `ff39acb` on `main`.
+Last updated 2026-08-24. Working tree clean at `8eb3005` on `main`.
 This state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 ## 1. The goal
@@ -42,8 +42,20 @@ Roughly in order. Each is committed.
 7. **Ads + coin economy** — LevelPlay mediation behind an `Ads` facade, a
    persistent `Wallet`, rewarded ads, paced interstitials, the wallet screen,
    the start boost and the continue offer. See `ADS.md`. Keys are set
-   (`Tools/Ads/Apply Ad Keys`); the LevelPlay dashboard still needs AdMob added
-   as a network on each placement.
+   (`Tools/Ads/Apply Ad Keys`); ironSource bidding is verified working end to
+   end on device. Google bidding will return no fill until the app is live —
+   expected, not a bug (see `ADS.md`).
+8. **Currency merge + ad-economy hardening** — gold and coins were the same
+   sprite/colour for two different balances, which read as a bug; merged into
+   one `Wallet` with a floor (`Wallet.EnsureMinimum`) so losing everything
+   can't strand a player unable to afford towers. Added `RewardedGate`
+   (escalating cooldown + daily cap) and `DailyStreak` (5-day, ad-gated,
+   escalating payout) so the rewarded faucet can't be farmed. Continues no
+   longer cap at one — free-via-ad once per run, then coins at 200/400/800.
+   Added `BootSplash` (bounded, cold-launch only) and music ducking around
+   full-screen ads to hide the ad SDK's main-thread init work, which was
+   producing an audible crackle and a couple seconds of stutter on launch and
+   on returning from an ad. (`8eb3005`)
 
 ## 4. How to verify work — read this before changing anything
 
@@ -104,12 +116,20 @@ allocation, and `FloatingText` + enemy health bars have been pooled since — bu
 **the fix has not been re-measured on device**. `DeathEffect` is still
 unpooled (once per kill, so lower priority).
 
-**Priority 0 — Playtest the economy on a device.** The keys are in; what is
-untested is whether ads actually fill and whether the prices feel right. The
-coin prices
-(`Boosters`) and the interstitial pacing (`Ads`) are first-guess numbers that
-have never been played against; both are single constants at the top of their
-file specifically so a playtest can move them.
+**Priority 0 — Playtest the merged economy on a device.** This is new since
+the last playtest and nothing below has been played against real usage yet:
+- `Wallet.EnsureMinimum`'s floor (each level's `startingGold`, ~500) may make
+  coins feel too easy to come by now that losing no longer costs you a
+  separate currency — first thing to watch for.
+- `RewardedGate`'s cooldown ladder (1/5/10 min) and 10/day cap, and
+  `DailyStreak`'s payout curve (100/150/250/400/750) are first-guess numbers.
+- `Boosters.ContinueCost` escalation (200/400/800) and the interstitial
+  pacing (`Ads`) are likewise unproven.
+- `BootSplash.maxSeconds`/`minSeconds` (6s / 1.2s) were never seen on device —
+  confirm it doesn't linger or flash.
+- Confirm the crackle/stutter fix (music duck + deferred ad reload) actually
+  worked on launch and on returning from a rewarded ad; the prior fix (async
+  audio session, delayed music start) reduced but did not eliminate it.
 
 **Priority 4 — Gameplay haptics.** UI presses now have haptics (`Utils/Haptics`,
 hooked centrally into `AudioManager.PlaySound`). Gameplay does not: tower shots,
@@ -202,10 +222,33 @@ These each cost real debugging time. They are not obvious from the code.
   LevelPlay SDK, or the game stops running without keys.
 - The star payout reads `LevelProgress.GetStars` **before** `SetStars`
   overwrites it. Reorder those two and every replay pays out again.
-- `levelStartingHealth` is captured **before** the start boost is applied, or a
-  boosted run starts above 100% health and 3-stars every level.
-- Coins (`Wallet`) and gold (`GameManager.currentGold`) are different
-  currencies that share a coin icon. Gold is per-level and resets; coins do not.
+- **Coins and gold are now one currency.** `GameManager.currentGold` is a
+  property that reads straight through to `Wallet.Coins` — there is no
+  separate per-level pool anymore. The start-gold boost was removed for
+  exactly this reason (paying coins for more of the same coins is free money).
+  `Wallet.EnsureMinimum(level.startingGold)` runs at level start and is the
+  only thing standing between this and a death-spiral: it tops up a
+  below-floor wallet but never takes anything away. Do not reintroduce a
+  separate gold pool without removing this call, and do not remove this call
+  without reintroducing a floor of some kind.
+- `RewardedGate` and `DailyStreak` roll their day over **lazily, on read**
+  (`SyncDay` / `ResolvedIndex`), not via an update loop — comparing against
+  `DateTime.Now`. Moving the device clock resets/skips them, same trade-off as
+  `LevelProgress`. Not worth a server for a single-player game.
+- `Ads.OnFullScreenAdWillShow` / `OnFullScreenAdClosed` are what
+  `AudioManager` uses to duck and restore music around an ad. If a new ad
+  entry point is ever added to `LevelPlayAds` that shows a full-screen ad
+  without going through `ShowRewarded`/`ShowInterstitial`, it must fire these
+  too or the crackle regresses for that path specifically.
+- `LevelPlayAds.postAdLoadDelay` (2s) delays the *next* ad load after one
+  closes — deliberately, so the load doesn't land on the frame the game
+  resumes. Firing it immediately was part of what caused the return-from-ad
+  crackle.
+- `BootSplash` only shows once per process (`alreadyShown` is static), and
+  only from `MainMenuScreen` on the very first menu — returning to the menu
+  between levels does not re-trigger it. If you add another entry point that
+  can be the *first* screen shown (e.g. a deep link), it won't get the splash
+  unless `BootSplash.ShouldShow` is checked there too.
 
 **Art and text**
 - The TMP atlases are **static and ASCII-only** (~97 glyphs). No stars, arrows
