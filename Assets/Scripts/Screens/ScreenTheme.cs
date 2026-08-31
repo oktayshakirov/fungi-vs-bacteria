@@ -71,8 +71,8 @@ public static class ScreenTheme
       rect.anchorMax = new Vector2(0f, 1f);
       rect.pivot = new Vector2(0f, 1f);
       rect.anchoredPosition = new Vector2(28f, -28f);
-      rect.sizeDelta = new Vector2(210f, 74f);
-      UiSkin.StyleButton(back, UiSkin.Neutral, UiSkin.RadiusChip);
+      rect.sizeDelta = new Vector2(190f, 74f);
+      CornerButton(back);
     }
   }
 
@@ -196,6 +196,118 @@ public static class ScreenTheme
     }
 
     UiSkin.AddBorder(rect, UiSkin.RadiusPanel);
+  }
+
+  // The shared look for the small navigation buttons that sit in a screen's
+  // corners (Back, Home). One definition so every screen's corner controls are
+  // identical — they were the last flat grey elements left once the headers and
+  // cards picked up the dark-plate-and-edge treatment.
+  public static void CornerButton(Button button)
+  {
+    if (button == null) return;
+
+    var image = button.GetComponent<Image>();
+    if (image == null) image = button.gameObject.AddComponent<Image>();
+    UiSkin.Panel(image, new Color(0.07f, 0.08f, 0.13f, 0.86f), UiSkin.RadiusChip);
+    button.targetGraphic = image;
+
+    // Unity's default press tint is barely visible; make press and disable read.
+    button.transition = Selectable.Transition.ColorTint;
+    var colors = button.colors;
+    colors.normalColor = Color.white;
+    colors.highlightedColor = new Color(1.10f, 1.10f, 1.10f, 1f);
+    colors.pressedColor = new Color(0.78f, 0.78f, 0.84f, 1f);
+    colors.selectedColor = Color.white;
+    colors.disabledColor = new Color(0.55f, 0.55f, 0.60f, 0.6f);
+    colors.fadeDuration = 0.08f;
+    button.colors = colors;
+
+    // The label has to be restyled here too. UiSkin.StyleButton used to do this
+    // as a side effect, so dropping it left the prefab's own oversized font in
+    // place and "BACK" spilled straight out of the plate.
+    TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+    if (label != null)
+    {
+      UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
+      label.alignment = TextAlignmentOptions.Midline;
+      label.textWrappingMode = TextWrappingModes.NoWrap;
+      label.margin = new Vector4(14f, 2f, 14f, 2f);
+      label.raycastTarget = false;
+      UiSkin.Stretch(label.rectTransform);
+    }
+
+    Image border = UiSkin.AddBorder((RectTransform)button.transform, UiSkin.RadiusChip, 2.5f);
+    if (border != null) border.color = new Color(0.62f, 0.70f, 0.88f, 0.55f);
+  }
+
+  // A header plate behind a screen title, edged and haloed in an accent colour.
+  // Shared by the environment and level screens so both headers are identical —
+  // the two screens are one flow and looked like two different games when each
+  // styled its own title.
+  //
+  // The label is re-pointed at the CHIP'S OWN RECT and switched to Midline
+  // alignment. TMP's plain Center aligns on the font's full line box, which
+  // includes descender space the display font never uses, so all-caps text sat
+  // visibly high inside the plate. Midline centres on the cap height instead,
+  // which is what "looks centred" actually means here.
+  public static RectTransform TitleChip(TMP_Text label, Color accent)
+  {
+    if (label == null) return null;
+
+    var rect = label.rectTransform;
+
+    var chipGo = new GameObject("TitleChip", typeof(RectTransform));
+    // A backdrop has to be the sibling BEFORE its target, never a child of it:
+    // UI draws parent-then-children, so a child would cover the text it backs.
+    chipGo.transform.SetParent(rect.parent, false);
+    chipGo.transform.SetSiblingIndex(rect.GetSiblingIndex());
+
+    label.textWrappingMode = TextWrappingModes.NoWrap;
+    label.ForceMeshUpdate();
+    float width = Mathf.Clamp(label.preferredWidth + 96f, 340f, 1000f);
+    const float height = 88f;
+
+    var chip = (RectTransform)chipGo.transform;
+    chip.anchorMin = new Vector2(0.5f, 1f);
+    chip.anchorMax = new Vector2(0.5f, 1f);
+    chip.pivot = new Vector2(0.5f, 1f);
+    chip.anchoredPosition = new Vector2(0f, -34f);
+    chip.sizeDelta = new Vector2(width, height);
+
+    // Neon halo behind the plate.
+    var glowGo = new GameObject("Glow", typeof(RectTransform));
+    glowGo.transform.SetParent(chipGo.transform, false);
+    var glowRect = (RectTransform)glowGo.transform;
+    UiSkin.Stretch(glowRect);
+    glowRect.offsetMin = new Vector2(-26f, -26f);
+    glowRect.offsetMax = new Vector2(26f, 26f);
+    var glow = glowGo.AddComponent<Image>();
+    glow.sprite = UiSprites.Glow();
+    glow.type = Image.Type.Sliced;
+    glow.pixelsPerUnitMultiplier = 1f;
+    glow.color = new Color(accent.r, accent.g, accent.b, 0.34f);
+    glow.raycastTarget = false;
+    glowGo.AddComponent<LayoutElement>().ignoreLayout = true;
+    glowGo.transform.SetAsFirstSibling();
+
+    var image = chipGo.AddComponent<Image>();
+    UiSkin.Panel(image, new Color(0.05f, 0.06f, 0.10f, 0.80f), UiSkin.RadiusChip);
+    image.raycastTarget = false;
+
+    Image border = UiSkin.AddBorder(chip, UiSkin.RadiusChip, 3f);
+    if (border != null) border.color = new Color(accent.r, accent.g, accent.b, 0.95f);
+
+    // Match the label to the plate exactly, then centre on the cap height.
+    rect.anchorMin = chip.anchorMin;
+    rect.anchorMax = chip.anchorMax;
+    rect.pivot = chip.pivot;
+    rect.anchoredPosition = chip.anchoredPosition;
+    rect.sizeDelta = chip.sizeDelta;
+    label.alignment = TextAlignmentOptions.Midline;
+    label.margin = Vector4.zero;
+    label.outlineWidth = 0f;
+
+    return chip;
   }
 
   private static void Title(Transform root)

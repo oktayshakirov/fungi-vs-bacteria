@@ -135,6 +135,70 @@ public static class UiSprites
     return r <= rim && r >= 0.15f;   // hollow centre
   }));
 
+  // A house, for the shortcut back to the main menu.
+  public static Sprite Home(int size = 64) => Cached("home" + size, () => Shape(size, (x, y) =>
+  {
+    // Roof: a triangle spanning the full width, apex at the top centre.
+    if (InTriangle(x, y, 0.02f, 0.54f, 0.98f, 0.54f, 0.5f, 0.98f)) return true;
+
+    // Body, with a doorway punched out of it.
+    bool body = InRoundedRect(x, y, 0.16f, 0.06f, 0.84f, 0.58f, 0.05f);
+    bool door = InRoundedRect(x, y, 0.40f, 0.06f, 0.60f, 0.34f, 0.03f);
+    return body && !door;
+  }));
+
+  // A soft shadow blob, dropped behind tiles and cards so they lift off the
+  // background instead of sitting flat on it.
+  public static Sprite Shadow(int radius = 22) => Cached("shadow" + radius, () =>
+  {
+    const int size = 96;
+    var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+    var px = new Color32[size * size];
+    float r = radius;
+    for (int y = 0; y < size; y++)
+    {
+      for (int x = 0; x < size; x++)
+      {
+        // Distance outside a rounded rect inset by the blur radius, faded so
+        // the edge falls off smoothly rather than cutting.
+        float cx = Mathf.Clamp(x, r, size - 1 - r);
+        float cy = Mathf.Clamp(y, r, size - 1 - r);
+        float d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+        float a = Mathf.Clamp01(1f - d / r);
+        px[y * size + x] = White(a * a);
+      }
+    }
+    // Sliced with a border, so one blob stretches to any tile size.
+    return Finish(tex, px, size, new Vector4(r + 6f, r + 6f, r + 6f, r + 6f));
+  });
+
+  // A wide, soft halo for faking neon. The UI canvas is ScreenSpaceOverlay, so
+  // the URP bloom that makes the board glow never touches it — a blurred blob
+  // behind the element, tinted with the accent, is what sells the same look.
+  // Falloff is gentler than Shadow's so the spread reads as light, not shadow.
+  public static Sprite Glow(int radius = 34) => Cached("glow" + radius, () =>
+  {
+    const int size = 128;
+    var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+    var px = new Color32[size * size];
+    float r = radius;
+    for (int y = 0; y < size; y++)
+    {
+      for (int x = 0; x < size; x++)
+      {
+        float cx = Mathf.Clamp(x, r, size - 1 - r);
+        float cy = Mathf.Clamp(y, r, size - 1 - r);
+        float d = Mathf.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+        float a = Mathf.Clamp01(1f - d / r);
+        // Smoothstep, then a mild lift so the core stays bright and the edge
+        // trails off instead of ending on a visible ring.
+        a = a * a * (3f - 2f * a);
+        px[y * size + x] = White(Mathf.Pow(a, 1.35f));
+      }
+    }
+    return Finish(tex, px, size, new Vector4(r + 8f, r + 8f, r + 8f, r + 8f));
+  });
+
   // A padlock, for locked levels and environments.
   public static Sprite Lock(int size = 64) => Cached("lock" + size, () => Shape(size, (x, y) =>
   {

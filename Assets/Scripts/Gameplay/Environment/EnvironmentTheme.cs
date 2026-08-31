@@ -78,6 +78,10 @@ public static class EnvironmentTheme
     line.endColor = Color.white;
   }
 
+  // Public so the environment-select cards can draw a biome from the same
+  // palette the level itself uses, instead of a separate hand-kept copy.
+  public static Palette PaletteFor(string environmentName) => GetPalette(environmentName);
+
   private static Palette GetPalette(string environmentName)
   {
     switch (environmentName)
@@ -413,7 +417,7 @@ public static class EnvironmentTheme
     }
   }
 
-  private static Texture ResolveGround(string key)
+  public static Texture ResolveGround(string key)
   {
     switch (key)
     {

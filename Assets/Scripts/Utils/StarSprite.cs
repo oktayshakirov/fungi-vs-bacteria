@@ -6,7 +6,9 @@ using UnityEngine.UI;
 public static class StarSprite
 {
   private static readonly Color Earned = new Color(1f, 0.82f, 0.29f);
-  private static readonly Color Empty = new Color(0.32f, 0.32f, 0.34f);
+  // Light enough to read as an empty slot against a dark pill; at 0.32 the
+  // unearned stars all but vanished on the level tiles.
+  private static readonly Color Empty = new Color(0.46f, 0.48f, 0.54f);
 
   private static Sprite sprite;
 
