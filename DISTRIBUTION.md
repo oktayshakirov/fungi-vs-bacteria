@@ -3,7 +3,7 @@
 ## Already configured (in this repo)
 
 - **Identity**: product "Fungi vs Bacteria", company "Oktay Shakirov", version 1.0.0
-- **Bundle ID**: `com.oktayshakirov.fungivsbacteria` (Android / iOS / Standalone)
+- **Bundle ID**: `com.shadev.fungivsbacteria` (Android / iOS / Standalone)
 - **Orientation**: landscape only (UI is designed at 1920×1080)
 - **Android**: IL2CPP + ARM64-only (Play Store compliant), min SDK 23
 - **App icon**: default icon wired to `Assets/Sprites/Logos/StartScreen.png` (placeholder —

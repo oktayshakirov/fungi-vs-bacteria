@@ -77,12 +77,15 @@ LevelPlay package version), the fix is:
 1. **Tools -> Build -> iOS (Update existing Xcode export in place)** —
    re-exports into the checked-in `iOS/` folder rather than a scratch
    location, which is what regenerates `iOS/Podfile` from every
-   `Dependencies.xml` under `Assets`.
-2. In `iOS/`, run `pod install`. If CocoaPods errors with a Ruby
+   `Dependencies.xml` under `Assets`. `IosPostProcess` renames the project,
+   target and Podfile entry to `Fungi vs Bacteria` and runs `pod install`
+   automatically as part of this step.
+2. If that automatic `pod install` failed (check the build log), run it
+   manually in `iOS/`. If CocoaPods errors with a Ruby
    `UnicodeNormalize`/`ASCII-8BIT` crash, your shell's locale isn't UTF-8 —
    run `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install` instead.
-3. Open `Unity-iPhone.xcworkspace` (never the `.xcodeproj` — CocoaPods only
-   links correctly through the workspace) and build.
+3. Open `Fungi vs Bacteria.xcworkspace` (never the `.xcodeproj` — CocoaPods
+   only links correctly through the workspace) and build.
 
 If the LevelPlay package version changes, the compatible SDK/adapter versions
 also change. They are resolved the same way LevelPlay's own installer does:
