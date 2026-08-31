@@ -23,3 +23,6 @@ MonoBehaviour:
   splashRadius: 0
   slowsEnemies: 0
   slowAmount: 0
+  isSupport: 1
+  damageBoost: 0.25
+  fireRateBoost: 0

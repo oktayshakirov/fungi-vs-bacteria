@@ -1,6 +1,5 @@
 using UnityEngine;
 //TODO: Add Damage over time effect (PoisonTower)
-//TODO: Add passive effect ex: shield, health, damage boost, etc (AuraTower)
 
 [CreateAssetMenu(fileName = "NewTower", menuName = "Tower Defense/Tower")]
 public class TowerConfig : ScriptableObject
@@ -21,6 +20,15 @@ public class TowerConfig : ScriptableObject
   public float splashRadius = 0f;
   public bool slowsEnemies = false;
   public float slowAmount = 0f;
+
+  [Header("Support")]
+  // A support tower never shoots. Instead it raises the damage and fire rate of
+  // every attacking tower inside its `range`. Boosts are fractions (0.3 = +30%)
+  // and stack additively across overlapping support towers, which is far easier
+  // to reason about while balancing than a multiplicative stack.
+  public bool isSupport = false;
+  [Range(0f, 1f)] public float damageBoost = 0f;
+  [Range(0f, 1f)] public float fireRateBoost = 0f;
 
   public int sellValue => Mathf.RoundToInt(cost * 0.7f);
 }

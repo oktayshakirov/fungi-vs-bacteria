@@ -19,8 +19,24 @@ public class Tower : MonoBehaviour
   private bool isPreviewMode = false;
   public Vector2Int GridPosition { get; private set; }
 
+  // Multipliers contributed by nearby support towers; see TowerBuffs.
+  private float damageMultiplier = 1f;
+  private float fireRateMultiplier = 1f;
+
   public float Range => config?.range ?? 0f;
   public float FireRate => config?.fireRate ?? 1f;
+
+  public bool IsSupport => config != null && config.isSupport;
+  public int EffectiveDamage =>
+    config == null ? 0 : Mathf.RoundToInt(config.damage * damageMultiplier);
+  public float EffectiveFireRate =>
+    config == null ? 1f : config.fireRate * fireRateMultiplier;
+
+  public void SetBuffs(float damage, float fireRate)
+  {
+    damageMultiplier = damage;
+    fireRateMultiplier = fireRate;
+  }
 
   private void Awake()
   {
@@ -38,6 +54,15 @@ public class Tower : MonoBehaviour
       return;
     }
 
+    // A support tower has no weapon. Without this it would still run the
+    // targeting scan and, because HandleShooting falls back to a 1/sec cadence
+    // when fireRate is 0, fire an invisible zero-damage projectile every second
+    // — complete with the firing sound.
+    if (config.isSupport)
+    {
+      return;
+    }
+
     UpdateTarget();
     if (targeting != null && targeting.CurrentTarget != null)
     {
@@ -49,11 +74,17 @@ public class Tower : MonoBehaviour
   private void OnDestroy()
   {
     HideTileIndicator();
+    TowerBuffs.Unregister(this);
   }
 
-  public void Initialize(TowerConfig towerConfig)
+  // `preview` must be set here rather than left to the later SetPreviewMode
+  // call: a preview tower follows the cursor around the board and must never
+  // join the buff graph, or it would hand out aura bonuses while being dragged.
+  public void Initialize(TowerConfig towerConfig, bool preview = false)
   {
     this.config = towerConfig;
+    this.isPreviewMode = preview;
+
     if (config != null)
     {
       if (targeting != null)
@@ -61,6 +92,8 @@ public class Tower : MonoBehaviour
         targeting.Initialize(config.range);
       }
       fireCountdown = 1f / (FireRate > 0 ? FireRate : 1f);
+
+      if (!preview) TowerBuffs.Register(this);
     }
     else
     {
@@ -92,7 +125,7 @@ public class Tower : MonoBehaviour
     if (projectileGO.TryGetComponent(out Projectile projectile))
     {
       var projectileData = new ProjectileData(
-          config.damage,
+          EffectiveDamage,
           config.isAoE,
           config.splashRadius,
           config.slowsEnemies,
@@ -132,7 +165,8 @@ public class Tower : MonoBehaviour
     if (fireCountdown <= 0f)
     {
       Attack();
-      fireCountdown = 1f / (FireRate > 0 ? FireRate : 1f);
+      float rate = EffectiveFireRate;
+      fireCountdown = 1f / (rate > 0 ? rate : 1f);
     }
   }
 

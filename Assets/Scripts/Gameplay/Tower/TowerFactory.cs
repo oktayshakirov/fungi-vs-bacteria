@@ -36,9 +36,10 @@ public class TowerFactory : MonoBehaviour
     Vector3 previewPosition = GetPositionWithHeightOffset(Vector3.zero);
     GameObject preview = InstantiateTower(config, previewPosition);
 
-    // Get the tower component and initialize it (for range indicator setup)
+    // Get the tower component and initialize it (for range indicator setup).
+    // Flagged as a preview up front so it never registers for support buffs.
     Tower tower = preview.GetComponent<Tower>();
-    tower.Initialize(config);
+    tower.Initialize(config, preview: true);
 
     // Put preview in preview mode
     tower.SetPreviewMode(true);

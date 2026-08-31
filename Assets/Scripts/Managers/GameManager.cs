@@ -51,6 +51,10 @@ public class GameManager : MonoBehaviour
     PlaySpeed = 1f;
     Time.timeScale = 1f;
 
+    // Static registry: without this it starts the level holding every tower
+    // from the previous one, all of them destroyed.
+    TowerBuffs.Clear();
+
     EnvironmentTheme.Apply(GameSession.SelectedEnvironment);
 
     spawner = FindFirstObjectByType<EnemySpawner>();
