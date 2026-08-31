@@ -56,6 +56,16 @@ Roughly in order. Each is committed.
    full-screen ads to hide the ad SDK's main-thread init work, which was
    producing an audible crackle and a couple seconds of stutter on launch and
    on returning from an ad. (`8eb3005`)
+9. **iOS identity** — bundle id is `com.shadev.fungivsbacteria` on every
+   platform, and the exported Xcode project/target/workspace/scheme is renamed
+   from `Unity-iPhone` to `Fungi vs Bacteria` on every export, with `pod
+   install` re-run automatically. See section 6.
+10. **Balance** — `BalanceSim` harness plus a retuned generator; enemies now
+    scale in strength, not just count. See Priority 1 below for the findings.
+11. **Support towers** — Aura and Defense were purchasable but did nothing;
+    they now buff nearby towers' damage / fire rate via `TowerBuffs`.
+12. **Environment + level screen redesign** — named biomes with generated art,
+    modern tiles, neon cues, shared header and corner-button styling.
 
 ## 4. How to verify work — read this before changing anything
 
@@ -89,6 +99,7 @@ but until then a new file is silently not compiled.
 | `UiPreview.Render` | HUD + every screen, as PNGs | **no** |
 | `SceneCost.Report` | Draw calls / triangles / materials | **no** |
 | `SceneCost.RenderCliff` | The island underside | **no** |
+| `BalanceSim.RunBatch` | Plays all 70 levels, writes `Builds/Balance/balance.csv` | yes |
 
 `CameraPreview` **cannot** capture the HUD — a ScreenSpaceOverlay canvas draws
 straight to the backbuffer and never lands in a RenderTexture. That is why
@@ -97,18 +108,45 @@ the real skin/theme code.
 
 ## 5. What to do next
 
-**Priority 1 — Balance the 70 levels.** `LevelGenerator.GenerateWaves` scales
-enemy **count only**, never strength, and is unbounded: Env7 Level10's final
-wave spawns ~73 enemies at 0.6s intervals. **40 of the 70 levels have never
-been played by anyone.** The plan agreed with the user is a headless simulation
-harness that plays every level against a modelled tower loadout and reports
-winnable / trivial / broken, then retunes the generator against that data
-rather than by hand.
+**Priority 1 — Balance the 70 levels. DONE in the model, NOT yet in real play.**
+`BalanceSim` (see section 4) now exists and the generator has been retuned
+against it over four measured iterations. What it found and fixed:
+- Enemy strength was **identical on level 1 and level 70** — the generator could
+  only add more enemies, which made levels *longer*, not harder. Tower
+  utilization actually FELL from 27% at difficulty 1 to 11% at 70.
+- **Path length, not difficulty, decided wins.** Every unwinnable level had a
+  path of exactly 12 (the old minimum) and the verdict ladder mapped
+  monotonically onto mean path length. Band is now 15-20.
+- Levels ran up to 7.9 minutes. Now 3.9 max.
+- `WaveEnemyGroup.healthMultiplier` / `rewardMultiplier` are the new scaling
+  lever, applied in `Enemy.Initialize`.
+
+Result: kill depth (how far enemies get before dying) now rises 50% -> 64%
+across the game and health starts dropping around difficulty 51, where before
+both were flat. **But the sim's player proxy places towers optimally, so it
+flatters the player — 70% of levels still read "trivial" to it.** Do not tune
+further against the model. The next move is a real playtest; treat the sim as a
+regression check, not as the source of truth.
+
+**Priority 1b — Playtest the redesigned menus and the new balance.** Nothing
+below has been played by a human yet, only render-verified:
+- **Locked states are completely unexercised.** `LevelProgress.UnlockAll` is
+  still `true`, so no preview can show a locked level tile (padlock, dimmed
+  face) or a locked biome card. Set it `false` and walk the flow once.
+- The **Home button** on the level screen routes through
+  `EnvironmentsScreen.ReturnToMenu()`; confirm it actually lands on the menu.
+- The **neon pulse** (`UiPulse`) only moves at runtime; batch renders capture a
+  single frame, so its speed and depth have never been seen in motion.
+- The balance retune assumes a **fresh wallet**. The wallet carries between
+  levels now, so a returning player starts richer than the sim modelled.
 
 **Priority 2 — Enemy variety.** Only Basic / Fast / Armored / Boss exist across
 70 levels, and towers have a single upgrade level. Adding shielded / healer /
 splitter / swarm types gives the difficulty curve something to scale with
-besides raw count. This is the main gap in how *fun* the game is.
+besides raw count. This is the main gap in how *fun* the game is — and it is
+now the main lever left, because difficulty is capped by a structural ceiling:
+player power is bounded by buildable cells (~33), so peak enemy health cannot
+exceed ~3x before a FULL board starts losing.
 
 **Priority 3 — Confirm the performance fixes.** The user measured 60fps steady,
 dipping to ~20 only past ~25 enemies. That was diagnosed as per-enemy
@@ -157,10 +195,18 @@ These each cost real debugging time. They are not obvious from the code.
   and the simulator never reproduce it.
 - The Unity splash screen is off (`m_ShowUnitySplashScreen: 0`). Unity 6 makes
   this legal on a Personal licence; on older versions it silently comes back.
-- Unity always names the exported Xcode project, target and scheme
-  `Unity-iPhone`. `IosPostProcess` renames the **scheme** on export, which is
-  what Xcode shows in its toolbar. The `.xcodeproj` folder name is left alone —
-  renaming it breaks append builds. The shipped app is unaffected either way:
+- Unity always names the exported Xcode project, main app target, workspace
+  and scheme `Unity-iPhone`. `IosPostProcess` renames all of them to
+  `Fungi vs Bacteria` on export (project/target via a text rewrite of
+  `project.pbxproj` targeting the app target's fixed template GUIDs, workspace
+  via `contents.xcworkspacedata`, scheme via its `.xcscheme` XML), rewrites the
+  Podfile's target line to match, then re-runs `pod install` so CocoaPods'
+  generated xcconfig files follow. Runs on every export, not just the first —
+  EDM4U regenerates the whole Podfile (with the Unity name) on every export.
+  Deliberately left alone: the `Unity-iPhone Tests` target and the
+  `Unity-iPhone` / `Unity-iPhone Tests` group folders on disk — those are real
+  paths Unity's exporter still writes into, renaming them has no visible
+  benefit. The shipped app's home-screen name is unaffected either way:
   `CFBundleDisplayName` comes from `productName`.
 
 **Configuration**
@@ -176,6 +222,28 @@ These each cost real debugging time. They are not obvious from the code.
 **Unity behaviour**
 - `Destroy()` is deferred to end of frame. Swapping a component in one call
   needs `DestroyImmediate`, or `AddComponent` fails and you get a null.
+- **Layout is deferred too, and that failure is silent.** A screen that builds
+  its own content must call `Canvas.ForceUpdateCanvases()` +
+  `LayoutRebuilder.ForceRebuildLayoutImmediate(content)` before the frame ends.
+  Without it the content rect stays `(0,0)`, the viewport mask clips every
+  child, and you get an empty screen with **no exception anywhere** — it looks
+  exactly like "the cards were never created". Cost a full debug cycle; the
+  giveaway was a log line showing 10 children but a zero-size rect.
+- **UI draws in sibling order**, so "behind" means an EARLIER sibling. A
+  backdrop inserted at index 0 still loses to an opaque prefab background that
+  sits later. Prefer repainting the prefab's own `Background` over inserting a
+  competing one — that also leaves `BackgroundFill` ([ExecuteAlways], it
+  rewrites the rect every frame) in charge of sizing instead of fighting it.
+- `ScrollRect` with `AutoHideAndExpandViewport` resizes its own viewport around
+  the scrollbar. Deactivating the bar and nulling `horizontalScrollbar` moves
+  the viewport and takes the content with it — fade the bar with a `CanvasGroup`
+  instead.
+- TMP's `TextAlignmentOptions.Center` centres on the font's full line box,
+  including descender space that all-caps display text never uses, so titles sit
+  visibly high in a plate. Use **`Midline`** for caps.
+- `UiSkin.StyleButton` styles the button's LABEL as a side effect. Anything
+  replacing it must restyle the label too, or the prefab's authored font size
+  comes back and the text overflows its plate.
 - A parent `LayoutGroup` silently overrides anchored children. Runtime
   decorations need `LayoutElement.ignoreLayout = true`. This caused three
   separate bugs.
@@ -249,6 +317,27 @@ These each cost real debugging time. They are not obvious from the code.
   between levels does not re-trigger it. If you add another entry point that
   can be the *first* screen shown (e.g. a deep link), it won't get the splash
   unless `BootSplash.ShouldShow` is checked there too.
+
+**Balance**
+- Player power is capped by **buildable cells** (~33 once the path is carved
+  out) and saturates by the mid game, so the usable difficulty window is narrow.
+  Peak enemy health cannot exceed ~3x before a FULL board (31-34 towers, gold
+  unspent) starts losing. This is why the health ramp is concave, not linear —
+  a linear ramp either leaves the first fifty levels at 100% health or makes
+  everything past difficulty 60 unwinnable. Enemy variety is the way past this
+  ceiling, not bigger numbers.
+- Difficulty must also ramp WITHIN a level (`FirstWaveHealthShare`). A flat
+  per-level multiplier put full-strength enemies in wave 1 against a
+  starting-gold-only board, so runs died at wave 3 and never earned the income
+  for the rest of the board — 56% of levels became losses.
+- **Tower "utilization" is a confounded metric**: it is actual/potential dps, so
+  when the player is gold-starved the denominator collapses and utilization
+  RISES while the game gets harder. Use **kill depth** (mean fraction of the
+  path an enemy covers before dying) — it still discriminates when a level is
+  won at 100% health.
+- `environmentName` ("Environment 3") is a **persistence key**, baked into every
+  level asset and into `HighestCompletedLevel_<name>` / `Stars_<name>_<n>`.
+  Renaming it wipes progress. Display names live in `EnvironmentInfo`.
 
 **Art and text**
 - The TMP atlases are **static and ASCII-only** (~97 glyphs). No stars, arrows
