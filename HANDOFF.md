@@ -1,7 +1,11 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-08-24. Working tree clean at `8eb3005` on `main`.
-This state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
+Last updated 2026-08-31. Working tree clean at `789e203` on `main`.
+An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
+
+**Start here if you are a new session.** Read this file first; it supersedes the
+per-phase notes elsewhere. Section 5 is the work queue, section 6 is every trap
+that has actually cost debugging time.
 
 ## 1. The goal
 
