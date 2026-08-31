@@ -132,7 +132,9 @@ public class EnemySpawner : MonoBehaviour
 
         enemy.Initialize(
           adjustedPathPoints,
-          enemyGroup.enemyConfig
+          enemyGroup.enemyConfig,
+          enemyGroup.healthMultiplier,
+          enemyGroup.rewardMultiplier
         );
       }
     }

@@ -15,67 +15,73 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 7
-    timeBetweenSpawns: 1.47
-    timeToNextWave: 8
+      count: 5
+      healthMultiplier: 0.9937716
+      rewardMultiplier: 0.9937716
+    timeBetweenSpawns: 1.416
+    timeToNextWave: 5
     waveGoldReward: 36
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 8
+      count: 6
+      healthMultiplier: 1.1594002
+      rewardMultiplier: 1.1594002
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 4
-    timeBetweenSpawns: 1.42
-    timeToNextWave: 8
+      count: 2
+      healthMultiplier: 1.1594002
+      rewardMultiplier: 1.1594002
+    timeBetweenSpawns: 1.376
+    timeToNextWave: 5
     waveGoldReward: 40
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 8
+      count: 6
+      healthMultiplier: 1.3250288
+      rewardMultiplier: 1.3250288
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 5
+      count: 3
+      healthMultiplier: 1.3250288
+      rewardMultiplier: 1.3250288
     - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 2
-    timeBetweenSpawns: 1.37
-    timeToNextWave: 8
+      count: 1
+      healthMultiplier: 1.3250288
+      rewardMultiplier: 1.3250288
+    timeBetweenSpawns: 1.336
+    timeToNextWave: 5
     waveGoldReward: 44
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 9
+      count: 7
+      healthMultiplier: 1.4906573
+      rewardMultiplier: 1.4906573
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 5
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
       count: 3
-    timeBetweenSpawns: 1.32
-    timeToNextWave: 8
+      healthMultiplier: 1.4906573
+      rewardMultiplier: 1.4906573
+    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
+      count: 2
+      healthMultiplier: 1.4906573
+      rewardMultiplier: 1.4906573
+    timeBetweenSpawns: 1.296
+    timeToNextWave: 5
     waveGoldReward: 48
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 9
+      count: 7
+      healthMultiplier: 1.656286
+      rewardMultiplier: 1.656286
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 5
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
       count: 3
-    timeBetweenSpawns: 1.27
-    timeToNextWave: 8
-    waveGoldReward: 52
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 10
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 6
+      healthMultiplier: 1.656286
+      rewardMultiplier: 1.656286
     - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 3
-    timeBetweenSpawns: 1.22
-    timeToNextWave: 8
-    waveGoldReward: 56
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 10
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 6
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 3
+      count: 2
+      healthMultiplier: 1.656286
+      rewardMultiplier: 1.656286
     - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
       count: 1
-    timeBetweenSpawns: 1.17
-    timeToNextWave: 8
-    waveGoldReward: 60
+      healthMultiplier: 1.656286
+      rewardMultiplier: 1.656286
+    timeBetweenSpawns: 1.256
+    timeToNextWave: 5
+    waveGoldReward: 52

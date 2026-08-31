@@ -53,7 +53,8 @@ public class Enemy : MonoBehaviour
     normalSpeed = speed;
   }
 
-  public void Initialize(Vector3[] path, EnemyConfig enemyConfig)
+  public void Initialize(Vector3[] path, EnemyConfig enemyConfig,
+    float healthMultiplier = 1f, float rewardMultiplier = 1f)
   {
     // Full reset: instances come back from the pool with stale state
     StopAllCoroutines();
@@ -64,12 +65,14 @@ public class Enemy : MonoBehaviour
     transform.localScale = baseScale;
 
     waypoints = path;
-    health = enemyConfig.maxHealth;
-    maxHealth = enemyConfig.maxHealth;
+    // Scaled per wave: the shared EnemyConfig assets are identical on level 1
+    // and level 70, so this is what makes later levels actually harder.
+    maxHealth = Mathf.Max(1, Mathf.RoundToInt(enemyConfig.maxHealth * healthMultiplier));
+    health = maxHealth;
     speed = enemyConfig.moveSpeed * (enemyConfig.isFast ? enemyConfig.speedMultiplier : 1f);
     normalSpeed = speed;
     damage = enemyConfig.baseDamage;
-    goldReward = enemyConfig.goldReward;
+    goldReward = Mathf.Max(1, Mathf.RoundToInt(enemyConfig.goldReward * rewardMultiplier));
     armorDamageReduction = enemyConfig.isArmored ? enemyConfig.armorDamageReduction : 0f;
 
     if (healthBar == null)

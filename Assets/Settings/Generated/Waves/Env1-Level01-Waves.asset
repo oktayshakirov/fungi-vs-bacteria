@@ -15,25 +15,33 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 3
-    timeBetweenSpawns: 1.91
-    timeToNextWave: 8
+      count: 4
+      healthMultiplier: 0.6
+      rewardMultiplier: 0.6
+    timeBetweenSpawns: 1.548
+    timeToNextWave: 5
     waveGoldReward: 25
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-    timeBetweenSpawns: 1.86
-    timeToNextWave: 8
+      count: 5
+      healthMultiplier: 0.73333335
+      rewardMultiplier: 0.73333335
+    timeBetweenSpawns: 1.508
+    timeToNextWave: 5
     waveGoldReward: 29
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-    timeBetweenSpawns: 1.81
-    timeToNextWave: 8
+      count: 5
+      healthMultiplier: 0.8666667
+      rewardMultiplier: 0.8666667
+    timeBetweenSpawns: 1.468
+    timeToNextWave: 5
     waveGoldReward: 33
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-    timeBetweenSpawns: 1.76
-    timeToNextWave: 8
+      count: 6
+      healthMultiplier: 1
+      rewardMultiplier: 1
+    timeBetweenSpawns: 1.428
+    timeToNextWave: 5
     waveGoldReward: 37

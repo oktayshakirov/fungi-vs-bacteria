@@ -12,11 +12,58 @@ public static class LevelGenerator
   private const int EnvironmentCount = 7;
   private const int LevelsPerEnvironment = 10;
 
-  // Rescaled for the 10x5 board: the shortest possible crossing is 10 cells,
-  // and a 38-cell path would fill three quarters of a 50-cell grid.
-  private const int MinPathLength = 12;
-  private const int MaxPathLength = 26;
+  // Path length was the single biggest difficulty variable in the game and it
+  // was pure luck: BalanceSim showed every unwinnable level had a path of
+  // exactly 12 (the old minimum) while 15+ was trivial at difficulty 67, and
+  // the verdict ladder LOSS/HARD/FAIR/EASY/TRIVIAL mapped monotonically onto
+  // mean path length. Narrowing the band takes that variable out of the way so
+  // difficulty comes from the enemy curve below instead of the dice.
+  // The old MaxPathLength of 26 was dead config - the self-avoiding walk on a
+  // 10x5 grid never produced more than 19.
+  private const int MinPathLength = 15;
+  private const int MaxPathLength = 20;
   private const int BaseSeed = 4242;
+
+  // --- difficulty curve -----------------------------------------------------
+  // Enemy assets are shared by every level, so before per-wave scaling existed
+  // the generator could only add MORE enemies - which made levels longer, never
+  // harder. BalanceSim measured the consequence: tower utilization FELL from
+  // 27% at difficulty 1 to 11% at difficulty 70, i.e. the endgame was the
+  // easiest part of the game, and kill depth sat flat at ~40% throughout.
+  //
+  // So: enemies get tougher rather than more numerous, and counts come down to
+  // pull level length back from ~7.5 minutes to ~3.
+  // The ramp is CONCAVE, not linear, and that shape is load-bearing. Player
+  // power is capped by buildable cells (~33 once the path is carved out) and
+  // saturates by the mid game, so the usable difficulty window is narrow. The
+  // sim measured both walls: a linear 0.032/level left the first fifty levels
+  // at 100% health, while 0.042/level made every level past difficulty 60 a
+  // loss WITH A FULL BOARD - 31-34 towers built and gold still unspent, i.e.
+  // nowhere left to build. Peak multiplier therefore has to land near 3.0.
+  // Rising fast through the early environments and flattening at the top is
+  // the only way to get both a real mid game and a winnable endgame.
+  //   d10 ~1.6x   d30 ~2.2x   d50 ~2.6x   d70 ~3.0x
+  private const float HealthRampScale = 0.152f;
+  private const float HealthRampExponent = 0.61f;
+
+  // Difficulty also has to ramp WITHIN a level, not just between levels. A flat
+  // per-level multiplier put full-strength enemies in wave 1, when the player
+  // owns only what starting gold could buy (~10 towers) - so the run died at
+  // wave 3 and never earned the income that pays for the other twenty. The sim
+  // showed exactly that: every level past difficulty 41 lost with ~12 towers
+  // built and under 100 gold unspent. Opening at 60% of the level's peak gives
+  // the economy room to get going.
+  private const float FirstWaveHealthShare = 0.6f;
+
+  // Reward grows in step with health: enemy counts are roughly halved, so
+  // income per kill has to rise or the player cannot fill the board. The sim
+  // is explicit that the endgame needs this - the levels it still loses end
+  // with ~30 towers and under 200 gold, i.e. capped by income, not by space.
+  private const float RewardShareOfHealthRamp = 1f;
+
+  // Was 8s. With up to nine waves that alone was over a minute of standing
+  // around per level.
+  private const float TimeToNextWave = 5f;
 
   private const string LevelsFolder = "Assets/Resources/Levels";
   private const string PathsFolder = "Assets/Settings/Generated/Paths";
@@ -69,7 +116,10 @@ public static class LevelGenerator
         level.environmentName = $"Environment {env}";
         level.pathConfig = path;
         level.waveConfig = waves;
-        level.startingGold = 500 + (difficulty - 1) * 15;
+        // Raised from 15/level: the opening board is bought entirely out of
+        // starting gold, so it has to keep some pace with the health ramp or
+        // wave 1 arrives against too few towers.
+        level.startingGold = 500 + (difficulty - 1) * 24;
         level.startingHealth = 100;
         AssetDatabase.CreateAsset(level, $"{envFolder}/Level{levelNumber:00}.asset");
 
@@ -99,7 +149,9 @@ public static class LevelGenerator
   // corridor reads unambiguously on the grid.
   private static List<Vector2Int> GeneratePath(int seed)
   {
-    for (int attempt = 0; attempt < 200; attempt++)
+    // More attempts than before: the acceptable length band is now much
+    // narrower, so a larger share of walks get rejected.
+    for (int attempt = 0; attempt < 600; attempt++)
     {
       List<Vector2Int> path = TryGeneratePath(new System.Random(seed + attempt));
       if (path != null) return path;
@@ -122,13 +174,15 @@ public static class LevelGenerator
     Vector2Int current = start;
     while (current.x < GridWidth - 1 && path.Count < MaxPathLength)
     {
-      // Weighted direction preference: mostly east, wander north/south
+      // Weighted direction preference: mostly east, wander north/south.
+      // East used to be weighted 4 against 2+2, which raced to the far edge and
+      // made a 15+ cell path rare - the reason the old minimum had to be 12.
       var candidates = new List<Vector2Int>();
       void AddWeighted(Vector2Int dir, int weight)
       {
         for (int i = 0; i < weight; i++) candidates.Add(dir);
       }
-      AddWeighted(east, 4);
+      AddWeighted(east, 3);
       AddWeighted(north, 2);
       AddWeighted(south, 2);
 
@@ -172,35 +226,55 @@ public static class LevelGenerator
   private static WaveConfig.Wave[] GenerateWaves(
     int difficulty, EnemyConfig basic, EnemyConfig fast, EnemyConfig armored, EnemyConfig boss)
   {
-    int waveCount = Mathf.Clamp(3 + (difficulty + 2) / 3, 4, 10);
+    // The actual difficulty lever. At difficulty 70 a Basic enemy is ~4.1x its
+    // authored 100 HP and the boss clears 3,500 effective HP behind its armor.
+    float peakHealth = 1f + HealthRampScale * Mathf.Pow(difficulty - 1, HealthRampExponent);
+
+    int waveCount = Mathf.Clamp(4 + difficulty / 12, 4, 9);
     var waves = new WaveConfig.Wave[waveCount];
 
     for (int w = 1; w <= waveCount; w++)
     {
       bool lastWave = w == waveCount;
+
+      // Ramp from FirstWaveHealthShare of peak up to the full value on the
+      // final wave, so the level opens at something the starting board can hold.
+      float t = waveCount > 1 ? (float)(w - 1) / (waveCount - 1) : 1f;
+      float health = peakHealth * Mathf.Lerp(FirstWaveHealthShare, 1f, t);
+      float reward = 1f + (health - 1f) * RewardShareOfHealthRamp;
+
+      WaveConfig.WaveEnemyGroup Group(EnemyConfig cfg, int count) =>
+        new WaveConfig.WaveEnemyGroup
+        {
+          enemyConfig = cfg,
+          count = count,
+          healthMultiplier = health,
+          rewardMultiplier = reward,
+        };
+
       var groups = new List<WaveConfig.WaveEnemyGroup>
       {
-        new WaveConfig.WaveEnemyGroup { enemyConfig = basic, count = 3 + difficulty / 3 + w / 2 }
+        Group(basic, 4 + difficulty / 12 + w / 2)
       };
 
       if (difficulty >= 2 && w >= 2)
       {
-        groups.Add(new WaveConfig.WaveEnemyGroup { enemyConfig = fast, count = 1 + difficulty / 4 + w / 3 });
+        groups.Add(Group(fast, 2 + difficulty / 20 + w / 3));
       }
       if (difficulty >= 5 && w >= 3)
       {
-        groups.Add(new WaveConfig.WaveEnemyGroup { enemyConfig = armored, count = difficulty / 5 + w / 4 });
+        groups.Add(Group(armored, 1 + difficulty / 22 + w / 4));
       }
       if (lastWave && difficulty >= 3)
       {
-        groups.Add(new WaveConfig.WaveEnemyGroup { enemyConfig = boss, count = 1 + difficulty / 15 });
+        groups.Add(Group(boss, 1 + difficulty / 30));
       }
 
       waves[w - 1] = new WaveConfig.Wave
       {
         enemyGroups = groups.ToArray(),
-        timeBetweenSpawns = Mathf.Max(0.6f, 2f - difficulty * 0.04f - w * 0.05f),
-        timeToNextWave = 8f,
+        timeBetweenSpawns = Mathf.Max(0.55f, 1.6f - difficulty * 0.012f - w * 0.04f),
+        timeToNextWave = TimeToNextWave,
         // Modest completion bonus: most income should come from kills, so the
         // player can't coast on flat per-wave gold in the late game
         waveGoldReward = 20 + 4 * w + difficulty

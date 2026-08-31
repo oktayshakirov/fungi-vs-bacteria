@@ -16,5 +16,5 @@ MonoBehaviour:
   environmentName: Environment 5
   pathConfig: {fileID: 11400000, guid: 268fcba4d41c04fcf9a867a057d134d0, type: 2}
   waveConfig: {fileID: 11400000, guid: 139951c5fd9b64c548b227d8f8626066, type: 2}
-  startingGold: 1175
+  startingGold: 1580
   startingHealth: 100
