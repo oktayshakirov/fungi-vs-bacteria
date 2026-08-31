@@ -5,6 +5,10 @@ public class EnemySpawner : MonoBehaviour
 {
   [SerializeField] private WaveConfig waveConfig;
 
+  // Splitter children are spawned from Enemy when a parent dies, which needs a
+  // way back to the spawner. One spawner per MainGame scene.
+  public static EnemySpawner Instance { get; private set; }
+
   private int currentWave = 0;
   private bool isSpawning = false;
   private bool gameStarted = false;
@@ -13,6 +17,16 @@ public class EnemySpawner : MonoBehaviour
 
   public bool IsLastWave => currentWave >= waveConfig.waves.Length;
   public bool IsWaveInProgress => isSpawning;
+
+  private void Awake()
+  {
+    Instance = this;
+  }
+
+  private void OnDestroy()
+  {
+    if (Instance == this) Instance = null;
+  }
 
   private void Start()
   {
@@ -141,6 +155,40 @@ public class EnemySpawner : MonoBehaviour
     else
     {
       Debug.LogError("Missing enemy config, prefab or PathManager!");
+    }
+  }
+
+  // Called by Enemy when a splitter dies. The children reuse the parent's
+  // already height-adjusted waypoint array and enter at the parent's waypoint,
+  // so a splitter killed at the end of the path drops its children right on the
+  // base -- which is the whole point of the type.
+  public void SpawnSplitChildren(EnemyConfig cfg, Vector3[] path,
+    Enemy.SpawnOverride childOverride, int count, int parentMaxHealth, int parentReward)
+  {
+    if (cfg == null || cfg.prefab == null || path == null || count <= 0) return;
+
+    float heightOffset = GetEnemyHeight(cfg.prefab) / 2f;
+    Vector3 origin = path[Mathf.Clamp(childOverride.startWaypoint, 0, path.Length - 1)];
+
+    for (int i = 0; i < count; i++)
+    {
+      GameObject childObj = EnemyPool.Get(cfg.prefab, origin, Quaternion.identity);
+      Enemy child = childObj.GetComponent<Enemy>();
+      if (child == null) continue;
+
+      GameManager.Instance.OnEnemySpawned();
+
+      // Health and reward are expressed relative to the PARENT's already
+      // wave-scaled values, not to the raw config, or children would spawn at
+      // level-1 strength in level 70.
+      float healthMult = parentMaxHealth / Mathf.Max(1f, cfg.maxHealth);
+      float rewardMult = parentReward / Mathf.Max(1f, cfg.goldReward);
+
+      child.Initialize(path, cfg, healthMult, rewardMult, childOverride);
+
+      // Fan the children out slightly so they do not overlap into one blob.
+      Vector3 jitter = new Vector3((i - (count - 1) * 0.5f) * 0.45f, 0f, 0f);
+      childObj.transform.position = new Vector3(origin.x, heightOffset, origin.z) + jitter;
     }
   }
 

@@ -16,56 +16,56 @@ MonoBehaviour:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 4
-      healthMultiplier: 0.8124474
-      rewardMultiplier: 0.8124474
+      healthMultiplier: 0.7583572
+      rewardMultiplier: 0.7583572
     timeBetweenSpawns: 1.5
     timeToNextWave: 5
     waveGoldReward: 29
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 0.99299127
-      rewardMultiplier: 0.99299127
+      healthMultiplier: 0.926881
+      rewardMultiplier: 0.926881
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 2
-      healthMultiplier: 0.99299127
-      rewardMultiplier: 0.99299127
+      count: 1
+      healthMultiplier: 0.926881
+      rewardMultiplier: 0.926881
     timeBetweenSpawns: 1.46
     timeToNextWave: 5
     waveGoldReward: 33
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 1.1735351
-      rewardMultiplier: 1.1735351
+      healthMultiplier: 1.0954049
+      rewardMultiplier: 1.0954049
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 3
-      healthMultiplier: 1.1735351
-      rewardMultiplier: 1.1735351
+      count: 1
+      healthMultiplier: 1.0954049
+      rewardMultiplier: 1.0954049
     - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
       count: 1
-      healthMultiplier: 1.1735351
-      rewardMultiplier: 1.1735351
+      healthMultiplier: 1.0954049
+      rewardMultiplier: 1.0954049
     timeBetweenSpawns: 1.4200001
     timeToNextWave: 5
     waveGoldReward: 37
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 6
-      healthMultiplier: 1.354079
-      rewardMultiplier: 1.354079
+      healthMultiplier: 1.2639287
+      rewardMultiplier: 1.2639287
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 3
-      healthMultiplier: 1.354079
-      rewardMultiplier: 1.354079
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
       count: 2
-      healthMultiplier: 1.354079
-      rewardMultiplier: 1.354079
+      healthMultiplier: 1.2639287
+      rewardMultiplier: 1.2639287
+    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
+      count: 1
+      healthMultiplier: 1.2639287
+      rewardMultiplier: 1.2639287
     - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
       count: 1
-      healthMultiplier: 1.354079
-      rewardMultiplier: 1.354079
+      healthMultiplier: 1.2639287
+      rewardMultiplier: 1.2639287
     timeBetweenSpawns: 1.38
     timeToNextWave: 5
     waveGoldReward: 41

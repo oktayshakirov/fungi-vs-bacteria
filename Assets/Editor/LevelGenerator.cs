@@ -43,7 +43,14 @@ public static class LevelGenerator
   // Rising fast through the early environments and flattening at the top is
   // the only way to get both a real mid game and a winnable endgame.
   //   d10 ~1.6x   d30 ~2.2x   d50 ~2.6x   d70 ~3.0x
-  private const float HealthRampScale = 0.152f;
+  //
+  // Lowered from 0.152 (peak ~3.0x) when the four behaviour types landed. That
+  // is the whole point of enemy variety: the difficulty it adds has to be PAID
+  // FOR out of raw numbers, not stacked on top of them. Stacked, the sim lost
+  // every level from d54 up with 31-35 towers built and up to 4,944 gold
+  // unspent -- a full board with nowhere left to build, i.e. straight through
+  // the structural ceiling. Peak is now ~2.5x.
+  private const float HealthRampScale = 0.1133f;
   private const float HealthRampExponent = 0.61f;
 
   // Difficulty also has to ramp WITHIN a level, not just between levels. A flat
@@ -61,6 +68,20 @@ public static class LevelGenerator
   // with ~30 towers and under 200 gold, i.e. capped by income, not by space.
   private const float RewardShareOfHealthRamp = 1f;
 
+  // --- enemy variety --------------------------------------------------------
+  // Raw numbers are capped: player power is bounded by buildable cells (~33), so
+  // peak health cannot pass ~3x before a full board loses. New BEHAVIOURS are
+  // the only lever left, so one arrives per environment through the middle of
+  // the game and the last two environments combine them.
+  //   env2 swarm      - chaff that saturates single-target towers
+  //   env3 shielded   - regenerating absorb; punishes chip damage
+  //   env4 splitter   - children spawn where it died; punishes no AoE
+  //   env5 healer     - heals the pack; punishes towers spread thin
+  private const int SwarmFromDifficulty = 11;
+  private const int ShieldedFromDifficulty = 21;
+  private const int SplitterFromDifficulty = 31;
+  private const int HealerFromDifficulty = 41;
+
   // Was 8s. With up to nine waves that alone was over a minute of standing
   // around per level.
   private const float TimeToNextWave = 5f;
@@ -76,7 +97,12 @@ public static class LevelGenerator
     EnemyConfig fast = LoadEnemy("FastEnemy");
     EnemyConfig armored = LoadEnemy("ArmoredEnemy");
     EnemyConfig boss = LoadEnemy("BossEnemy");
-    if (basic == null || fast == null || armored == null || boss == null)
+    EnemyConfig swarm = LoadEnemy("SwarmEnemy");
+    EnemyConfig shielded = LoadEnemy("ShieldedEnemy");
+    EnemyConfig splitter = LoadEnemy("SplitterEnemy");
+    EnemyConfig healer = LoadEnemy("HealerEnemy");
+    if (basic == null || fast == null || armored == null || boss == null ||
+        swarm == null || shielded == null || splitter == null || healer == null)
     {
       Debug.LogError("LevelGenerator: missing EnemyConfig assets in Assets/Settings/Enemies.");
       if (Application.isBatchMode) EditorApplication.Exit(1);
@@ -108,7 +134,8 @@ public static class LevelGenerator
         AssetDatabase.CreateAsset(path, $"{PathsFolder}/Env{env}-Level{levelNumber:00}-Path.asset");
 
         WaveConfig waves = ScriptableObject.CreateInstance<WaveConfig>();
-        waves.waves = GenerateWaves(difficulty, basic, fast, armored, boss);
+        waves.waves = GenerateWaves(difficulty, basic, fast, armored, boss,
+          swarm, shielded, splitter, healer);
         AssetDatabase.CreateAsset(waves, $"{WavesFolder}/Env{env}-Level{levelNumber:00}-Waves.asset");
 
         LevelConfig level = ScriptableObject.CreateInstance<LevelConfig>();
@@ -224,7 +251,8 @@ public static class LevelGenerator
   }
 
   private static WaveConfig.Wave[] GenerateWaves(
-    int difficulty, EnemyConfig basic, EnemyConfig fast, EnemyConfig armored, EnemyConfig boss)
+    int difficulty, EnemyConfig basic, EnemyConfig fast, EnemyConfig armored, EnemyConfig boss,
+    EnemyConfig swarm, EnemyConfig shielded, EnemyConfig splitter, EnemyConfig healer)
   {
     // The actual difficulty lever. At difficulty 70 a Basic enemy is ~4.1x its
     // authored 100 HP and the boss clears 3,500 effective HP behind its armor.
@@ -252,22 +280,56 @@ public static class LevelGenerator
           rewardMultiplier = reward,
         };
 
+      // Swarm takes over the chaff role once it appears, so Basic steps back
+      // rather than stacking on top - otherwise every added type just makes the
+      // level longer, which is the exact failure the health ramp was built to
+      // fix in the first place.
+      int basicCount = 4 + difficulty / 12 + w / 2;
+      if (difficulty >= SwarmFromDifficulty) basicCount -= 3;
+
       var groups = new List<WaveConfig.WaveEnemyGroup>
       {
-        Group(basic, 4 + difficulty / 12 + w / 2)
+        Group(basic, Mathf.Max(2, basicCount))
       };
 
       if (difficulty >= 2 && w >= 2)
       {
-        groups.Add(Group(fast, 2 + difficulty / 20 + w / 3));
+        // Trimmed when Swarm arrived: the two overlap heavily, and leaving both
+        // at full count pushed level length from 3.9 to 4.6 minutes.
+        groups.Add(Group(fast, 1 + difficulty / 26 + w / 4));
       }
       if (difficulty >= 5 && w >= 3)
       {
-        groups.Add(Group(armored, 1 + difficulty / 22 + w / 4));
+        // Likewise against Shielded, which now covers the "needs burst" role.
+        groups.Add(Group(armored, 1 + difficulty / 30 + w / 5));
       }
+
+      // Numerous by design - it is the answer to a board of single-target towers.
+      if (difficulty >= SwarmFromDifficulty && w >= 2)
+      {
+        groups.Add(Group(swarm, 3 + difficulty / 24 + w / 3));
+      }
+      // The rest are force multipliers, not bodies, so counts stay low.
+      if (difficulty >= ShieldedFromDifficulty && w >= 2)
+      {
+        groups.Add(Group(shielded, 1 + difficulty / 30 + w / 5));
+      }
+      if (difficulty >= SplitterFromDifficulty && w >= 3)
+      {
+        groups.Add(Group(splitter, 1 + difficulty / 35 + w / 5));
+      }
+      // One healer is already a real problem; two is usually a wipe.
+      if (difficulty >= HealerFromDifficulty && w >= 3)
+      {
+        groups.Add(Group(healer, 1 + difficulty / 60));
+      }
+
       if (lastWave && difficulty >= 3)
       {
-        groups.Add(Group(boss, 1 + difficulty / 30));
+        // 1 + d/30 put THREE bosses on the final levels, each at ~2.5x health
+        // behind 30% armor -- concentrated in exactly the levels the sim could
+        // not win. Two is still a finale; three was the wall.
+        groups.Add(Group(boss, 1 + difficulty / 45));
       }
 
       waves[w - 1] = new WaveConfig.Wave

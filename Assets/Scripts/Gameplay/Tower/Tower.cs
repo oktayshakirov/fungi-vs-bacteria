@@ -7,6 +7,17 @@ public class Tower : MonoBehaviour
   [SerializeField] private Transform tower;
   [SerializeField] private Transform projectileSpawnPoint;
 
+  // The fungi models are authored facing local -X, not +Z. RotateTurret used to
+  // aim +Z at the target, which left the mouth pointing 90 degrees away from
+  // whatever the tower was shooting -- and because ProjectileSpawnPoint is a
+  // child sitting at local -X, the projectile appeared to leave from the SIDE of
+  // the head and to swing around it as the turret turned.
+  // Aiming -X instead points the mouth at the target and carries the spawn point
+  // around with it, so shots leave from the mouth. Mirrors Enemy.rotationOffset.
+  [Tooltip("Yaw that maps the model's facing axis onto its aim direction. " +
+           "90 = model faces local -X (all eight fungi prefabs).")]
+  [SerializeField] private float modelYawOffset = 90f;
+
   [Header("Prefabs")]
   [SerializeField] private GameObject projectilePrefab;
   [SerializeField] private GameObject tileIndicatorPrefab;
@@ -152,7 +163,8 @@ public class Tower : MonoBehaviour
 
     if (direction == Vector3.zero) return;
 
-    Quaternion lookRotation = Quaternion.LookRotation(direction);
+    Quaternion lookRotation =
+      Quaternion.LookRotation(direction) * Quaternion.Euler(0f, modelYawOffset, 0f);
     float speed = 10f;
     tower.rotation = Quaternion.Slerp(tower.rotation, lookRotation, Time.deltaTime * speed);
   }

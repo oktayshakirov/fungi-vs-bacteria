@@ -158,6 +158,17 @@ public static class BalanceSim
     public int gold;
     public bool alive = true;
     public bool leaked;
+
+    // Variety behaviours. Modelled here because the sim is the regression check
+    // for the difficulty curve, and a sim blind to shields/healers/splitters
+    // would report the new types as free difficulty.
+    public EnemyConfig cfg;
+    public float shield;
+    public float shieldMax;
+    public float lastDamagedAt = -999f;
+    public float nextHealAt;
+    public bool canSplit = true;
+    public float rewardMultiplier = 1f;
   }
 
   private class SimTower
@@ -293,6 +304,7 @@ public static class BalanceSim
     float nextBuy = 0f;
     float t = 0f;
 
+    var pendingChildren = new List<SimEnemy>();
     int leaked = 0;
     int killed = 0;
     float killDepthSum = 0f;
@@ -336,6 +348,9 @@ public static class BalanceSim
       // --- projectiles fly and land
       UpdateProjectiles(projectiles, enemies, t, ref gold, ref damageDealt);
 
+      // --- shields regenerate and healers top the pack up
+      UpdateBehaviours(enemies, t);
+
       // --- enemies move, leak, expire slows
       health -= UpdateEnemies(enemies, path, t);
 
@@ -350,6 +365,13 @@ public static class BalanceSim
         if (e.leaked) leaked++;
         else
         {
+          // Splitters drop their children where they fell. Collected and added
+          // after the retirement loop rather than during it.
+          if (e.cfg != null && e.cfg.isSplitter && e.canSplit)
+          {
+            for (int c = 0; c < e.cfg.splitCount; c++) pendingChildren.Add(MakeSplitChild(e));
+          }
+
           // How deep the enemy got before dying. This is the difficulty signal
           // that still discriminates when a level is won without a scratch:
           // dying at 30% of the path is a rout, dying at 90% is a close call.
@@ -357,6 +379,12 @@ public static class BalanceSim
           killed++;
         }
         enemies.RemoveAt(i);
+      }
+
+      if (pendingChildren.Count > 0)
+      {
+        enemies.AddRange(pendingChildren);
+        pendingChildren.Clear();
       }
 
       if (enemies.Count > result.peakAlive) result.peakAlive = enemies.Count;
@@ -413,6 +441,36 @@ public static class BalanceSim
       armor = cfg.isArmored ? cfg.armorDamageReduction : 0f,
       damage = cfg.baseDamage,
       gold = Mathf.Max(1, Mathf.RoundToInt(cfg.goldReward * spawnEvent.rewardMultiplier)),
+      cfg = cfg,
+      shield = cfg.hasShield ? hp * cfg.shieldShareOfHealth : 0f,
+      shieldMax = cfg.hasShield ? hp * cfg.shieldShareOfHealth : 0f,
+      nextHealAt = spawnEvent.time + cfg.healInterval,
+      rewardMultiplier = spawnEvent.rewardMultiplier,
+    };
+  }
+
+  // Mirrors EnemySpawner.SpawnSplitChildren.
+  private static SimEnemy MakeSplitChild(SimEnemy parent)
+  {
+    EnemyConfig cfg = parent.cfg;
+    int hp = Mathf.Max(1, Mathf.RoundToInt(parent.maxHealth * cfg.splitHealthShare));
+    float speed = cfg.moveSpeed * (cfg.isFast ? cfg.speedMultiplier : 1f)
+                  * cfg.splitSpeedMultiplier;
+    return new SimEnemy
+    {
+      pos = parent.pos,
+      waypoint = parent.waypoint,
+      normalSpeed = speed,
+      speed = speed,
+      health = hp,
+      maxHealth = hp,
+      armor = cfg.isArmored ? cfg.armorDamageReduction : 0f,
+      damage = cfg.baseDamage,
+      gold = Mathf.Max(1, Mathf.RoundToInt(
+        cfg.goldReward * parent.rewardMultiplier * cfg.splitHealthShare)),
+      cfg = cfg,
+      canSplit = false,
+      rewardMultiplier = parent.rewardMultiplier,
     };
   }
 
@@ -516,6 +574,17 @@ public static class BalanceSim
     ref long damageDealt)
   {
     int dealt = Mathf.RoundToInt(p.damage * (1f - e.armor));
+    e.lastDamagedAt = now;
+
+    // Shield absorbs first; only the overflow reaches health.
+    if (e.shield > 0f)
+    {
+      float absorbed = Mathf.Min(e.shield, dealt);
+      e.shield -= absorbed;
+      dealt -= Mathf.RoundToInt(absorbed);
+      damageDealt += Mathf.RoundToInt(absorbed);
+    }
+
     // Overkill does not count as work done.
     damageDealt += Mathf.Min(dealt, Mathf.Max(0, e.health));
     e.health -= dealt;
@@ -531,6 +600,40 @@ public static class BalanceSim
     {
       e.alive = false;
       gold += e.gold;
+    }
+  }
+
+  // Mirrors Enemy.TickShield / Enemy.TickHealer.
+  private static void UpdateBehaviours(List<SimEnemy> enemies, float now)
+  {
+    for (int i = 0; i < enemies.Count; i++)
+    {
+      SimEnemy e = enemies[i];
+      if (!e.alive || e.cfg == null) continue;
+
+      // Shield regenerates only after a quiet spell, so sustained fire holds it
+      // down and a tower that merely chips never gets through.
+      if (e.shieldMax > 0f && e.shield < e.shieldMax &&
+          now - e.lastDamagedAt >= e.cfg.shieldRegenDelay)
+      {
+        e.shield = Mathf.Min(e.shieldMax,
+          e.shield + e.shieldMax * e.cfg.shieldRegenRate * Dt);
+      }
+
+      if (!e.cfg.isHealer || now < e.nextHealAt) continue;
+      e.nextHealAt = now + e.cfg.healInterval;
+
+      float radiusSqr = e.cfg.healRadius * e.cfg.healRadius;
+      for (int j = 0; j < enemies.Count; j++)
+      {
+        SimEnemy other = enemies[j];
+        if (other == e || !other.alive || other.health >= other.maxHealth) continue;
+        if ((other.pos - e.pos).sqrMagnitude > radiusSqr) continue;
+
+        other.health = Mathf.Min(other.maxHealth,
+          other.health + Mathf.Max(1,
+            Mathf.RoundToInt(other.maxHealth * e.cfg.healShareOfMaxHealth)));
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-08-31. Working tree clean at `789e203` on `main`.
+Last updated 2026-08-31. Working tree clean at `21081eb` on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -70,6 +70,10 @@ Roughly in order. Each is committed.
     they now buff nearby towers' damage / fire rate via `TowerBuffs`.
 12. **Environment + level screen redesign** — named biomes with generated art,
     modern tiles, neon cues, shared header and corner-button styling.
+13. **Enemy variety + turret aim fix** — four behaviour-driven enemy types
+    (Swarm, Shielded, Splitter, Healer), staged one per environment from
+    difficulty 11, and a fix for towers firing out of the side of their heads.
+    See Priority 2 below for what the sim says about it.
 
 ## 4. How to verify work — read this before changing anything
 
@@ -144,13 +148,42 @@ below has been played by a human yet, only render-verified:
 - The balance retune assumes a **fresh wallet**. The wallet carries between
   levels now, so a returning player starts richer than the sim modelled.
 
-**Priority 2 — Enemy variety.** Only Basic / Fast / Armored / Boss exist across
-70 levels, and towers have a single upgrade level. Adding shielded / healer /
-splitter / swarm types gives the difficulty curve something to scale with
-besides raw count. This is the main gap in how *fun* the game is — and it is
-now the main lever left, because difficulty is capped by a structural ceiling:
-player power is bounded by buildable cells (~33), so peak enemy health cannot
-exceed ~3x before a FULL board starts losing.
+**Priority 2 — Enemy variety. DONE in the model, NOT yet in real play.**
+Four new types now exist, all driven from `EnemyConfig` and handled inside
+`Enemy` (no new prefabs, no new components — the eight enemy prefabs are
+untouched). Each arrives in its own environment so the player learns one thing
+at a time, and they accumulate:
+
+| Type | From difficulty | Mechanic | Counters |
+|---|---|---|---|
+| Swarm | 11 (env 2) | many, fast, tiny HP, low reward | single-target saturation |
+| Shielded | 21 (env 3) | absorb pool, regenerates after 4s undamaged | slow chip damage |
+| Splitter | 31 (env 4) | children spawn *where it died* | boards with no AoE |
+| Healer | 41 (env 5) | heals nearby enemies on a timer | towers spread thin |
+
+Two things this cost, both worth knowing before touching the numbers again:
+
+- **Behaviours must be PAID FOR out of raw numbers, not stacked on top.**
+  Adding all four on top of the existing curve put the sim at 15 losses (21%),
+  every level from d54 up, each with 31-35 towers built and up to 4,944 gold
+  unspent — a full board with nowhere left to build, i.e. straight through the
+  structural ceiling. `HealthRampScale` came down 0.152 -> 0.1133 (peak ~3.0x
+  -> ~2.5x) and Fast/Armored/Basic counts were trimmed where Swarm/Shielded now
+  cover their role. That took it to 3 losses and pulled level length back from
+  4.6 to ~4.0 minutes.
+- **Boss count is not the lever it looks like.** The final levels were spawning
+  three bosses (`1 + d/30`); cutting it to two changed the verdict of exactly
+  zero levels and left the gold-unspent figures byte-identical. The late-game
+  losses are sustained wave pressure against a board-capped player, not burst.
+
+**The remaining 3 losses (Env7 L03/L06/L10, d63/66/70) are the open question.**
+The sim proxy places towers optimally, so a level IT loses a human loses too —
+that inference runs one way only, which is why these three were worth chasing
+and the 79% "trivial" was not. They are all full-board-with-gold-piled-up, so
+they are ceiling-bound rather than tunable. Before grinding the numbers
+further, note the real player enters richer than the sim models (the wallet
+carries between levels, and there is a continue mechanic) — so playtest these
+three first and only tune if a human also loses them.
 
 **Priority 3 — Confirm the performance fixes.** The user measured 60fps steady,
 dipping to ~20 only past ~25 enemies. That was diagnosed as per-enemy
@@ -172,6 +205,12 @@ the last playtest and nothing below has been played against real usage yet:
 - Confirm the crackle/stutter fix (music duck + deferred ad reload) actually
   worked on launch and on returning from a rewarded ad; the prior fix (async
   audio session, delayed music start) reduced but did not eliminate it.
+
+**Priority 2b — Give the new types real art.** All four currently reuse the
+existing Basic/Fast/Armored prefabs, distinguished only by a tint and a scale
+(`EnemyConfig.overrideBodyColor` / `scaleMultiplier`, applied through a
+MaterialPropertyBlock). That is readable but not good. This is the strongest
+argument for the Blender question — see section 8.
 
 **Priority 4 — Gameplay haptics.** UI presses now have haptics (`Utils/Haptics`,
 hooked centrally into `AudioManager.PlaySound`). Gameplay does not: tower shots,
@@ -322,6 +361,32 @@ These each cost real debugging time. They are not obvious from the code.
   can be the *first* screen shown (e.g. a deep link), it won't get the splash
   unless `BootSplash.ShouldShow` is checked there too.
 
+**Enemies**
+- The **fungi models face local -X, not +Z.** `RotateTurret` aimed +Z at the
+  target, which left every tower's mouth pointing 90 degrees away from what it
+  was shooting — and since `ProjectileSpawnPoint` is a child sitting at local
+  -X, shots appeared to leave the SIDE of the head and swing around it as the
+  turret turned. `Tower.modelYawOffset` (90) maps the model's facing axis onto
+  its aim direction; the spawn point then rides around to the front by itself.
+  The spawn points' own authored rotations (~-90 deg on all six) are dead
+  config — `Attack()` overwrites the projectile's `forward` with the direction
+  to the target, so only their POSITION ever mattered.
+- Several `EnemyConfig` assets **share one prefab**, and `EnemyPool` is keyed by
+  prefab. Tinting an enemy must go through a `MaterialPropertyBlock`; writing
+  `sharedMaterial` recolours every other type using that prefab.
+- `Enemy.Active` is a static registry, maintained in `Initialize`/`Remove`, so
+  healers can find neighbours without `FindObjectsOfType` allocating every
+  tick. It is cleared via `[RuntimeInitializeOnLoadMethod]` — statics outlive a
+  scene change but the GameObjects they point at do not.
+- Splitter children are spawned by `EnemySpawner.SpawnSplitChildren`, and their
+  health/reward multipliers are derived from the **parent's already wave-scaled
+  values**, not from the raw config — otherwise children spawn at level-1
+  strength in level 70.
+- `BalanceSim` models shields, healers and splitters (`UpdateBehaviours`,
+  `MakeSplitChild`). If a new behaviour is added and NOT mirrored there, the
+  sim reports it as free difficulty and the whole regression check silently
+  stops meaning anything.
+
 **Balance**
 - Player power is capped by **buildable cells** (~33 once the path is carved
   out) and saturates by the mid game, so the usable difficulty window is narrow.
@@ -371,8 +436,38 @@ These each cost real debugging time. They are not obvious from the code.
 
 ## 7. Conventions
 
-- Commits are authored as **oktayshakirov**. Recent commits include a Claude
-  co-author trailer; the user has not objected but has not confirmed either —
-  worth asking once.
+- Commits are authored as **oktayshakirov**, with **no Claude/Anthropic
+  co-author trailer**. Asked and settled 2026-08-31: the user's global
+  instructions forbid it and that wins. Existing commits that carry one were
+  left alone.
 - Work has been committed directly to `main` (solo repo, no PR flow).
 - `/iOS/` and `/Android/` build exports are gitignored (~1GB).
+
+## 8. Blender / 3D models — asked 2026-08-31
+
+**There is no Blender connector available in this setup.** The MCP registry
+returns nothing for blender/3d/mesh, and no Blender tools are connected. So
+Claude cannot currently open, edit or export the models.
+
+What exists in the wider world is a community `blender-mcp` (a Blender add-on
+plus a local MCP server) — not an Anthropic product, not in the registry, and
+it would have to be installed and trusted manually. If it were connected it
+could drive Blender's Python API: create and modify meshes, materials and
+scenes, and export glTF/FBX. That is a real capability, not a hypothetical.
+
+**Where it would actually pay off here**, in priority order:
+1. **The four new enemy types (Priority 2b)** — they currently reuse three
+   existing prefabs with only a tint and a scale to tell them apart. This is
+   the biggest visual gap in the game right now.
+2. Distinct silhouettes per environment for enemies (already on the user's
+   queued list as "change enemy colours per environment" — shape reads better
+   than colour at phone size).
+3. Tower upgrade tiers, which have no art at all.
+
+**Where it would NOT help:** the environments, props, sky, cliff and clouds are
+generated in code (`MeshFactory`, `GroundTextureFactory`) and are not authored
+assets — importing hand-made meshes there would fight the whole system.
+
+Worth weighing against just hiring/buying: the game already ships almost no
+authored art by design, and a code-driven pipeline has been the project's
+working assumption throughout.
