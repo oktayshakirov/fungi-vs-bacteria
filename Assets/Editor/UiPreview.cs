@@ -23,6 +23,11 @@ public static class UiPreview
   public static void Render()
   {
     Directory.CreateDirectory(OutputDir);
+
+    // Opens MainMenu.unity itself (Single mode), so it needs to run before the
+    // NewScene call below replaces the active scene for every other shot.
+    ShootMainMenu();
+
     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
     var camGo = new GameObject("PreviewCamera");
@@ -60,6 +65,83 @@ public static class UiPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
+  // The main menu is a SCENE, not a prefab, so it cannot go through
+  // ShootScreen/ShootLive - opening it replaces whatever scene is currently
+  // active, including the synthetic one the rest of this file shares one
+  // camera on. Runs first and manages its own scene/camera for exactly that
+  // reason, then gets out of the way so Render() can start the empty scene
+  // every other shot expects.
+  private static void ShootMainMenu()
+  {
+    const int width = 1920, height = 1080;
+    const string name = "screen-mainmenu";
+
+    Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/MainMenu.unity", OpenSceneMode.Single);
+
+    Canvas canvas = null;
+    foreach (GameObject root in scene.GetRootGameObjects())
+    {
+      canvas = root.GetComponentInChildren<Canvas>(true);
+      if (canvas != null) break;
+    }
+    if (canvas == null)
+    {
+      Debug.LogError("UI PREVIEW: MainMenu.unity has no Canvas");
+      return;
+    }
+
+    var camGo = new GameObject("MainMenuPreviewCamera");
+    var cam = camGo.AddComponent<Camera>();
+    cam.clearFlags = CameraClearFlags.SolidColor;
+    cam.backgroundColor = Color.black;
+    cam.orthographic = true;
+    camGo.transform.position = new Vector3(0f, 0f, -100f);
+
+    canvas.renderMode = RenderMode.ScreenSpaceCamera;
+    canvas.worldCamera = cam;
+    canvas.planeDistance = 10f;
+
+    // Drives MainMenu.Start() (wires the buttons, builds the coin chip) the
+    // same way ShootLive does for the runtime-built screens, so what is
+    // rendered is what the game actually builds rather than the raw prefab.
+    foreach (MonoBehaviour behaviour in canvas.GetComponentsInChildren<MonoBehaviour>(true))
+    {
+      var start = behaviour.GetType().GetMethod("Start",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+      if (start == null || start.GetParameters().Length != 0) continue;
+      try { start.Invoke(behaviour, null); }
+      catch (System.Exception e) { Debug.LogWarning($"UI PREVIEW: {behaviour.GetType().Name}.Start -> {e.InnerException?.Message ?? e.Message}"); }
+    }
+
+    // Cold-launch-only and self-timed via Update, which never runs in batch -
+    // it would otherwise render as an opaque splash over the whole menu.
+    foreach (BootSplash splash in Object.FindObjectsByType<BootSplash>(FindObjectsSortMode.None))
+    {
+      Object.DestroyImmediate(splash.gameObject);
+    }
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvas.transform);
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    RenderTexture previous = RenderTexture.active;
+    RenderTexture.active = rt;
+    var shot = new Texture2D(width, height, TextureFormat.RGB24, false);
+    shot.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+    shot.Apply();
+    RenderTexture.active = previous;
+
+    File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
+
+    cam.targetTexture = null;
+    Object.DestroyImmediate(rt);
+  }
+
   // Instantiates a prefab and drives its Start(), so screens that build their
   // content at runtime can be captured as the player actually sees them.
   private static void ShootLive(Camera cam, string prefabPath, string name)
@@ -75,6 +157,21 @@ public static class UiPreview
 
     var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
     go.SetActive(true);
+
+    // Unity silently refuses to reparent a child of a live Prefab Instance to
+    // an object outside the prefab's own structure while in EDIT mode (no
+    // exception, no warning - Transform.SetParent just no-ops). That is
+    // exactly what ScreenTheme.EnsureSafeArea does (wraps existing children in
+    // a freshly-created SafeArea), so under the instance this created it
+    // silently failed and the preview understated the very bug it exists to
+    // catch — the screen looked fine here while the notch-safety fix quietly
+    // never took effect. This restriction is editor/edit-mode only: it does
+    // not exist in Play Mode or a build, where there is no "prefab instance"
+    // concept at runtime at all, so the real game was never affected — only
+    // this tool's ability to verify it. Unpacking removes the connection
+    // entirely, which is fine here since this instance is destroyed right
+    // after the shot and never saved.
+    PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
 
     // LevelsScreen and EnvironmentsScreen carry no Canvas of their own — the
     // game instantiates them under the main menu's canvas — so host them in one
@@ -187,21 +284,21 @@ public static class UiPreview
     const int width = 1920, height = 1080;
     ClearCanvases();
 
+    // Must happen BEFORE the wallet builds itself: WalletScreen.Panel() sizes
+    // the card off its parent's actual rect, and a ScreenSpaceCamera canvas
+    // with no render target falls back to the batch-mode default game view
+    // size (640x480) rather than this texture's 1920x1080 - the card would
+    // size itself for a canvas four times smaller than the one it actually
+    // renders into.
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
     GameObject host = HostCanvas(cam);
     WalletScreen.Open(host.transform);
 
     Canvas.ForceUpdateCanvases();
     LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)host.transform);
 
-    Capture(cam, width, height, name);
-    Object.DestroyImmediate(host);
-  }
-
-  // Renders whatever is currently on the preview camera to a PNG.
-  private static void Capture(Camera cam, int width, int height, string name)
-  {
-    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
-    cam.targetTexture = rt;
     cam.Render();
     Canvas.ForceUpdateCanvases();
     cam.Render();
@@ -217,6 +314,7 @@ public static class UiPreview
 
     cam.targetTexture = null;
     Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(host);
   }
 
   private static void ShootScreen(Camera cam, string prefabPath, string primaryName, string name,
@@ -230,6 +328,9 @@ public static class UiPreview
 
     var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
     go.SetActive(true);
+    // See ShootLive: ScreenTheme.Dim() reparents this prefab's Background out
+    // to the canvas root, which the same edit-mode instance restriction blocks.
+    PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
 
     // The prefab canvas is ScreenSpaceOverlay, which never lands in a
     // RenderTexture; retarget it at the preview camera.
@@ -402,9 +503,15 @@ public static class UiPreview
   private static void BuildTowerCards(RectTransform panel)
   {
     var grid = panel.gameObject.AddComponent<GridLayoutGroup>();
-    grid.cellSize = new Vector2(132f, 148f);
-    grid.spacing = new Vector2(10f, 10f);
-    grid.padding = new RectOffset(12, 12, 12, 12);
+    // Matches the real TowersPanel's GridLayoutGroup (MainGame.unity) exactly,
+    // not an approximation - HudTheme.StyleTowersPanel branches on
+    // FixedColumnCount specifically, and a preview using Flexible instead
+    // would exercise a different code path than the real HUD does.
+    grid.cellSize = new Vector2(160f, 160f);
+    grid.spacing = new Vector2(0f, 0f);
+    grid.padding = new RectOffset(10, 10, 10, 10);
+    grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+    grid.constraintCount = 2;
 
     (string name, int cost, bool affordable)[] cards =
     {

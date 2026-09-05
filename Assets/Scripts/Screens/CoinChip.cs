@@ -22,7 +22,9 @@ public class CoinChip : MonoBehaviour
     rect.anchorMin = new Vector2(0f, 1f);
     rect.anchorMax = new Vector2(0f, 1f);
     rect.pivot = new Vector2(0f, 1f);
-    rect.anchoredPosition = new Vector2(34f, -34f);
+    // Matches the settings gear's inset on the opposite corner (28, the same
+    // value every other corner button in the game uses).
+    rect.anchoredPosition = new Vector2(28f, -28f);
     rect.sizeDelta = new Vector2(230f, 76f);
 
     var chip = go.AddComponent<CoinChip>();

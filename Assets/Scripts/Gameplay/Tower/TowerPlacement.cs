@@ -52,9 +52,10 @@ public class TowerPlacement : MonoBehaviour
     groundManagerChecked = true;
   }
 
-  // True when the current press/tap began over a UI element (a button), so we
-  // don't place a tower "through" the tower tray or the cancel button.
-  private bool pointerStartedOverUI;
+  // Set when the armed placement began as a press-and-drag off a tower card,
+  // rather than a tap that leaves the preview waiting for a later, separate
+  // tap on the board. See HandlePlacementInput for what it changes.
+  private bool armedByDrag;
 
   private void Update()
   {
@@ -65,11 +66,6 @@ public class TowerPlacement : MonoBehaviour
     {
       CancelPlacement();
       return;
-    }
-
-    if (Input.GetMouseButtonDown(0))
-    {
-      pointerStartedOverUI = IsPointerOverUI();
     }
 
     HandlePlacementInput();
@@ -89,6 +85,7 @@ public class TowerPlacement : MonoBehaviour
   public void StartPlacement(TowerConfig config)
   {
     if (currentTowerConfig != null) CancelPlacement();
+    armedByDrag = false;
 
     if (config == null || GameManager.Instance == null || !GameManager.Instance.CanAfford(config.cost))
     {
@@ -118,6 +115,16 @@ public class TowerPlacement : MonoBehaviour
     gridLineVisualizer?.ShowGrid();
     gridTileVisualizer?.ShowVisualization();
     PlacementCancelButton.Show(CancelPlacement);
+  }
+
+  // The card's own IBeginDragHandler calls this once an actual drag gesture is
+  // detected (a plain tap still goes through StartPlacement via the button's
+  // OnClick, unaffected). It only changes what happens if the SAME gesture
+  // ends over UI - see the drop handling in HandlePlacementInput.
+  public void StartPlacementFromDrag(TowerConfig config)
+  {
+    StartPlacement(config);
+    armedByDrag = currentTowerConfig != null;
   }
 
   public void CancelPlacement()
@@ -179,9 +186,22 @@ public class TowerPlacement : MonoBehaviour
     previewTower.UpdatePlacementIndicatorVisuals(canPlaceCenter);
 
     // Place on pointer-up so a tap/drag can aim first (touch has no hover).
-    // Only if the gesture began on the board, not on a UI button.
-    if (Input.GetMouseButtonUp(0) && !pointerStartedOverUI)
+    if (Input.GetMouseButtonUp(0))
     {
+      // Checked at release, not at press: a tap that arms a tower and a LATER,
+      // separate tap on the board both release over the board and place
+      // normally. A gesture that presses AND releases over UI (tapping the
+      // Cancel button, or a card drag dropped back onto the tray) must not
+      // place a tower "through" it.
+      if (IsPointerOverUI())
+      {
+        // A card dragged and dropped outside the board reads as "put it back",
+        // not as "leave it armed" - a tap-armed preview still waits for its own
+        // separate board tap, same as always.
+        if (armedByDrag) CancelPlacement();
+        return;
+      }
+
       if (canPlaceCenter)
       {
         PlaceTower(currentTowerConfig, snappedPosition, centerGridPos);

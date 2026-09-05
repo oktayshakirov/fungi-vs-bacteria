@@ -41,6 +41,12 @@ public class EnvironmentsScreen : MonoBehaviour
 
   private void Start()
   {
+    // This screen carries no Canvas of its own — DisplaySetup's edit-time pass
+    // never finds one to wrap, so its content never got a safe-area inset. On a
+    // notched phone in landscape the environment cards could render right
+    // under the notch. Must run before BuildBackButton, which looks for this.
+    ScreenTheme.EnsureSafeArea(transform);
+
     // The prefab has no back button — this was the only screen in the game with
     // no way out except the OS back gesture — so one is built here and then
     // positioned by the same ApplyListScreen call the levels screen uses.

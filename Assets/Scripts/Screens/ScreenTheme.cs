@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -42,6 +43,9 @@ public static class ScreenTheme
     // the editor and play mode cannot drift apart.
     MenuLayout.ApplyPlay(play);
     MenuLayout.ApplySettings(settings);
+
+    Transform logo = FindDeep(root, "Logo");
+    if (logo != null) MenuLayout.ApplyLogo((RectTransform)logo);
   }
 
 
@@ -331,6 +335,69 @@ public static class ScreenTheme
     rect.pivot = new Vector2(0.5f, 1f);
     rect.anchoredPosition = new Vector2(0f, -54f);
     rect.sizeDelta = new Vector2(900f, 120f);
+  }
+
+  // Wraps a runtime-built screen's own content in a SafeArea, mirroring
+  // DisplaySetup.EnsureSafeArea for screens that never get that edit-time pass.
+  //
+  // DisplaySetup only wraps a Canvas it finds inside a scene or a listed
+  // prefab. EnvironmentsScreen, LevelsScreen and WalletScreen are none of
+  // those: they are instantiated as plain children of the MAIN MENU'S canvas,
+  // so DisplaySetup's GetComponentsInChildren<Canvas> search finds nothing to
+  // wrap and their content never got the notch/home-indicator inset — the
+  // environment cards and level tiles could render right under a notch.
+  //
+  // Idempotent, and safe to call before the caller's own content exists:
+  // BuildBackButton/BuildHomeButton already look for a "SafeArea" child and
+  // parent themselves under it, which only ever found one on the two screens
+  // that got EnsureSafeArea called via a scene-owned Canvas — never these.
+  public static RectTransform EnsureSafeArea(Transform root)
+  {
+    var existing = root.Find("SafeArea") as RectTransform;
+    if (existing != null) return existing;
+
+    var go = new GameObject("SafeArea", typeof(RectTransform));
+    var rect = (RectTransform)go.transform;
+    rect.SetParent(root, false);
+    UiSkin.Stretch(rect);
+
+    // Backgrounds must fill the whole screen, so they stay outside the safe
+    // area - same rule DisplaySetup.EnsureSafeArea applies at edit time.
+    var children = new List<Transform>();
+    foreach (Transform child in root)
+    {
+      if (child == rect || IsBackground(child)) continue;
+      children.Add(child);
+    }
+    foreach (Transform child in children)
+    {
+      child.SetParent(rect, false);
+    }
+
+    go.AddComponent<SafeArea>();
+
+    // Deliberately NOT SetAsFirstSibling(). SafeArea was appended as root's
+    // LAST child above, before Background/Title/etc were touched; once the
+    // non-background children are moved OUT of root and into it, root is left
+    // as [Background, SafeArea] with SafeArea already last - i.e. already
+    // drawn on top, exactly where it needs to be. DisplaySetup's edit-time
+    // EnsureSafeArea calls SetAsFirstSibling() too, but it is paired with a
+    // SEPARATE HoistBackgrounds pass that unconditionally puts Background back
+    // in front afterwards. Without that second pass, forcing SafeArea to the
+    // front instead puts it BEHIND Background - the fully-populated safe area
+    // silently renders with only the background visible on top of it. Cost a
+    // full debug cycle to chase down: every RectTransform involved measured
+    // correct right up to the render call, because the bug was never a
+    // sizing/anchor problem, only draw order.
+    return rect;
+  }
+
+  // Mirrors DisplaySetup's edit-time rule of the same name: a screen's own
+  // full-bleed background stays outside the safe area so it still covers the
+  // notch/rounded-corner regions instead of being inset away from them.
+  private static bool IsBackground(Transform t)
+  {
+    return t.name.ToLowerInvariant().Contains("background");
   }
 
   private static Transform FindDeep(Transform root, string name)

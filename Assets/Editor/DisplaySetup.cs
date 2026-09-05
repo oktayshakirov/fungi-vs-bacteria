@@ -268,11 +268,19 @@ public static class DisplaySetup
     foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
     {
       var button = t.GetComponent<UnityEngine.UI.Button>();
-      if (button == null) continue;
+      if (button != null)
+      {
+        if (t.name == "Play") MenuLayout.ApplyPlay(button);
+        else if (t.name == "Settings") MenuLayout.ApplySettings(button);
+        EditorUtility.SetDirty(button);
+        continue;
+      }
 
-      if (t.name == "Play") MenuLayout.ApplyPlay(button);
-      else if (t.name == "Settings") MenuLayout.ApplySettings(button);
-      EditorUtility.SetDirty(button);
+      if (t.name == "Logo")
+      {
+        MenuLayout.ApplyLogo((RectTransform)t);
+        EditorUtility.SetDirty(t);
+      }
     }
   }
 

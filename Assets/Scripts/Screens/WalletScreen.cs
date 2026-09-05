@@ -43,48 +43,120 @@ public class WalletScreen : MonoBehaviour
     var scrim = gameObject.AddComponent<Image>();
     scrim.color = UiSkin.Scrim;
 
-    RectTransform card = Panel();
+    // This screen is a plain child of the menu's canvas, not its own Canvas, so
+    // DisplaySetup's edit-time pass never wraps it in a SafeArea. The card is
+    // centred and mostly clear of a notch anyway, but the close button in the
+    // corner is not.
+    RectTransform safeArea = ScreenTheme.EnsureSafeArea(transform);
+
+    RectTransform card = Panel(safeArea);
     Title(card, "WALLET");
-    BalanceRow(card);
-    StreakRow(card);
-    WatchAdRow(card);
-    Explainer(card);
-    CloseButton();
+
+    // The rows below the title add up to roughly 860 units of content, and the
+    // canvas is matched-height, so its vertical extent is EXACTLY the device's
+    // full height on every phone - a fixed-height card was therefore
+    // guaranteed to overflow every device by the same amount, not just small
+    // ones. That is what cropped the title and ran the ad row into "PLAY"
+    // underneath. Capped and scrollable instead.
+    RectTransform body = ScrollBody(card);
+    BalanceRow(body);
+    StreakRow(body);
+    WatchAdRow(body);
+    Explainer(body);
+
+    CloseButton(safeArea);
 
     RefreshBalance(Wallet.Coins);
     RefreshWatchButton();
   }
 
-  private RectTransform Panel()
+  private RectTransform Panel(RectTransform parent)
   {
     var go = new GameObject("Card", typeof(RectTransform));
-    go.transform.SetParent(transform, false);
+    go.transform.SetParent(parent, false);
 
     var rect = (RectTransform)go.transform;
     rect.anchorMin = new Vector2(0.5f, 0.5f);
     rect.anchorMax = new Vector2(0.5f, 0.5f);
     rect.pivot = new Vector2(0.5f, 0.5f);
     rect.anchoredPosition = Vector2.zero;
-    rect.sizeDelta = new Vector2(720f, 0f);
+
+    // Sized off the actual safe rect rather than a flat constant: the canvas is
+    // matched-height, so its width varies with device aspect while its height
+    // is always the full screen - a size that fit one device would clip or
+    // float tiny on every other one.
+    float width = Mathf.Clamp(parent.rect.width * 0.74f, 640f, 900f);
+    float height = Mathf.Min(parent.rect.height * 0.90f, 800f);
+    rect.sizeDelta = new Vector2(width, height);
 
     UiSkin.Panel(go.AddComponent<Image>(), UiSkin.PanelDark, UiSkin.RadiusPanel);
 
     var layout = go.AddComponent<VerticalLayoutGroup>();
-    layout.padding = new RectOffset(36, 36, 30, 34);
-    layout.spacing = 20f;
+    layout.padding = new RectOffset(36, 36, 30, 28);
+    layout.spacing = 16f;
     layout.childAlignment = TextAnchor.UpperCenter;
     layout.childControlWidth = true;
     layout.childControlHeight = true;
     layout.childForceExpandWidth = true;
     layout.childForceExpandHeight = false;
 
-    // Height follows the content, so adding a row later needs no re-measuring.
-    var fitter = go.AddComponent<ContentSizeFitter>();
+    UiSkin.AddBorder(rect, UiSkin.RadiusPanel);
+    return rect;
+  }
+
+  // The title is a fixed-height sibling; this is the flexible one that soaks
+  // up whatever height is left in the (now fixed-height, not content-fitted)
+  // card, and scrolls internally rather than pushing the card taller than the
+  // screen.
+  private RectTransform ScrollBody(RectTransform parent)
+  {
+    var go = new GameObject("Body", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+    go.AddComponent<LayoutElement>().flexibleHeight = 1f;
+
+    var viewportGo = new GameObject("Viewport", typeof(RectTransform));
+    viewportGo.transform.SetParent(go.transform, false);
+    UiSkin.Stretch((RectTransform)viewportGo.transform);
+    viewportGo.AddComponent<RectMask2D>();
+
+    var contentGo = new GameObject("Content", typeof(RectTransform));
+    contentGo.transform.SetParent(viewportGo.transform, false);
+    var content = (RectTransform)contentGo.transform;
+    content.anchorMin = new Vector2(0f, 1f);
+    content.anchorMax = new Vector2(1f, 1f);
+    content.pivot = new Vector2(0.5f, 1f);
+    content.anchoredPosition = Vector2.zero;
+
+    var contentLayout = contentGo.AddComponent<VerticalLayoutGroup>();
+    contentLayout.spacing = 20f;
+    contentLayout.childAlignment = TextAnchor.UpperCenter;
+    contentLayout.childControlWidth = true;
+    contentLayout.childControlHeight = true;
+    contentLayout.childForceExpandWidth = true;
+    contentLayout.childForceExpandHeight = false;
+
+    var fitter = contentGo.AddComponent<ContentSizeFitter>();
     fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-    UiSkin.AddBorder(rect, UiSkin.RadiusPanel);
-    return rect;
+    var scroll = go.AddComponent<ScrollRect>();
+    scroll.horizontal = false;
+    scroll.vertical = true;
+    scroll.movementType = ScrollRect.MovementType.Clamped;
+    scroll.viewport = (RectTransform)viewportGo.transform;
+    scroll.content = content;
+
+    // AutoHide fades the bar via a CanvasGroup and leaves layout alone;
+    // AutoHideAndExpandViewport resizes the viewport around the bar every time
+    // it shows or hides, which drags the content width with it (see HANDOFF).
+    // Not hidden entirely: an invisible scrollbar is how this dialog first
+    // shipped "scrollable" and just looked cropped, with nothing to say there
+    // was more below.
+    Scrollbar bar = UiSkin.BuildScrollbar(go.transform);
+    scroll.verticalScrollbar = bar;
+    scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+    return content;
   }
 
   private void Title(RectTransform parent, string text)
@@ -299,10 +371,10 @@ public class WalletScreen : MonoBehaviour
     go.AddComponent<LayoutElement>().preferredHeight = 210f;
   }
 
-  private void CloseButton()
+  private void CloseButton(RectTransform parent)
   {
     var go = new GameObject("Close", typeof(RectTransform));
-    go.transform.SetParent(transform, false);
+    go.transform.SetParent(parent, false);
 
     var rect = (RectTransform)go.transform;
     rect.anchorMin = new Vector2(1f, 1f);

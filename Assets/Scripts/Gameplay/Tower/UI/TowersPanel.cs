@@ -32,13 +32,18 @@ namespace TowerDefense.UI
       foreach (TowerConfig towerConfig in towerDatabase.availableTowers)
       {
         TowerSelectionButton button = Instantiate(buttonPrefab, buttonContainer);
-        button.Initialize(towerConfig, HandleTowerSelected);
+        button.Initialize(towerConfig, HandleTowerSelected, HandleTowerDragStarted);
       }
     }
 
     private void HandleTowerSelected(TowerConfig config)
     {
       towerPlacement.StartPlacement(config);
+    }
+
+    private void HandleTowerDragStarted(TowerConfig config)
+    {
+      towerPlacement.StartPlacementFromDrag(config);
     }
 
     private void Update()

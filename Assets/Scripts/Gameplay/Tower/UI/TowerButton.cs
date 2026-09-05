@@ -1,10 +1,25 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
 namespace TowerDefense.UI
 {
-  public class TowerSelectionButton : MonoBehaviour
+  // IBeginDragHandler adds press-and-drag-onto-the-board as a second way to
+  // place a tower, alongside the existing tap-card-then-tap-board flow (the
+  // Button's own OnClick, wired below, is untouched by this).
+  //
+  // Unity's EventSystem treats a drag and a click as mutually exclusive for
+  // the same gesture: OnClick only fires if the pointer never crossed the drag
+  // threshold, and once it does, OnClick is suppressed and OnBeginDrag fires
+  // instead. So a quick tap always goes through StartPlacement exactly as
+  // before, and only an actual drag reaches StartPlacementFromDrag - there is
+  // no double-arm on a plain click.
+  //
+  // No IDragHandler/IEndDragHandler needed: TowerPlacement.Update() already
+  // polls the live pointer position and Input.GetMouseButtonUp every frame
+  // once a tower is armed, regardless of what armed it.
+  public class TowerSelectionButton : MonoBehaviour, IBeginDragHandler
   {
     [SerializeField] private Image towerIcon;
     [SerializeField] private Image goldIcon;
@@ -15,16 +30,19 @@ namespace TowerDefense.UI
     private Button button;
     private TowerConfig towerConfig;
     private System.Action<TowerConfig> onSelected;
+    private System.Action<TowerConfig> onDragStarted;
 
     private void Awake()
     {
       button = GetComponent<Button>();
     }
 
-    public void Initialize(TowerConfig config, System.Action<TowerConfig> onSelectedCallback)
+    public void Initialize(TowerConfig config, System.Action<TowerConfig> onSelectedCallback,
+      System.Action<TowerConfig> onDragStartedCallback = null)
     {
       towerConfig = config;
       onSelected = onSelectedCallback;
+      onDragStarted = onDragStartedCallback;
 
       nameText.text = config.towerName;
       costText.text = config.cost.ToString();
@@ -101,6 +119,14 @@ namespace TowerDefense.UI
     private void HandleClick()
     {
       onSelected?.Invoke(towerConfig);
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+      // Selectable.interactable does not gate a co-located IBeginDragHandler on
+      // its own, so an unaffordable/locked card must be checked here too.
+      if (button == null || !button.interactable) return;
+      onDragStarted?.Invoke(towerConfig);
     }
 
     private void OnDestroy()

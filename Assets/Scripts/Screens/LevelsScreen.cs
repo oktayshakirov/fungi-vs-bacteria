@@ -14,6 +14,12 @@ public class LevelSelectionScreen : MonoBehaviour
 
   private void Start()
   {
+    // Same gap as EnvironmentsScreen: this prefab carries no Canvas of its own,
+    // so DisplaySetup's edit-time pass never wraps it in a SafeArea and the
+    // level tiles could render under a notch. Must run before BuildHomeButton,
+    // which looks for this.
+    ScreenTheme.EnsureSafeArea(transform);
+
     ScreenTheme.ApplyListScreen(transform, backButton, dimBackground: false);
     ShowBiomeBackdrop();
     SetTitleToBiome();

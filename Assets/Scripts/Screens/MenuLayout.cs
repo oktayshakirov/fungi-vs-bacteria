@@ -14,6 +14,16 @@ using UnityEngine.UI;
 // are set here.
 public static class MenuLayout
 {
+  // Verified against an actual render (Tools/UI Preview -> screen-mainmenu.png),
+  // not eyeballed in the editor: the vs-battle art plus Play used to leave only
+  // ~27 units of clearance above the art and ~100 empty below Play, out of 720
+  // - the whole cluster read as pinned to the top with the ground below it
+  // unused. Both this and ApplyLogo shift down by the same 37 units, splitting
+  // that slack roughly evenly, while keeping the gap between them (and between
+  // Play and the bottom edge) exactly as it was - nothing here was placed to
+  // clear the art below it, so nothing needs reproving.
+  private const float VerticalRebalance = 37f;
+
   public static void ApplyPlay(Button play)
   {
     if (play == null) return;
@@ -24,7 +34,7 @@ public static class MenuLayout
     rect.anchorMin = new Vector2(0.5f, 0f);
     rect.anchorMax = new Vector2(0.5f, 0f);
     rect.pivot = new Vector2(0.5f, 0f);
-    rect.anchoredPosition = new Vector2(0f, 86f);
+    rect.anchoredPosition = new Vector2(0f, 86f - VerticalRebalance);
     rect.sizeDelta = new Vector2(620f, 150f);
 
     var image = play.GetComponent<Image>();
@@ -54,13 +64,26 @@ public static class MenuLayout
 
     // The scene already has gear artwork on this button; it was only ever
     // mispositioned (x=1969, off the right edge of a 1920 canvas).
+    // Inset matches every other corner button in the game (28, see
+    // ScreenTheme.CornerButton / ApplyListScreen) - this one used to sit at 34,
+    // visibly further from the corner than everywhere else, which read as
+    // "not quite in the corner" once the wallet dialog's own close button
+    // (at the standard 28) sat right next to it.
     var rect = (RectTransform)settings.transform;
     rect.anchorMin = new Vector2(1f, 1f);
     rect.anchorMax = new Vector2(1f, 1f);
     rect.pivot = new Vector2(1f, 1f);
-    rect.anchoredPosition = new Vector2(-34f, -34f);
+    rect.anchoredPosition = new Vector2(-28f, -28f);
     rect.sizeDelta = new Vector2(150f, 150f);   // the gear fills the button
     Press(settings);
+  }
+
+  // The vs-battle illustration. Not a button, so DisplaySetup/ScreenTheme find
+  // it by name rather than iterating buttons the way Play/Settings are found.
+  public static void ApplyLogo(RectTransform logo)
+  {
+    if (logo == null) return;
+    logo.anchoredPosition = new Vector2(logo.anchoredPosition.x, 125f - VerticalRebalance);
   }
 
   // Press/disable feedback without touching the button's artwork.

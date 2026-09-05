@@ -228,6 +228,48 @@ public static class UiSkin
     return button;
   }
 
+  // A slim, always-legible vertical scrollbar for runtime-built scroll views.
+  // Shared by the wallet dialog and the in-game towers panel so both use the
+  // same real, draggable Scrollbar rather than each inventing a fade cue -
+  // a scrollable panel with no visible track reads as broken/cropped, which is
+  // exactly the bug the wallet dialog shipped with.
+  public static Scrollbar BuildScrollbar(Transform parent)
+  {
+    var go = new GameObject("Scrollbar", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+
+    var rect = (RectTransform)go.transform;
+    rect.anchorMin = new Vector2(1f, 0f);
+    rect.anchorMax = new Vector2(1f, 1f);
+    rect.pivot = new Vector2(1f, 0.5f);
+    rect.anchoredPosition = new Vector2(-2f, 0f);
+    rect.sizeDelta = new Vector2(8f, 0f);
+
+    var track = go.AddComponent<Image>();
+    track.sprite = UiSprites.Panel(4);
+    track.type = Image.Type.Sliced;
+    track.color = new Color(1f, 1f, 1f, 0.10f);
+
+    var bar = go.AddComponent<Scrollbar>();
+    bar.direction = Scrollbar.Direction.BottomToTop;
+
+    var handleGo = new GameObject("Handle", typeof(RectTransform));
+    handleGo.transform.SetParent(go.transform, false);
+    var handleRect = (RectTransform)handleGo.transform;
+    handleRect.anchorMin = Vector2.zero;
+    handleRect.anchorMax = new Vector2(1f, 0f);
+    handleRect.sizeDelta = new Vector2(0f, 40f);
+
+    var handleImage = handleGo.AddComponent<Image>();
+    handleImage.sprite = UiSprites.Panel(4);
+    handleImage.type = Image.Type.Sliced;
+    handleImage.color = Accent;
+
+    bar.targetGraphic = handleImage;
+    bar.handleRect = handleRect;
+    return bar;
+  }
+
   // Creates a child RectTransform with an Image, e.g. for icons.
   public static Image Icon(Transform parent, Sprite sprite, Color color, float size)
   {
