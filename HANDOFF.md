@@ -1,11 +1,30 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-08-31. Working tree clean at `21081eb` on `main`.
+Last updated 2026-09-06. Working tree clean at `c13cffe` on `main`, pushed.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
 per-phase notes elsewhere. Section 5 is the work queue, section 6 is every trap
 that has actually cost debugging time.
+
+## 0. The immediate next step: a device playtest
+
+Everything in phases 13-15 is **render-verified or sim-verified only**. Nothing
+below has been played by a human. The user is going to test next, so if you are
+picking this up mid-test, expect findings rather than a clean slate.
+
+What is worth deliberately checking, and what to look for:
+
+| Area | What to check | Why it is uncertain |
+|---|---|---|
+| Drag-and-drop towers | Drag a card onto the board; also tap-card-then-tap-tile; also drag a card and drop it back on the tray | Never testable here — needs live touch input. The tap flow is unchanged; the drag flow is new |
+| Towers panel | Scroll it, collapse it with HIDE TOWERS | Dragging **on a card** starts a tower drag, so the list can only be scrolled from the gaps between cards or the scrollbar. Known trade-off — see if it is annoying in practice |
+| Placement bar / sell panel | Arm a tower, then tap a placed one | They share the bottom-left slot and are mutually exclusive by construction; the sell panel is the one piece of UI **not** render-verified |
+| Haptics | A busy wave, then a base hit | Throttle intervals are first guesses; the whole point is that it must not buzz continuously |
+| Tile indicators | Arm a tower on the snow and ash biomes | The old wash was invisible there; the new marker is untested against those grounds |
+| Enemy tints | Play one level in env 3, 5 and 6 | Tints are eyeballed. Types must still be distinguishable from each other |
+| Balance | Env 7 levels 3, 6 and 10 | The sim cannot win these. It plays optimally, so if it loses, a human loses — but the real player enters richer than the sim models |
+| Locked states | Set `LevelProgress.UnlockAll = false` and walk the flow | Still `true`; no padlock or dimmed tile has ever been seen |
 
 ## 1. The goal
 
@@ -75,6 +94,15 @@ Roughly in order. Each is committed.
     difficulty 11, and a fix for towers firing out of the side of their heads.
     See Priority 2 below for what the sim says about it.
 
+14. **UI overhaul from the first UI playtest** — wallet dialog capped and made
+    scrollable, main menu re-centred, environment/level screens wrapped in a
+    runtime SafeArea, the towers panel rebuilt as a scrollable + collapsible
+    frame, Start Wave moved to the bottom-left, and drag-and-drop tower
+    placement added alongside the existing tap flow. (`6531810`)
+15. **Queued UX list + gameplay haptics** — tower info box, sell/upgrade panel,
+    tile indicators, onboarding card, per-environment enemy tint, and haptics
+    on kills / base damage / tower shots. (`c13cffe`)
+
 ## 4. How to verify work — read this before changing anything
 
 There is a real verification loop here. Use it; several bugs were only ever
@@ -104,7 +132,7 @@ but until then a new file is silently not compiled.
 | `Phase1Validator.Validate` | Level asset QA gate | yes |
 | `CameraPreview.Render` | The 3D board per environment | **no** |
 | `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art | **no** |
-| `UiPreview.Render` | HUD + every screen, as PNGs | **no** |
+| `UiPreview.Render` | HUD + every screen, as PNGs — including the main menu, the placement bar (`hud-placing`) and the tutorial (`screen-tutorial`) | **no** |
 | `SceneCost.Report` | Draw calls / triangles / materials | **no** |
 | `SceneCost.RenderCliff` | The island underside | **no** |
 | `BalanceSim.RunBatch` | Plays all 70 levels, writes `Builds/Balance/balance.csv` | yes |
@@ -212,16 +240,35 @@ existing Basic/Fast/Armored prefabs, distinguished only by a tint and a scale
 MaterialPropertyBlock). That is readable but not good. This is the strongest
 argument for the Blender question — see section 8.
 
-**Priority 4 — Gameplay haptics.** UI presses now have haptics (`Utils/Haptics`,
-hooked centrally into `AudioManager.PlaySound`). Gameplay does not: tower shots,
-enemy deaths, base hits and wave starts should call `Haptics.Play` directly with
-styles chosen so a busy wave does not buzz continuously. Requested by the user
-after the 2026-08-19 device test.
+**Priority 4 — Gameplay haptics. DONE (`c13cffe`), not felt on device yet.**
+Placement, wave start and sell already fired through `AudioManager.PlaySound`;
+kills, base damage and tower shots now do too, via a new
+`Haptics.PlayThrottled(style, minInterval)` — per style, on **unscaled** time
+because the speed control runs at 2x/3x and a scaled clock would tighten the
+limit exactly when most is happening. Intervals are first-guess numbers
+(kills 0.12s, base damage 0.25s, shots 0.4s) and the only way to judge them is
+a hand on a real phone during a busy wave.
 
-**User's queued list**, in their words: change enemy colours per environment;
-improve the onboarding UI layout; improve the tile green/red indicators;
-improve the sell/upgrade UI for towers; add an info box explaining what each
-tower does.
+**User's queued list — ALL FIVE DONE (`c13cffe`), none played by a human yet.**
+- *Info box explaining each tower*: `TowerConfig.description`, filled in for all
+  eight, surfaced in the placement bar (which absorbed the old bare Cancel
+  button) and in the selected-tower panel.
+- *Sell/upgrade UI*: rebuilt. **The Upgrade button is hidden, not broken** —
+  `Tower.Upgrade()` still only logs. It reappears by itself the moment a real
+  upgrade level exists. Deliberately not implemented in the same pass as a
+  balance retune: upgrades are a new power lever and `BalanceSim` does not model
+  them, so shipping both at once would have made the playtest unreadable.
+- *Tile green/red indicators*: generated rounded-square markers with a gutter,
+  blocked tiles deliberately much fainter than available ones.
+- *Onboarding layout*: card, step counter, pips, Got It button, over a lighter
+  scrim, centred on the BOARD so it never covers the towers panel.
+- *Enemy colours per environment*: `EnvironmentTheme.Palette.enemyTint`.
+
+**Priority 5 — Tower upgrades.** The one thing on the list that was scoped out
+rather than finished, and now the most obvious missing feature: the sell panel
+has a slot waiting for it. Needs a cost curve, stat scaling, some visual sign
+of tier, and a `BalanceSim` pass, because it changes the difficulty ceiling the
+whole balance model is built around (see the Balance traps below).
 
 **Before release:** set `LevelProgress.UnlockAll = false`; delete the
 **THEREN Trial** font (see below); analytics + crash reporting; real app icon
@@ -361,6 +408,47 @@ These each cost real debugging time. They are not obvious from the code.
   can be the *first* screen shown (e.g. a deep link), it won't get the splash
   unless `BootSplash.ShouldShow` is checked there too.
 
+**UI layout and the preview tool** (all of these cost a full debug cycle each)
+- **The canvas is matched-height, so WIDTH is the variable.** Its vertical
+  extent is always exactly the device's full height (720 units); the width
+  shrinks on a 4:3 tablet and grows on a 20:9 phone. Two consequences that have
+  each caused a real bug: a fixed-height dialog that fits one device overflows
+  *every* device by the same amount (the wallet, ~858 units of content against
+  720), and anything centre-anchored at the bottom collides with Start Wave on
+  one side and the towers panel on the other once the canvas narrows. The
+  bottom-LEFT strip above Start Wave is clear on every aspect ratio; the
+  placement bar and the selected-tower panel both live there, and are made
+  mutually exclusive because they share it.
+- **Unity silently refuses to reparent a live Prefab Instance's child in EDIT
+  mode.** `Transform.SetParent` just no-ops — no exception, no warning. This is
+  editor-only; there is no "prefab instance" concept at runtime, so Play Mode
+  and builds are unaffected. It matters because `UiPreview` instantiates via
+  `PrefabUtility.InstantiatePrefab`, so `ScreenTheme.EnsureSafeArea`'s
+  reparenting quietly did nothing there and the preview reported the screens as
+  fine while the notch fix never took effect. `ShootLive`/`ShootScreen` now
+  call `PrefabUtility.UnpackPrefabInstance` first.
+- **`ScreenTheme.EnsureSafeArea` must NOT call `SetAsFirstSibling()`.**
+  `DisplaySetup`'s edit-time version does, but it is paired with a separate
+  `HoistBackgrounds` pass that puts Background back in front afterwards. Without
+  that second pass, forcing the safe area to the front puts it BEHIND the
+  screen's own background — the whole populated safe area renders invisible
+  under its own backdrop. After reparenting, the safe area is already the last
+  (frontmost) sibling; leave it alone.
+- **`-executeMethod` runs in EDIT mode, so `AddComponent` does not call
+  `Awake()`** on a plain MonoBehaviour (only `[ExecuteAlways]` ones). This is
+  why `ShootLive` invokes `Start()` by reflection, and why the tutorial preview
+  has to invoke `Awake()` the same way — it rendered as literally nothing until
+  it did.
+- **Converting a rect from a point anchor to a stretch anchor must clear
+  `sizeDelta`.** On a point anchor `sizeDelta.x` IS the width; on a stretch it
+  is an offset ADDED to the stretched width. Leaving the old value behind gave
+  the towers grid 340 + 330 = 670 units of width and one column with a dead gap
+  beside it.
+- A `ScreenSpaceCamera` canvas with **no render target** falls back to the
+  batch-mode default game view size (640x480), not the texture you are about to
+  render into. Assign `cam.targetTexture` BEFORE building any UI that measures
+  its parent.
+
 **Enemies**
 - The **fungi models face local -X, not +Z.** `RotateTurret` aimed +Z at the
   target, which left every tower's mouth pointing 90 degrees away from what it
@@ -417,6 +505,15 @@ These each cost real debugging time. They are not obvious from the code.
   it is safe to delete, but do not start using it in a shipping build.
 - `LevelDecorator` reads `EnvironmentTheme.Current` **while building**. Apply
   the theme first or everything comes out unthemed.
+- `EnvironmentTheme.Current` is a **struct**, so before `Apply()` has run every
+  colour on it is (0,0,0). `enemyTint` multiplies into every enemy's body
+  colour, so read it through `EnvironmentTheme.EnemyTint`, which falls back to
+  white — reading `Current.enemyTint` directly turns the whole cast black.
+- Several `TowerConfig`/`EnemyConfig` fields are **written into the .asset by
+  hand** (the tower `description` strings were). Unity re-serialises in field
+  order, so adding a field above an existing one and then hand-editing assets
+  is how they end up mismatched — add new fields and let Unity rewrite, or
+  insert in the right place.
 - Tower/enemy sizes come from `UnitScale`, applied in `TowerFactory` and
   `EnemyPool`. Do not edit the eight tower prefabs.
 - Environment card art is generated into `Resources/EnvPreviews`. The inspector's
