@@ -44,6 +44,7 @@ public class HUDManager : MonoBehaviour
   [SerializeField] private LayerMask deselectLayerMask;
 
   private EnemySpawner spawner;
+  private TowerPlacement placement;
 
   private void Awake()
   {
@@ -80,6 +81,7 @@ public class HUDManager : MonoBehaviour
   private void Start()
   {
     spawner = FindFirstObjectByType<EnemySpawner>();
+    placement = FindFirstObjectByType<TowerPlacement>();
     if (spawner == null)
     {
       Debug.LogError("No EnemySpawner found!");
@@ -307,6 +309,11 @@ public class HUDManager : MonoBehaviour
 
   public void ShowTowerActions(Tower tower)
   {
+    // The other half of the rule in TowerPlacement.StartPlacement: selecting a
+    // placed tower cancels an armed one, so the two panels that share the
+    // bottom-left slot can never both be up.
+    placement?.CancelPlacement();
+
     if (towerActions != null && towerActionsPanel != null)
     {
       towerActionsPanel.SetActive(true);

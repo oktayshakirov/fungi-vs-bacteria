@@ -68,6 +68,31 @@ public static class Haptics
 #endif
   }
 
+  // Gameplay fires in bursts - a dozen enemies can die inside a second, and a
+  // full board shoots continuously - so gameplay events collapse onto a rate
+  // limit instead of one buzz each. Per style, so a base hit is never swallowed
+  // by the stream of kills happening at the same time.
+  //
+  // Unscaled time on purpose: the game speed control runs at 2x/3x, and a
+  // scaled clock would tighten the limit exactly when there is most going on.
+  private static readonly float[] nextAllowed = new float[7];
+
+  public static void PlayThrottled(Style style, float minInterval)
+  {
+    int index = (int)style;
+    if (Time.unscaledTime < nextAllowed[index]) return;
+    nextAllowed[index] = Time.unscaledTime + minInterval;
+    Play(style);
+  }
+
+  // Statics survive a scene change, so a level loaded seconds after the last
+  // one would otherwise start with its limits still counting down.
+  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+  private static void ResetThrottles()
+  {
+    for (int i = 0; i < nextAllowed.Length; i++) nextAllowed[i] = 0f;
+  }
+
   // Convenience names so call sites read as intent, not as hardware.
   public static void Select() => Play(Style.Selection);
   public static void Tap() => Play(Style.Light);

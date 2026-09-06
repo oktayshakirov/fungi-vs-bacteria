@@ -45,7 +45,95 @@ public class GridTileVisualizer : MonoBehaviour
             return;
         }
 
+        BuildMarkerMaterials();
         InitializePool();
+    }
+
+    // --- tile markers ---
+    //
+    // The scene's two materials are a flat green and a flat red wash at ~29%
+    // alpha across the whole cell. Edge to edge like that the board reads as
+    // two coloured regions rather than a grid of tiles you can aim at, and on
+    // the snow and ash grounds the wash barely registers at all.
+    //
+    // These are copies of those same materials - copies specifically, so the
+    // transparent-shader setup already configured on the assets carries over
+    // without runtime keyword juggling, and the assets themselves are never
+    // touched. Only the texture and colour change.
+    private Material availableInstance;
+    private Material blockedInstance;
+
+    private void BuildMarkerMaterials()
+    {
+        Texture2D ring = MarkerTexture();
+
+        availableInstance = new Material(availableMaterial);
+        Tint(availableInstance, ring, new Color(0.45f, 1f, 0.42f, 0.85f));
+
+        // Deliberately far weaker than the available marker. What the player is
+        // actually scanning for is where they CAN build; painting every blocked
+        // tile just as loudly buries that under the path and the towers already
+        // placed, which are most of the board by the mid game.
+        blockedInstance = new Material(blockedMaterial);
+        Tint(blockedInstance, ring, new Color(1f, 0.35f, 0.35f, 0.34f));
+    }
+
+    private static void Tint(Material material, Texture texture, Color color)
+    {
+        if (material.HasProperty("_BaseMap")) material.SetTexture("_BaseMap", texture);
+        material.mainTexture = texture;
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        material.color = color;
+    }
+
+    private static Texture2D markerTexture;
+
+    // A rounded square: a bright ring with a much fainter fill inside it, and
+    // nothing at all in the gutter between cells, so adjacent tiles stay
+    // visually separate instead of merging into one slab.
+    private static Texture2D MarkerTexture()
+    {
+        if (markerTexture != null) return markerTexture;
+
+        const int size = 64;
+        const float inset = 4f;      // gutter, keeps neighbouring tiles apart
+        const float radius = 12f;
+        const float ringWidth = 5f;
+
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        var pixels = new Color32[size * size];
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                // Signed distance to a rounded square: negative inside, positive
+                // outside, and the magnitude is how far - which is what makes a
+                // ring of a given width easy to express.
+                float dx = Mathf.Abs(x + 0.5f - size * 0.5f) - (size * 0.5f - inset - radius);
+                float dy = Mathf.Abs(y + 0.5f - size * 0.5f) - (size * 0.5f - inset - radius);
+                float outside = new Vector2(Mathf.Max(dx, 0f), Mathf.Max(dy, 0f)).magnitude;
+                float distance = outside + Mathf.Min(Mathf.Max(dx, dy), 0f) - radius;
+
+                float alpha;
+                if (distance > 0.5f) alpha = 0f;                       // gutter
+                else if (distance > -ringWidth) alpha = 1f;            // ring
+                else alpha = 0.30f;                                    // fill
+
+                // One pixel of feathering on the outer edge, or the rounded
+                // corners alias badly at this size.
+                if (distance > -0.5f && distance <= 0.5f) alpha *= 1f - (distance + 0.5f);
+
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        tex.SetPixels32(pixels);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        tex.Apply();
+        markerTexture = tex;
+        return tex;
     }
 
     void InitializePool()
@@ -120,7 +208,7 @@ public class GridTileVisualizer : MonoBehaviour
                 Renderer rend = indicator.GetComponent<Renderer>();
                 if (rend != null)
                 {
-                    rend.sharedMaterial = isBuildable ? availableMaterial : blockedMaterial;
+                    rend.sharedMaterial = isBuildable ? availableInstance : blockedInstance;
                 }
                 activeIndicators[gridPos] = indicator;
             }

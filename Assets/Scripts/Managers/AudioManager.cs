@@ -215,7 +215,9 @@ public class AudioManager : MonoBehaviour
 
     // Every UI press in the game already routes through PlaySound, so hooking
     // haptics in here gives the whole interface feedback in one place instead of
-    // per button. Gameplay haptics (hits, deaths) should call Haptics directly.
+    // per button. Gameplay events that already play a sound (kills, base damage)
+    // are hooked here too, on the rate limit; only events with no sound of their
+    // own - tower shots - call Haptics directly at their own site.
     private static void PlayHaptic(SoundType type)
     {
         switch (type)
@@ -246,6 +248,20 @@ public class AudioManager : MonoBehaviour
 
             case SoundType.GameOver:
                 Haptics.Play(Haptics.Style.Failure);
+                break;
+
+            // Gameplay events. These fire in bursts - a wave can kill a dozen
+            // enemies inside a second - so they go through the rate limit
+            // rather than buzzing once per event.
+            case SoundType.EnemyDeath:
+                Haptics.PlayThrottled(Haptics.Style.Selection, 0.12f);
+                break;
+
+            // Losing health is the one thing the player must never miss, so it
+            // gets a heavier style and its own limit, and is not competing with
+            // the kills happening around it.
+            case SoundType.BaseDamage:
+                Haptics.PlayThrottled(Haptics.Style.Warning, 0.25f);
                 break;
 
             // Everything else (music, projectiles, per-hit effects) stays silent

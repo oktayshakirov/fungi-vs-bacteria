@@ -184,7 +184,12 @@ public class Enemy : MonoBehaviour
     currentScale = baseScale * Mathf.Max(0.01f, cfg.scaleMultiplier * sizeScale);
     transform.localScale = currentScale;
 
-    bodyColor = cfg.overrideBodyColor ? cfg.bodyColor : defaultBodyColor;
+    // The type's own colour, shifted into the current biome. Multiplying keeps
+    // the types telling themselves apart (shielded reads blue everywhere) while
+    // the whole cast still belongs to the environment it is walking through.
+    Color own = cfg.overrideBodyColor ? cfg.bodyColor : defaultBodyColor;
+    Color tint = EnvironmentTheme.EnemyTint;
+    bodyColor = new Color(own.r * tint.r, own.g * tint.g, own.b * tint.b, own.a);
 
     if (bodyRenderer == null) return;
     propertyBlock ??= new MaterialPropertyBlock();

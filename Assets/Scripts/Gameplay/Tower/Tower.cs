@@ -129,6 +129,11 @@ public class Tower : MonoBehaviour
       return;
     }
 
+    // The lightest tick there is, on the longest limit of any gameplay haptic:
+    // a full board fires many times a second and this has to read as "the
+    // defences are working", not as a continuous vibration.
+    Haptics.PlayThrottled(Haptics.Style.Selection, 0.4f);
+
     GameObject projectileGO = Instantiate(projectilePrefab, projectileSpawnPoint.position, projectileSpawnPoint.rotation);
     Vector3 directionToTarget = (targeting.CurrentTarget.position - projectileSpawnPoint.position).normalized;
     projectileGO.transform.forward = directionToTarget;

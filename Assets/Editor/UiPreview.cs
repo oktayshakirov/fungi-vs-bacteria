@@ -52,6 +52,8 @@ public static class UiPreview
       settings: true);
 
     ShootWallet(cam, "screen-wallet");
+    ShootPlacement(cam, "hud-placing");
+    ShootTutorial(cam, "screen-tutorial");
 
     // Screens whose look depends on Start() running (cards populated, sliders
     // skinned). Start is invoked by reflection rather than widening the
@@ -275,6 +277,90 @@ public static class UiPreview
     {
       if (canvas != null) Object.DestroyImmediate(canvas.gameObject);
     }
+  }
+
+  // The HUD with a tower armed for placement, which is when the tower info bar
+  // is up. That bar shares the bottom-left slot with the selected-tower panel
+  // (TowerActions), and the two are built to the same card spec, so this shot
+  // stands in for both.
+  private static void ShootPlacement(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+
+    // A real TowerConfig off disk, not a mock: the bar's stat line branches on
+    // isSupport/isAoE/slowsEnemies, so inventing one would prove nothing.
+    TowerConfig config = AssetDatabase.LoadAssetAtPath<TowerConfig>(
+      "Assets/Settings/Towers/IceTower.asset");
+    if (config != null) PlacementCancelButton.Show(config, () => { });
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    PlacementCancelButton.Hide();
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+  }
+
+  // The first-run tutorial, over the board rather than over nothing - the whole
+  // point of the lighter scrim is that the board stays readable behind it.
+  private static void ShootTutorial(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+    TutorialOverlay.Show(canvasGo.transform);
+
+    // -executeMethod runs in EDIT mode, where AddComponent does NOT call Awake
+    // on a plain MonoBehaviour (only [ExecuteAlways] ones). TutorialOverlay
+    // builds itself in Awake, so without this it renders as nothing at all -
+    // the same reason ShootLive invokes Start() by reflection.
+    foreach (TutorialOverlay overlay in
+             Object.FindObjectsByType<TutorialOverlay>(FindObjectsSortMode.None))
+    {
+      var awake = typeof(TutorialOverlay).GetMethod("Awake",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+      try { awake?.Invoke(overlay, null); }
+      catch (System.Exception e) { Debug.LogWarning($"UI PREVIEW: TutorialOverlay.Awake -> {e.InnerException?.Message ?? e.Message}"); }
+    }
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+  }
+
+  private static void SavePng(RenderTexture rt, int width, int height, string name)
+  {
+    RenderTexture previous = RenderTexture.active;
+    RenderTexture.active = rt;
+    var shot = new Texture2D(width, height, TextureFormat.RGB24, false);
+    shot.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+    shot.Apply();
+    RenderTexture.active = previous;
+    File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
   }
 
   // The wallet has no prefab — it is built entirely in code — so it is

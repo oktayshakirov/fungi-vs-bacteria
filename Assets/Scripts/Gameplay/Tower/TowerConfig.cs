@@ -10,6 +10,12 @@ public class TowerConfig : ScriptableObject
   public Sprite towerIcon;
   public int cost = 100;
 
+  [Tooltip("One line, plain language, about what this tower is FOR - the role " +
+           "it plays, not its numbers. The stats are shown next to it already. " +
+           "Kept short: it has to fit a single bar on a phone in landscape.")]
+  [TextArea(2, 3)]
+  public string description = "";
+
   [Header("Attack Properties")]
   public float range = 5f;
   public float fireRate = 1f;

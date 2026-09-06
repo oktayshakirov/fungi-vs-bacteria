@@ -94,6 +94,11 @@ public class TowerPlacement : MonoBehaviour
       return;
     }
 
+    // The placement bar and the selected-tower panel share one screen slot, so
+    // arming a tower drops any tower currently selected. They are also mutually
+    // exclusive in intent: you are choosing where to build, not inspecting.
+    HUDManager.Instance?.DeselectCurrentTower();
+
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.TowerDrag);
     currentTowerConfig = config;
     GameObject preview = towerFactory.CreateTowerPreview(config);
@@ -114,7 +119,7 @@ public class TowerPlacement : MonoBehaviour
 
     gridLineVisualizer?.ShowGrid();
     gridTileVisualizer?.ShowVisualization();
-    PlacementCancelButton.Show(CancelPlacement);
+    PlacementCancelButton.Show(config, CancelPlacement);
   }
 
   // The card's own IBeginDragHandler calls this once an actual drag gesture is

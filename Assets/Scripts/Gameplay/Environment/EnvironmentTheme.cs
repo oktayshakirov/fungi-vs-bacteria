@@ -38,6 +38,26 @@ public static class EnvironmentTheme
 
     public Color fogColor;
     public float fogDensity;             // exponential-squared; 0 disables fog
+
+    // Multiplied into every enemy's body colour (see Enemy.ApplyAppearance), so
+    // the cast picks up the biome without losing what tells the TYPES apart -
+    // shielded stays blue, healer stays green, they just all sit in the
+    // environment's light. Channels above 1 are deliberate and used elsewhere
+    // in this file (see Environment 6's groundTint): a plain multiply can only
+    // darken, and darkening every enemy on the dark biomes hides them.
+    public Color enemyTint;
+  }
+
+  // Palettes built before enemyTint existed - and the zeroed struct returned
+  // before Apply() has run at all - would otherwise multiply every enemy to
+  // black.
+  public static Color EnemyTint
+  {
+    get
+    {
+      Color tint = Current.enemyTint;
+      return tint.r <= 0f && tint.g <= 0f && tint.b <= 0f ? Color.white : tint;
+    }
   }
 
   private static Material skyMaterial;
@@ -116,6 +136,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.34f, 0.27f, 0.24f),
           fogColor = C(0.92f, 0.74f, 0.58f),
           fogDensity = 0.0022f,
+          enemyTint = C(1.15f, 0.95f, 0.80f),
         };
 
       // Toxic / night — cool purple, moon and stars over glowing swamp
@@ -150,6 +171,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.13f, 0.12f, 0.20f),
           fogColor = C(0.32f, 0.24f, 0.46f),
           fogDensity = 0.0030f,
+          enemyTint = C(0.85f, 1.18f, 0.95f),
         };
 
       // Frozen tundra — bright overcast day, snow and ice
@@ -183,6 +205,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.30f, 0.34f, 0.42f),
           fogColor = C(0.86f, 0.92f, 0.98f),
           fogDensity = 0.0040f,
+          enemyTint = C(0.88f, 0.98f, 1.22f),
         };
 
       // Volcanic — ash plain under an ember sky
@@ -216,6 +239,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.16f, 0.12f, 0.12f),
           fogColor = C(0.55f, 0.24f, 0.14f),
           fogDensity = 0.0048f,
+          enemyTint = C(1.30f, 0.85f, 0.70f),
         };
 
       // Alien bloom — bioluminescent growth under a teal-violet sky
@@ -251,6 +275,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.12f, 0.18f, 0.24f),
           fogColor = C(0.16f, 0.48f, 0.52f),
           fogDensity = 0.0042f,
+          enemyTint = C(1.20f, 0.85f, 1.28f),
         };
 
       // Blossom grove — warm pink autumn at golden hour
@@ -284,6 +309,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.30f, 0.26f, 0.28f),
           fogColor = C(1f, 0.86f, 0.82f),
           fogDensity = 0.0036f,
+          enemyTint = C(1.20f, 0.95f, 1.02f),
         };
 
       // Meadow / clear day — the default
@@ -317,6 +343,7 @@ public static class EnvironmentTheme
           cliffBottom = C(0.28f, 0.27f, 0.30f),
           fogColor = C(0.74f, 0.86f, 0.96f),
           fogDensity = 0.0034f,
+          enemyTint = Color.white,
         };
     }
   }
