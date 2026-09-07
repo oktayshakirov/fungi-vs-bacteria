@@ -1,6 +1,6 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-06. Working tree clean at `c13cffe` on `main`, pushed.
+Last updated 2026-09-07. Working tree clean at `276e5b5` on `main`, pushed.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -9,7 +9,7 @@ that has actually cost debugging time.
 
 ## 0. The immediate next step: a device playtest
 
-Everything in phases 13-15 is **render-verified or sim-verified only**. Nothing
+Everything in phases 13-16 is **render-verified or sim-verified only**. Nothing
 below has been played by a human. The user is going to test next, so if you are
 picking this up mid-test, expect findings rather than a clean slate.
 
@@ -22,6 +22,7 @@ What is worth deliberately checking, and what to look for:
 | Placement bar / sell panel | Arm a tower, then tap a placed one | They share the bottom-left slot and are mutually exclusive by construction; the sell panel is the one piece of UI **not** render-verified |
 | Haptics | A busy wave, then a base hit | Throttle intervals are first guesses; the whole point is that it must not buzz continuously |
 | Tile indicators | Arm a tower on the snow and ash biomes | The old wash was invisible there; the new marker is untested against those grounds |
+| Tower upgrades | Tap a placed tower, upgrade it twice, then sell it | New in phase 16. The price is deliberately poor value and may read as a trap; the tier cue is only a size bump and a warm tint, never seen in motion |
 | Enemy tints | Play one level in env 3, 5 and 6 | Tints are eyeballed. Types must still be distinguishable from each other |
 | Balance | Env 7 levels 3, 6 and 10 | The sim cannot win these. It plays optimally, so if it loses, a human loses — but the real player enters richer than the sim models |
 | Locked states | Set `LevelProgress.UnlockAll = false` and walk the flow | Still `true`; no padlock or dimmed tile has ever been seen |
@@ -102,6 +103,13 @@ Roughly in order. Each is committed.
 15. **Queued UX list + gameplay haptics** — tower info box, sell/upgrade panel,
     tile indicators, onboarding card, per-environment enemy tint, and haptics
     on kills / base damage / tower shots. (`c13cffe`)
+
+16. **Tower upgrades** — `Tower.Upgrade()` is real: three tiers, compounding
+    +60% damage / +15% fire rate / +10% range, priced at 3.5x the build cost
+    then 1.5x again. The Upgrade button is unhidden, support auras and radii
+    scale with the tier, sell value returns 70% of everything invested, and
+    `BalanceSim` models the whole thing. Measured over five sweeps — see
+    Priority 5 below and the long comment in `TowerConfig`.
 
 ## 4. How to verify work — read this before changing anything
 
@@ -253,22 +261,81 @@ a hand on a real phone during a busy wave.
 - *Info box explaining each tower*: `TowerConfig.description`, filled in for all
   eight, surfaced in the placement bar (which absorbed the old bare Cancel
   button) and in the selected-tower panel.
-- *Sell/upgrade UI*: rebuilt. **The Upgrade button is hidden, not broken** —
-  `Tower.Upgrade()` still only logs. It reappears by itself the moment a real
-  upgrade level exists. Deliberately not implemented in the same pass as a
-  balance retune: upgrades are a new power lever and `BalanceSim` does not model
-  them, so shipping both at once would have made the playtest unreadable.
+- *Sell/upgrade UI*: rebuilt. The Upgrade button was hidden here because
+  `Tower.Upgrade()` only logged; **phase 16 made it real and it is now visible.**
+  Upgrades were deliberately held back from this pass — they are a new power
+  lever and `BalanceSim` did not model them, so shipping them alongside a
+  balance retune would have made the playtest unreadable.
 - *Tile green/red indicators*: generated rounded-square markers with a gutter,
   blocked tiles deliberately much fainter than available ones.
 - *Onboarding layout*: card, step counter, pips, Got It button, over a lighter
   scrim, centred on the BOARD so it never covers the towers panel.
 - *Enemy colours per environment*: `EnvironmentTheme.Palette.enemyTint`.
 
-**Priority 5 — Tower upgrades.** The one thing on the list that was scoped out
-rather than finished, and now the most obvious missing feature: the sell panel
-has a slot waiting for it. Needs a cost curve, stat scaling, some visual sign
-of tier, and a `BalanceSim` pass, because it changes the difficulty ceiling the
-whole balance model is built around (see the Balance traps below).
+**Priority 5 — Tower upgrades. DONE, NOT yet in real play.** Three tiers per
+tower, all driven from `TowerConfig` (`DamageAt` / `UpgradeCostFrom` /
+`SellValueAt`), read through `Tower.Level`, mirrored in `BalanceSim`.
+
+The finding that matters, because it is counter-intuitive: **the obvious price
+broke the game.** At an upgrade cost of 1x the build cost, all 70 levels went
+TRIVIAL at 100% health and the proxy's median tower count FELL from 24 to 15.5 —
+it stopped filling the board. Upgrading a high-coverage cell beats building on
+the next-best FREE cell, and the coverage gap between the best and the marginal
+cell on a 10x5 board is wide enough to swamp any sane value-per-gold ratio. An
+upgrade has to be priced as bad value (9.75x the build cost to max a tower, for
+~3.4x its output) because the only thing it buys that a second tower does not is
+"no cell required".
+
+At the shipped 3.5x: the first upgrade is bought at difficulty 48, and **d1-47
+is bit-identical to the pre-upgrade run.** Six verdicts move, all at d60+, all
+on levels that had 1,200-3,400 gold sitting dead:
+
+| | Before | After |
+|---|---|---|
+| E6L10 (d60) | HARD | TRIVIAL |
+| E7L01 (d61) | HARD | EASY |
+| E7L06 (d66) | **LOSS** | FAIR |
+| E7L07 (d67) | HARD | EASY |
+| E7L09 (d69) | HARD | FAIR |
+| E7L10 (d70) | **LOSS** | HARD |
+
+So two of the three known-unwinnable levels become winnable, and **E7L03 (d63)
+stays a loss** — it had the smallest surplus, so upgrades could not rescue it.
+It is now the single hardest level in the game and the one to watch.
+
+Past ~3.5x the price stops mattering (5.0x barely differed), because the proxy
+dumps its surplus either way. Do not grind this further against the model — the
+handoff's standing warning applies doubly here, since the real player enters
+RICHER than the sim assumes and upgrades will therefore do MORE in practice.
+
+**What still needs a human:**
+- Whether the Upgrade button reads as worth pressing. The price is deliberately
+  poor value and a player doing arithmetic may correctly conclude it is a trap.
+  If it feels like one, the honest fix is fewer/cheaper tiers, not a stealth
+  buff — and re-run the sim, because 1x demonstrably breaks the board.
+- The tier cue. There is no upgrade art, so a tier is an 8%-per-step size bump
+  plus a warmer body tint multiplied into the model's own colour. Never seen in
+  motion; it may be too subtle at phone size, or it may make an upgraded tower
+  overlap its neighbours.
+- `Lv 2` in the panel title is text because the TMP atlases are ASCII-only —
+  there are no pip or star glyphs available.
+
+**Traps this created, all live in the code as comments:**
+- `TowerBuffs` now reads `Tower.Range` / `EffectiveDamageBoost`, NOT the config.
+  Reading the config is how an upgraded support tower silently does nothing.
+- `Tower.Upgrade` re-arms `targeting.Initialize(Range)`. Without it the panel
+  advertises a longer reach than the tower will actually shoot.
+- The tier tint is multiplied INTO the material colour via a
+  `MaterialPropertyBlock`, and the base colour is re-read from `sharedMaterial`
+  every time — reading it back from the block would compound the tint to white
+  by level 3, and writing `sharedMaterial` would re-tier every other tower on
+  that prefab.
+- `Tower.baseScale` is captured in `Initialize`, not `Awake`: `TowerFactory`
+  applies `UnitScale.Tower` after `Instantiate` but before `Initialize`, so
+  `Awake` would bank the prefab scale and shrink every tower on its first
+  upgrade.
+- Sell value is 70% of TOTAL INVESTED, not of the build cost. Reverting that
+  makes upgrading-then-selling a hidden loss.
 
 **Before release:** set `LevelProgress.UnlockAll = false`; delete the
 **THEREN Trial** font (see below); analytics + crash reporting; real app icon

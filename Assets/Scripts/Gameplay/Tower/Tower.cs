@@ -34,14 +34,33 @@ public class Tower : MonoBehaviour
   private float damageMultiplier = 1f;
   private float fireRateMultiplier = 1f;
 
-  public float Range => config?.range ?? 0f;
-  public float FireRate => config?.fireRate ?? 1f;
+  // Upgrade tier, 1..config.maxLevel. Every stat below reads through it, so
+  // nothing else in the codebase has to know upgrades exist.
+  public int Level { get; private set; } = 1;
+
+  private Vector3 baseScale = Vector3.one;
+  private static MaterialPropertyBlock tierBlock;
+  private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+  private static readonly int ColorId = Shader.PropertyToID("_Color");
+
+  public float Range => config?.RangeAt(Level) ?? 0f;
+  public float FireRate => config?.FireRateAt(Level) ?? 1f;
 
   public bool IsSupport => config != null && config.isSupport;
   public int EffectiveDamage =>
-    config == null ? 0 : Mathf.RoundToInt(config.damage * damageMultiplier);
+    config == null ? 0 : Mathf.RoundToInt(config.DamageAt(Level) * damageMultiplier);
   public float EffectiveFireRate =>
-    config == null ? 1f : config.fireRate * fireRateMultiplier;
+    config == null ? 1f : config.FireRateAt(Level) * fireRateMultiplier;
+
+  // TowerBuffs reads these rather than the config directly, so an upgraded
+  // support tower actually projects a stronger aura.
+  public float EffectiveDamageBoost => config?.DamageBoostAt(Level) ?? 0f;
+  public float EffectiveFireRateBoost => config?.FireRateBoostAt(Level) ?? 0f;
+
+  public int MaxLevel => config?.MaxLevel ?? 1;
+  public bool IsMaxLevel => config == null || Level >= config.MaxLevel;
+  public int UpgradeCost => config?.UpgradeCostFrom(Level) ?? 0;
+  public int SellValue => config?.SellValueAt(Level) ?? 0;
 
   public void SetBuffs(float damage, float fireRate)
   {
@@ -98,9 +117,15 @@ public class Tower : MonoBehaviour
 
     if (config != null)
     {
+      // Captured here, not in Awake: TowerFactory scales the instantiated
+      // object by UnitScale.Tower AFTER Instantiate but BEFORE Initialize, so
+      // Awake would bank the prefab's authored scale and the tier cue would
+      // shrink every tower back down on its first upgrade.
+      baseScale = transform.localScale;
+
       if (targeting != null)
       {
-        targeting.Initialize(config.range);
+        targeting.Initialize(Range);
       }
       fireCountdown = 1f / (FireRate > 0 ? FireRate : 1f);
 
@@ -215,16 +240,94 @@ public class Tower : MonoBehaviour
       return;
     }
 
-    GameManager.Instance?.AddGold(config.sellValue);
+    GameManager.Instance?.AddGold(SellValue);
     GridManager.Instance?.SetCellBuildable(GridPosition, true);
     Deselect();
     Destroy(gameObject);
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.Sell);
   }
 
-  public void Upgrade()
+  // Returns false when the tower is maxed or the player cannot pay, so the UI
+  // can stay quiet rather than pretending something happened.
+  public bool Upgrade()
   {
-    Debug.Log($"[Not Implemented] Attempting to upgrade tower: {gameObject.name}", this);
+    if (config == null || isPreviewMode || IsMaxLevel) return false;
+
+    int price = UpgradeCost;
+    if (GameManager.Instance == null || !GameManager.Instance.TryPurchase(price))
+    {
+      return false;
+    }
+
+    Level++;
+
+    // Range grows with the tier, so the targeting radius has to be re-armed;
+    // without this an upgraded tower reports a longer range in the panel and
+    // still refuses to shoot anything past its old one.
+    targeting?.Initialize(Range);
+
+    // Support auras change with the tier, and an upgraded attacker changes what
+    // a nearby support is worth, so the whole graph is re-derived.
+    TowerBuffs.Recalculate();
+
+    ApplyTierVisuals();
+
+    // No Haptics call here: AudioManager.PlaySound already fires a Medium
+    // impact for TowerDrop. Adding one would double it up, the same trap
+    // TowerActions.SellTower documents.
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.TowerDrop);
+    return true;
+  }
+
+  // There is no upgrade art (see HANDOFF section 8), so the tier reads as a
+  // size step plus a warmer body colour. Both are cheap and both survive at
+  // phone size, which a decal or a badge on the model would not.
+  //
+  // The tint goes through a MaterialPropertyBlock for the same reason enemies'
+  // does: several TowerConfigs can point at one prefab, and writing
+  // sharedMaterial would re-tier every other tower using it.
+  private void ApplyTierVisuals()
+  {
+    if (config == null) return;
+
+    int steps = Mathf.Max(0, Level - 1);
+    transform.localScale = baseScale * (1f + 0.08f * steps);
+
+    Transform model = tower != null ? tower : transform;
+
+    // Multiplied INTO the material's own colour, never assigned over it: the
+    // eight fungi are told apart by their body colour, and writing a flat tier
+    // colour would make every level-2 tower on the board identical.
+    Color tint = Color.Lerp(Color.white, new Color(1f, 0.86f, 0.55f),
+                            Mathf.Min(1f, 0.5f * steps));
+
+    tierBlock ??= new MaterialPropertyBlock();
+    foreach (Renderer rend in model.GetComponentsInChildren<Renderer>(true))
+    {
+      if (tileIndicator != null && rend.transform.IsChildOf(tileIndicator.transform)) continue;
+
+      Material shared = rend.sharedMaterial;
+      if (shared == null) continue;
+
+      rend.GetPropertyBlock(tierBlock);
+      ApplyTint(tierBlock, shared, BaseColorId, tint);
+      ApplyTint(tierBlock, shared, ColorId, tint);
+      rend.SetPropertyBlock(tierBlock);
+    }
+  }
+
+  private static void ApplyTint(MaterialPropertyBlock block, Material shared,
+    int property, Color tint)
+  {
+    if (!shared.HasProperty(property)) return;
+
+    // The block is read back each time rather than kept per-tower, so the base
+    // colour has to come from the shared material: the block's own value is
+    // already tinted from the previous tier and compounding it would drive the
+    // model to white by level 3.
+    Color baseColor = shared.GetColor(property);
+    block.SetColor(property, new Color(baseColor.r * tint.r, baseColor.g * tint.g,
+                                       baseColor.b * tint.b, baseColor.a));
   }
 
   public void SetPreviewMode(bool preview)

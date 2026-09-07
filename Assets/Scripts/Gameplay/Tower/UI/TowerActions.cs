@@ -48,20 +48,54 @@ namespace TowerDefense.UI
 
       Build();
 
-      towerNameText.text = config.towerName;
-      sellButtonText.text = $"SELL  +{config.sellValue}";
+      // The tier is spelled out rather than shown as pips: the TMP atlases are
+      // static and ASCII-only, so there are no star or dot glyphs to use.
+      towerNameText.text = tower.MaxLevel > 1
+        ? $"{config.towerName}   Lv {tower.Level}"
+        : config.towerName;
+      sellButtonText.text = $"SELL  +{tower.SellValue}";
       descriptionText.text = string.IsNullOrWhiteSpace(config.description)
         ? string.Empty
         : config.description;
       towerStatsText.text = StatLine(config, tower);
 
-      // Upgrades do not exist yet (Tower.Upgrade only logs), so the button is
-      // hidden rather than shown dead - a control that visibly does nothing is
-      // worse than one that isn't there. It comes back on its own the moment
-      // Tower gains a real upgrade level.
-      if (upgradeButton != null) upgradeButton.gameObject.SetActive(false);
+      RefreshUpgradeButton(tower);
 
       gameObject.SetActive(true);
+    }
+
+    // Gold arrives continuously while the panel is open - every kill pays out -
+    // so affordability is re-checked each frame rather than only on selection,
+    // or the button stays dimmed after the player can plainly afford it.
+    // Only the interactable flag is touched here; rebuilding the label text
+    // every frame would allocate a string per frame for no visible change.
+    private void Update()
+    {
+      if (currentTower == null || upgradeButton == null) return;
+      if (!upgradeButton.gameObject.activeSelf) return;
+
+      bool affordable = GameManager.Instance != null &&
+                        GameManager.Instance.CanAfford(currentTower.UpgradeCost);
+      if (upgradeButton.interactable != affordable) upgradeButton.interactable = affordable;
+    }
+
+    // Hidden entirely on a tower that cannot be upgraded at all (maxLevel 1) or
+    // has run out of tiers; dimmed but visible when the player simply cannot
+    // afford it, so the cost still reads as a goal rather than vanishing.
+    private void RefreshUpgradeButton(Tower tower)
+    {
+      if (upgradeButton == null) return;
+
+      bool available = tower.MaxLevel > 1 && !tower.IsMaxLevel;
+      upgradeButton.gameObject.SetActive(available);
+      if (!available) return;
+
+      int price = tower.UpgradeCost;
+      bool affordable = GameManager.Instance != null && GameManager.Instance.CanAfford(price);
+      upgradeButton.interactable = affordable;
+
+      TMP_Text label = upgradeButton.GetComponentInChildren<TMP_Text>(true);
+      if (label != null) label.text = $"UPGRADE  {price}";
     }
 
     // Reports the tower's EFFECTIVE numbers, not its authored ones: a tower
@@ -73,18 +107,21 @@ namespace TowerDefense.UI
       if (config.isSupport)
       {
         string boost = config.damageBoost > 0f
-          ? $"+{Mathf.RoundToInt(config.damageBoost * 100f)}% damage"
-          : $"+{Mathf.RoundToInt(config.fireRateBoost * 100f)}% fire rate";
-        return $"Range {config.range:0.#}   {boost} to nearby towers";
+          ? $"+{Mathf.RoundToInt(tower.EffectiveDamageBoost * 100f)}% damage"
+          : $"+{Mathf.RoundToInt(tower.EffectiveFireRateBoost * 100f)}% fire rate";
+        return $"Range {tower.Range:0.#}   {boost} to nearby towers";
       }
 
-      string line = $"Damage {tower.EffectiveDamage}   Range {config.range:0.#}" +
+      string line = $"Damage {tower.EffectiveDamage}   Range {tower.Range:0.#}" +
                     $"   {tower.EffectiveFireRate:0.#}/s";
       if (config.isAoE) line += "   Splash";
       if (config.slowsEnemies) line += "   Slow";
 
-      bool buffed = tower.EffectiveDamage != config.damage
-                 || !Mathf.Approximately(tower.EffectiveFireRate, config.fireRate);
+      // Compared against the tower's OWN tier, not against the config: an
+      // upgraded tower is not "buffed", and labelling it so would make the
+      // support towers look like they were doing something they are not.
+      bool buffed = tower.EffectiveDamage != config.DamageAt(tower.Level)
+                 || !Mathf.Approximately(tower.EffectiveFireRate, config.FireRateAt(tower.Level));
       if (buffed) line += "   (buffed)";
       return line;
     }
@@ -136,8 +173,8 @@ namespace TowerDefense.UI
       StyleLabel(towerStatsText, UiSkin.Role.Caption, UiSkin.TextMuted,
         TextAlignmentOptions.MidlineLeft, 22f);
 
-      // The buttons go into a row of their own so a future Upgrade button sits
-      // beside Sell instead of stacking the panel taller.
+      // The buttons go into a row of their own so Upgrade sits beside Sell
+      // instead of stacking the panel taller.
       var rowGo = new GameObject("Actions", typeof(RectTransform));
       rowGo.transform.SetParent(transform, false);
       var row = rowGo.AddComponent<HorizontalLayoutGroup>();
@@ -208,10 +245,12 @@ namespace TowerDefense.UI
 
     public void UpgradeTower()
     {
-      if (currentTower != null)
-      {
-        currentTower.Upgrade();
-      }
+      if (currentTower == null) return;
+      if (!currentTower.Upgrade()) return;
+
+      // Re-read the whole panel rather than patching the label: the tier, the
+      // stat line, the sell value and the next upgrade's price all moved.
+      ShowForTower(currentTower);
     }
 
     public void Hide()

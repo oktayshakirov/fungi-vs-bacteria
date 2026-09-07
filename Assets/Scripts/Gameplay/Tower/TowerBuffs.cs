@@ -5,8 +5,8 @@ using UnityEngine;
 // rate of every attacking tower standing inside their radius, which is what
 // makes placing them centrally among your damage dealers worth 250-275 gold.
 //
-// Buffs are recomputed only when the set of towers CHANGES - a tower is built
-// or sold - never per frame. The board tops out somewhere around thirty towers,
+// Buffs are recomputed only when the set of towers CHANGES - a tower is built,
+// sold or upgraded - never per frame. The board tops out somewhere around thirty towers,
 // so the O(n^2) sweep is trivial at that cadence, and no tower has to poll its
 // neighbours in Update.
 public static class TowerBuffs
@@ -55,12 +55,14 @@ public static class TowerBuffs
       {
         if (source == tower || !source.IsSupport) continue;
 
-        TowerConfig cfg = source.GetTowerConfig();
-        if (cfg == null) continue;
-        if (Vector3.Distance(source.transform.position, tower.transform.position) > cfg.range) continue;
+        if (source.GetTowerConfig() == null) continue;
+        if (Vector3.Distance(source.transform.position, tower.transform.position) > source.Range) continue;
 
-        damage += cfg.damageBoost;
-        fireRate += cfg.fireRateBoost;
+        // Read through the tower, not its config: radius and aura strength both
+        // grow with the support tower's upgrade tier, and reading the config
+        // directly is how an upgraded support silently does nothing.
+        damage += source.EffectiveDamageBoost;
+        fireRate += source.EffectiveFireRateBoost;
       }
 
       tower.SetBuffs(damage, fireRate);

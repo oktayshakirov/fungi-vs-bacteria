@@ -28,6 +28,9 @@ using UnityEngine;
 //     also catches colliders whose edge is inside the radius.
 //   - The player proxy (see BuildPhase) plays greedily and never sells or
 //     repositions, which a good human would.
+//   - An upgrade's coverage is held at the value the tower had when it was
+//     built, even though range grows with the tier — so upgrades are scored
+//     slightly cheaper than they really are worth.
 //
 // What is modelled faithfully, because each one changes the outcome:
 //   - Towers only tick their fire countdown while they HAVE a target
@@ -41,6 +44,10 @@ using UnityEngine;
 //     land clears the effect for everyone.
 //   - Wave pacing, including the trailing timeBetweenSpawns after the last
 //     enemy of a group and the 8s gap before the next wave.
+//   - Upgrade tiers (Tower.Level / TowerConfig's *At methods), including the
+//     stronger, wider aura an upgraded support tower projects. If a new power
+//     lever is added and NOT mirrored here, the sim reports it as free
+//     difficulty and the regression check silently stops meaning anything.
 public static class BalanceSim
 {
   // Must match GridManager.cellSize in MainGame.unity. DisplaySetup owns the
@@ -186,8 +193,13 @@ public static class BalanceSim
     // be scored against exactly the same yardstick as an attacker.
     public float coverage;
 
-    public int Damage => Mathf.RoundToInt(cfg.damage * damageMult);
-    public float FireRate => cfg.fireRate * fireRateMult;
+    // Upgrade tier; mirrors Tower.Level. Every stat below reads through it, so
+    // an upgrade in the proxy is worth exactly what it is worth in the game.
+    public int level = 1;
+
+    public int Damage => Mathf.RoundToInt(cfg.DamageAt(level) * damageMult);
+    public float FireRate => cfg.FireRateAt(level) * fireRateMult;
+    public float Range => cfg.RangeAt(level);
   }
 
   private class SimProjectile
@@ -226,6 +238,9 @@ public static class BalanceSim
     public int leaks;
     public int towersBuilt;
     public int supportTowers;
+    // Upgrade steps the proxy bought. Zero everywhere means upgrades never beat
+    // a fresh tower and the whole feature is inert.
+    public int upgrades;
     // Mean fraction of the path an enemy covered before dying (0-1).
     public float killDepth;
 
@@ -292,6 +307,7 @@ public static class BalanceSim
     List<float[]> coverage = BuildCoverageTable(freeCells, attackers, path);
 
     int gold = level.startingGold;
+    int upgrades = 0;
     int health = level.startingHealth;
     int spent = 0;
 
@@ -331,7 +347,8 @@ public static class BalanceSim
       if (t >= nextBuy)
       {
         nextBuy = t + BuyIntervalSeconds;
-        BuildPhase(ref gold, ref spent, activeTowers, freeCells, attackers, supports, coverage);
+        BuildPhase(ref gold, ref spent, ref upgrades, activeTowers, freeCells,
+          attackers, supports, coverage);
       }
 
       // Only count time when there is something to shoot at; the idle gap
@@ -411,6 +428,7 @@ public static class BalanceSim
     result.goldSpent = spent;
     result.towersBuilt = activeTowers.Count;
     result.supportTowers = activeTowers.Count(t2 => t2.cfg.isSupport);
+    result.upgrades = upgrades;
     result.leaks = leaked;
     result.killDepth = killed > 0 ? killDepthSum / killed : 0f;
     result.damageDealt = damageDealt;
@@ -483,7 +501,7 @@ public static class BalanceSim
     // take the nearest one inside range.
     if (tower.target != null &&
         (!tower.target.alive ||
-         Vector2.Distance(tower.pos, tower.target.pos) > tower.cfg.range))
+         Vector2.Distance(tower.pos, tower.target.pos) > tower.Range))
     {
       tower.target = null;
     }
@@ -497,7 +515,7 @@ public static class BalanceSim
         SimEnemy e = enemies[i];
         if (!e.alive) continue;
         float d = Vector2.Distance(tower.pos, e.pos);
-        if (d < best && d <= tower.cfg.range)
+        if (d < best && d <= tower.Range)
         {
           best = d;
           nearest = e;
@@ -688,9 +706,9 @@ public static class BalanceSim
   // something, it buys whatever scores best right now and never sells. Score is
   // damage output x how much of the path the spot actually covers, per gold —
   // which is roughly how a player reasons about a build site.
-  private static void BuildPhase(ref int gold, ref int spent, List<SimTower> towers,
-    List<Vector2> freeCells, TowerConfig[] attackers, TowerConfig[] supports,
-    List<float[]> coverage)
+  private static void BuildPhase(ref int gold, ref int spent, ref int upgrades,
+    List<SimTower> towers, List<Vector2> freeCells, TowerConfig[] attackers,
+    TowerConfig[] supports, List<float[]> coverage)
   {
     while (true)
     {
@@ -698,6 +716,7 @@ public static class BalanceSim
       int bestCell = -1;
       TowerConfig chosen = null;
       float chosenCover = 0f;
+      SimTower chosenUpgrade = null;
 
       for (int c = 0; c < freeCells.Count; c++)
       {
@@ -716,6 +735,7 @@ public static class BalanceSim
             bestCell = c;
             chosen = cfg;
             chosenCover = cover;
+            chosenUpgrade = null;
           }
         }
 
@@ -746,8 +766,72 @@ public static class BalanceSim
             bestCell = c;
             chosen = cfg;
             chosenCover = 0f;
+            chosenUpgrade = null;
           }
         }
+      }
+
+      // Upgrading an existing tower, scored on exactly the same yardstick as
+      // building a new one: (added value x path covered) per gold. That is what
+      // makes the comparison meaningful - upgrades are priced to lose this
+      // contest while free cells remain and win it once the board is full,
+      // which is the only reason they exist (see TowerConfig's Upgrades block).
+      //
+      // The tower's coverage is held constant across the upgrade even though
+      // range grows with the tier. Recomputing it would mean re-sampling the
+      // path per candidate per build step; holding it fixed understates the
+      // upgrade slightly, which is the safe direction for a difficulty check.
+      foreach (SimTower t in towers)
+      {
+        if (t.level >= t.cfg.MaxLevel) continue;
+
+        int upgradeCost = t.cfg.UpgradeCostFrom(t.level);
+        if (upgradeCost <= 0 || upgradeCost > gold) continue;
+
+        float gain;
+        if (t.cfg.isSupport)
+        {
+          // Worth the extra aura it projects onto every attacker it reaches.
+          float deltaBoost =
+            (t.cfg.DamageBoostAt(t.level + 1) - t.cfg.DamageBoostAt(t.level)) +
+            (t.cfg.FireRateBoostAt(t.level + 1) - t.cfg.FireRateBoostAt(t.level));
+          if (deltaBoost <= 0f) continue;
+
+          gain = 0f;
+          float newRange = t.cfg.RangeAt(t.level + 1);
+          foreach (SimTower other in towers)
+          {
+            if (other.cfg.isSupport) continue;
+            if (Vector2.Distance(t.pos, other.pos) > newRange) continue;
+            gain += TowerValue(other.cfg, other.level) * other.coverage * deltaBoost;
+          }
+        }
+        else
+        {
+          gain = (TowerValue(t.cfg, t.level + 1) - TowerValue(t.cfg, t.level)) * t.coverage;
+        }
+
+        if (gain <= 0f) continue;
+
+        float score = gain / upgradeCost;
+        if (score > bestScore)
+        {
+          bestScore = score;
+          bestCell = -1;
+          chosen = null;
+          chosenUpgrade = t;
+        }
+      }
+
+      if (chosenUpgrade != null)
+      {
+        int upgradeCost = chosenUpgrade.cfg.UpgradeCostFrom(chosenUpgrade.level);
+        chosenUpgrade.level++;
+        gold -= upgradeCost;
+        spent += upgradeCost;
+        upgrades++;
+        RecalculateBuffs(towers);
+        continue;
       }
 
       if (bestCell < 0 || chosen == null) return;
@@ -790,18 +874,22 @@ public static class BalanceSim
       foreach (SimTower source in towers)
       {
         if (source == tower || !source.cfg.isSupport) continue;
-        if (Vector2.Distance(source.pos, tower.pos) > source.cfg.range) continue;
-        damage += source.cfg.damageBoost;
-        fireRate += source.cfg.fireRateBoost;
+        if (Vector2.Distance(source.pos, tower.pos) > source.Range) continue;
+        // Radius and aura strength both grow with the support tower's tier;
+        // mirrors TowerBuffs reading Tower.Range / Tower.EffectiveDamageBoost.
+        damage += source.cfg.DamageBoostAt(source.level);
+        fireRate += source.cfg.FireRateBoostAt(source.level);
       }
       tower.damageMult = damage;
       tower.fireRateMult = fireRate;
     }
   }
 
-  private static float TowerValue(TowerConfig cfg)
+  private static float TowerValue(TowerConfig cfg) => TowerValue(cfg, 1);
+
+  private static float TowerValue(TowerConfig cfg, int level)
   {
-    float dps = cfg.damage * cfg.fireRate;
+    float dps = cfg.DamageAt(level) * cfg.FireRateAt(level);
     if (cfg.isAoE) dps *= 1.6f;          // splash hits more than one enemy
     if (cfg.slowsEnemies) dps *= 1.15f;  // slow buys every other tower more time
     return dps;
@@ -921,7 +1009,7 @@ public static class BalanceSim
     Directory.CreateDirectory(OutputFolder);
     var sb = new StringBuilder();
     sb.AppendLine("env,level,difficulty,verdict,stars,healthLeft,healthPct,leaks,killDepth," +
-                  "waves,enemies,peakAlive,towers,support,goldSpent,goldLeft,simSeconds");
+                  "waves,enemies,peakAlive,towers,support,upgrades,goldSpent,goldLeft,simSeconds");
 
     foreach (LevelResult r in results)
     {
@@ -941,6 +1029,7 @@ public static class BalanceSim
         r.peakAlive.ToString(),
         r.towersBuilt.ToString(),
         r.supportTowers.ToString(),
+        r.upgrades.ToString(),
         r.goldSpent.ToString(),
         r.goldLeft.ToString(),
         r.simSeconds.ToString("F1", CultureInfo.InvariantCulture),
@@ -1006,7 +1095,8 @@ public static class BalanceSim
       {
         sb.AppendLine($"  Env{r.environmentIndex} L{r.levelNumber:00} (d{r.difficulty}) " +
                       $"{r.totalEnemies} enemies, peak {r.peakAlive} alive, " +
-                      $"{r.towersBuilt} towers, {r.goldLeft} gold unspent");
+                      $"{r.towersBuilt} towers, {r.upgrades} upgrades, " +
+                      $"{r.goldLeft} gold unspent");
       }
     }
 
@@ -1014,6 +1104,8 @@ public static class BalanceSim
     sb.AppendLine("Economy:");
     sb.AppendLine($"  Median towers built: {Median(results.Select(r => (float)r.towersBuilt))}");
     sb.AppendLine($"  Median support towers: {Median(results.Select(r => (float)r.supportTowers))}");
+    sb.AppendLine($"  Median upgrades bought: {Median(results.Select(r => (float)r.upgrades))}");
+    sb.AppendLine($"  Max upgrades bought:    {results.Max(r => r.upgrades)}");
     sb.AppendLine($"  Median kill depth:   {Median(results.Select(r => r.killDepth)) * 100:F0}%");
     sb.AppendLine();
     sb.AppendLine("Tower output (how much headroom the player still has):");
