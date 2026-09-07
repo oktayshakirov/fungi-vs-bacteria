@@ -1,6 +1,6 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-07. Working tree clean at `276e5b5` on `main`, pushed.
+Last updated 2026-09-07. Working tree clean at `b5efc9b` on `main`, pushed.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -9,7 +9,7 @@ that has actually cost debugging time.
 
 ## 0. The immediate next step: a device playtest
 
-Everything in phases 13-16 is **render-verified or sim-verified only**. Nothing
+Everything in phases 13-17 is **render-verified or sim-verified only**. Nothing
 below has been played by a human. The user is going to test next, so if you are
 picking this up mid-test, expect findings rather than a clean slate.
 
@@ -23,6 +23,8 @@ What is worth deliberately checking, and what to look for:
 | Haptics | A busy wave, then a base hit | Throttle intervals are first guesses; the whole point is that it must not buzz continuously |
 | Tile indicators | Arm a tower on the snow and ash biomes | The old wash was invisible there; the new marker is untested against those grounds |
 | Tower upgrades | Tap a placed tower, upgrade it twice, then sell it | New in phase 16. The price is deliberately poor value and may read as a trap; the tier cue is only a size bump and a warm tint, never seen in motion |
+| Unlocking a biome | Finish Environment 1 and watch Environment 2 open | New in phase 17. The locked STATES are render-verified, the unlock moment is not |
+| Kill effect | Watch a few enemies die | The fragments now arc under gravity instead of flying straight - an old struct-copy bug, fixed while pooling. Visibly different from every previous build |
 | Enemy tints | Play one level in env 3, 5 and 6 | Tints are eyeballed. Types must still be distinguishable from each other |
 | Balance | Env 7 levels 3, 6 and 10 | The sim cannot win these. It plays optimally, so if it loses, a human loses — but the real player enters richer than the sim models |
 | Locked states | Set `LevelProgress.UnlockAll = false` and walk the flow | Still `true`; no padlock or dimmed tile has ever been seen |
