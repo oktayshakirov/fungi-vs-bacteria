@@ -232,8 +232,18 @@ three first and only tune if a human also loses them.
 **Priority 3 — Confirm the performance fixes.** The user measured 60fps steady,
 dipping to ~20 only past ~25 enemies. That was diagnosed as per-enemy
 allocation, and `FloatingText` + enemy health bars have been pooled since — but
-**the fix has not been re-measured on device**. `DeathEffect` is still
-unpooled (once per kill, so lower priority).
+**the fix has not been re-measured on device**. `DeathEffect` is now pooled too
+(phase 17) — it was the last unpooled per-kill allocation, and the heaviest:
+a GameObject, seven sphere primitives and a Material per kill, all destroyed
+0.45s later. **So the whole per-enemy allocation story is now fixed in code and
+none of it is measured.** One device run with a busy wave settles all three.
+
+Pooling it also exposed a latent bug worth knowing about: `Fragment` is a
+struct, and the old `Update` never wrote the copy back to the list, so the
+gravity integration was discarded every frame and fragments flew off in
+near-straight lines. They now arc and fall. **That is a visible change to how a
+kill looks** — if it reads worse in the hand, delete the `fragments[i] = f;`
+line in `Update`; the pooling and the arc are independent changes.
 
 **Priority 0 — Playtest the merged economy on a device.** This is new since
 the last playtest and nothing below has been played against real usage yet:
