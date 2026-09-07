@@ -27,8 +27,16 @@ namespace TowerDefense.UI
     private const float PanelHeight = 176f;
     private const float BottomOffset = 110f;
 
+    // Grown by exactly one line when the next tier is previewed. Without that
+    // preview the panel offers, say, "UPGRADE 788" on a tower that cost 150 and
+    // sells for 472, and the price reads as nonsense - the upgrade curve is
+    // deliberately steep (see TowerConfig) and the only thing that makes it
+    // legible is showing what the money actually buys.
+    private const float PreviewLineHeight = 26f;
+
     private Tower currentTower;
     private TMP_Text descriptionText;
+    private TMP_Text upgradePreviewText;
     private Button upgradeButton;
     private bool built;
 
@@ -88,6 +96,20 @@ namespace TowerDefense.UI
 
       bool available = tower.MaxLevel > 1 && !tower.IsMaxLevel;
       upgradeButton.gameObject.SetActive(available);
+
+      if (upgradePreviewText != null)
+      {
+        upgradePreviewText.gameObject.SetActive(available);
+        if (available) upgradePreviewText.text = NextTierLine(tower);
+      }
+
+      // The panel is sized to its content by hand rather than by a
+      // ContentSizeFitter: Build() anchors it to the bottom-left corner with an
+      // explicit sizeDelta, and a fitter would fight that every frame.
+      var rect = (RectTransform)transform;
+      rect.sizeDelta = new Vector2(PanelWidth,
+        PanelHeight + (available ? PreviewLineHeight : 0f));
+
       if (!available) return;
 
       int price = tower.UpgradeCost;
@@ -96,6 +118,27 @@ namespace TowerDefense.UI
 
       TMP_Text label = upgradeButton.GetComponentInChildren<TMP_Text>(true);
       if (label != null) label.text = $"UPGRADE  {price}";
+    }
+
+    // What the next tier actually buys, in the same shape as the stat line
+    // above it so the two can be read against each other at a glance.
+    private static string NextTierLine(Tower tower)
+    {
+      TowerConfig config = tower.GetTowerConfig();
+      if (config == null) return string.Empty;
+
+      int next = tower.Level + 1;
+      if (config.isSupport)
+      {
+        return config.damageBoost > 0f
+          ? $"Next: +{Mathf.RoundToInt(config.DamageBoostAt(next) * 100f)}% damage" +
+            $"   Range {config.RangeAt(next):0.#}"
+          : $"Next: +{Mathf.RoundToInt(config.FireRateBoostAt(next) * 100f)}% fire rate" +
+            $"   Range {config.RangeAt(next):0.#}";
+      }
+
+      return $"Next: Damage {config.DamageAt(next)}   Range {config.RangeAt(next):0.#}" +
+             $"   {config.FireRateAt(next):0.#}/s";
     }
 
     // Reports the tower's EFFECTIVE numbers, not its authored ones: a tower
@@ -173,6 +216,14 @@ namespace TowerDefense.UI
       StyleLabel(towerStatsText, UiSkin.Role.Caption, UiSkin.TextMuted,
         TextAlignmentOptions.MidlineLeft, 22f);
 
+      var previewGo = new GameObject("UpgradePreviewText", typeof(RectTransform));
+      previewGo.transform.SetParent(transform, false);
+      upgradePreviewText = previewGo.AddComponent<TextMeshProUGUI>();
+      UiSkin.Label(upgradePreviewText, UiSkin.Role.Caption, UiSkin.Primary);
+      upgradePreviewText.alignment = TextAlignmentOptions.MidlineLeft;
+      upgradePreviewText.raycastTarget = false;
+      previewGo.AddComponent<LayoutElement>().preferredHeight = PreviewLineHeight - 4f;
+
       // The buttons go into a row of their own so Upgrade sits beside Sell
       // instead of stacking the panel taller.
       var rowGo = new GameObject("Actions", typeof(RectTransform));
@@ -213,6 +264,7 @@ namespace TowerDefense.UI
       if (towerNameText != null) towerNameText.transform.SetSiblingIndex(1);
       descGo.transform.SetSiblingIndex(2);
       if (towerStatsText != null) towerStatsText.transform.SetSiblingIndex(3);
+      previewGo.transform.SetSiblingIndex(4);
       rowGo.transform.SetAsLastSibling();
     }
 

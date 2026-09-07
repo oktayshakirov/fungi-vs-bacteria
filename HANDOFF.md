@@ -19,7 +19,7 @@ What is worth deliberately checking, and what to look for:
 |---|---|---|
 | Drag-and-drop towers | Drag a card onto the board; also tap-card-then-tap-tile; also drag a card and drop it back on the tray | Never testable here — needs live touch input. The tap flow is unchanged; the drag flow is new |
 | Towers panel | Scroll it, collapse it with HIDE TOWERS | Dragging **on a card** starts a tower drag, so the list can only be scrolled from the gaps between cards or the scrollbar. Known trade-off — see if it is annoying in practice |
-| Placement bar / sell panel | Arm a tower, then tap a placed one | They share the bottom-left slot and are mutually exclusive by construction; the sell panel is the one piece of UI **not** render-verified |
+| Placement bar / sell panel | Arm a tower, then tap a placed one | They share the bottom-left slot and are mutually exclusive by construction. The sell panel is render-verified as of phase 16 (`hud-tower-actions`), but only as a rebuilt stand-in - the real one is authored in `MainGame.unity` and the preview mirrors its structure by hand |
 | Haptics | A busy wave, then a base hit | Throttle intervals are first guesses; the whole point is that it must not buzz continuously |
 | Tile indicators | Arm a tower on the snow and ash biomes | The old wash was invisible there; the new marker is untested against those grounds |
 | Tower upgrades | Tap a placed tower, upgrade it twice, then sell it | New in phase 16. The price is deliberately poor value and may read as a trap; the tier cue is only a size bump and a warm tint, never seen in motion |
@@ -140,7 +140,7 @@ but until then a new file is silently not compiled.
 | `Phase1Validator.Validate` | Level asset QA gate | yes |
 | `CameraPreview.Render` | The 3D board per environment | **no** |
 | `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art | **no** |
-| `UiPreview.Render` | HUD + every screen, as PNGs — including the main menu, the placement bar (`hud-placing`) and the tutorial (`screen-tutorial`) | **no** |
+| `UiPreview.Render` | HUD + every screen, as PNGs — including the main menu, the placement bar (`hud-placing`), the selected-tower panel (`hud-tower-actions`) and the tutorial (`screen-tutorial`) | **no** |
 | `SceneCost.Report` | Draw calls / triangles / materials | **no** |
 | `SceneCost.RenderCliff` | The island underside | **no** |
 | `BalanceSim.RunBatch` | Plays all 70 levels, writes `Builds/Balance/balance.csv` | yes |
@@ -313,6 +313,13 @@ RICHER than the sim assumes and upgrades will therefore do MORE in practice.
   poor value and a player doing arithmetic may correctly conclude it is a trap.
   If it feels like one, the honest fix is fewer/cheaper tiers, not a stealth
   buff — and re-run the sim, because 1x demonstrably breaks the board.
+- **Whether the prices read as absurd.** The render made this concrete: an Ice
+  Tower costs 150, and at Lv 2 the panel offers `SELL +472` next to
+  `UPGRADE 788`. The numbers are all correct and the sim says the price is
+  right, but "788 to upgrade a 150-gold tower" is a hard sell. A `Next: Damage
+  26  Range 7.3  1.3/s` line was added under the stat line specifically so the
+  money is legible; whether that is enough is a question only a human can
+  answer.
 - The tier cue. There is no upgrade art, so a tier is an 8%-per-step size bump
   plus a warmer body tint multiplied into the model's own colour. Never seen in
   motion; it may be too subtle at phone size, or it may make an upgraded tower

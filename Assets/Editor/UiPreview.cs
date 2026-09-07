@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using TowerDefense.UI;
 
 // Renders the in-game HUD to a PNG so the interface can actually be looked at.
 //
@@ -53,6 +54,7 @@ public static class UiPreview
 
     ShootWallet(cam, "screen-wallet");
     ShootPlacement(cam, "hud-placing");
+    ShootTowerActions(cam, "hud-tower-actions");
     ShootTutorial(cam, "screen-tutorial");
 
     // Screens whose look depends on Start() running (cards populated, sliders
@@ -281,8 +283,8 @@ public static class UiPreview
 
   // The HUD with a tower armed for placement, which is when the tower info bar
   // is up. That bar shares the bottom-left slot with the selected-tower panel
-  // (TowerActions), and the two are built to the same card spec, so this shot
-  // stands in for both.
+  // (TowerActions); the two are mutually exclusive and are shot separately -
+  // see ShootTowerActions.
   private static void ShootPlacement(Camera cam, string name)
   {
     const int width = 1920, height = 1080;
@@ -311,6 +313,134 @@ public static class UiPreview
     PlacementCancelButton.Hide();
     Object.DestroyImmediate(rt);
     Object.DestroyImmediate(canvasGo);
+  }
+
+  // The selected-tower panel: what you get when you tap a tower you already
+  // built. Until now this was the one piece of HUD never render-verified, and
+  // it grew an Upgrade button, a tier in its title and an investment-based sell
+  // price, so it earns its own shot.
+  //
+  // The panel is REBUILT here rather than pulled from MainGame.unity, which is
+  // the real weakness of this shot: TowerActions finds its buttons by name and
+  // reads three serialized text fields, so the structure below mirrors the
+  // scene's by hand and will drift if the scene is ever re-authored. The names
+  // (SellButton / UpgradeButton / their *Text labels) come straight from
+  // MainGame.unity.
+  private static void ShootTowerActions(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+    Transform safeArea = canvasGo.transform.Find("SafeArea");
+
+    TowerConfig config = AssetDatabase.LoadAssetAtPath<TowerConfig>(
+      "Assets/Settings/Towers/IceTower.asset");
+
+    Tower tower = BuildPreviewTower(config, level: 2);
+    var panel = BuildTowerActionsPanel(safeArea);
+
+    if (tower != null && panel != null)
+    {
+      panel.ShowForTower(tower);
+
+      // GameManager does not exist in a preview, so RefreshUpgradeButton reads
+      // "cannot afford" and leaves the button dimmed. Forced on for the shot:
+      // the point of this render is the layout of an affordable, live panel,
+      // and the disabled tint is Unity's own ColorBlock, already exercised
+      // everywhere else in the skin.
+      foreach (Button button in panel.GetComponentsInChildren<Button>(true))
+      {
+        button.interactable = true;
+      }
+    }
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+    if (tower != null) Object.DestroyImmediate(tower.gameObject);
+    TowerBuffs.Clear();
+  }
+
+  // A real Tower running the real Initialize, standing at tier 2 so the shot
+  // exercises the tier in the title, the scaled stat line, the investment-based
+  // sell price and the price of the NEXT upgrade all at once.
+  private static Tower BuildPreviewTower(TowerConfig config, int level)
+  {
+    if (config == null)
+    {
+      Debug.LogWarning("UI PREVIEW: IceTower.asset missing; skipping tower actions");
+      return null;
+    }
+
+    var go = new GameObject("PreviewTower");
+    go.AddComponent<TowerTargeting>();
+    Tower tower = go.AddComponent<Tower>();
+
+    // -executeMethod runs in EDIT mode, so AddComponent does not call Awake on
+    // a plain MonoBehaviour. Tower.Awake caches its TowerTargeting; without
+    // this, Initialize silently skips arming the targeting radius.
+    Invoke(tower, "Awake");
+    tower.Initialize(config);
+
+    // Level is a private-set auto-property. Upgrade() cannot be used to reach
+    // tier 2 here because it charges through GameManager, which a preview has
+    // no instance of.
+    var field = typeof(Tower).GetField("<Level>k__BackingField",
+      System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    field?.SetValue(tower, Mathf.Clamp(level, 1, config.MaxLevel));
+    return tower;
+  }
+
+  private static TowerActions BuildTowerActionsPanel(Transform parent)
+  {
+    if (parent == null) return null;
+
+    RectTransform rect = Child(parent, "TowerActions");
+    var panel = rect.gameObject.AddComponent<TowerActions>();
+
+    TMP_Text nameText = Text(rect, "TowerNameText", string.Empty);
+    TMP_Text statsText = Text(rect, "TowerStatsText", string.Empty);
+    Button sell = MakeButton(rect, "SellButton", "SELL",
+      Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(180f, 46f));
+    Button upgrade = MakeButton(rect, "UpgradeButton", "UPGRADE",
+      Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(180f, 46f));
+
+    var so = new SerializedObject(panel);
+    so.FindProperty("towerNameText").objectReferenceValue = nameText;
+    so.FindProperty("towerStatsText").objectReferenceValue = statsText;
+    so.FindProperty("sellButtonText").objectReferenceValue =
+      sell.GetComponentInChildren<TMP_Text>(true);
+    so.ApplyModifiedPropertiesWithoutUndo();
+
+    // Named so the panel's own Build() finds it; the label text is rewritten
+    // from the tower's real upgrade price.
+    upgrade.name = "UpgradeButton";
+    return panel;
+  }
+
+  private static void Invoke(object target, string method)
+  {
+    var info = target.GetType().GetMethod(method,
+      System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    if (info == null || info.GetParameters().Length != 0) return;
+    try { info.Invoke(target, null); }
+    catch (System.Exception e)
+    {
+      Debug.LogWarning($"UI PREVIEW: {target.GetType().Name}.{method} -> " +
+                       $"{e.InnerException?.Message ?? e.Message}");
+    }
   }
 
   // The first-run tutorial, over the board rather than over nothing - the whole
