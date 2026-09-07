@@ -111,6 +111,12 @@ Roughly in order. Each is committed.
     `BalanceSim` models the whole thing. Measured over five sweeps — see
     Priority 5 below and the long comment in `TowerConfig`.
 
+17. **Locked progression + trial-font removal** — `LevelProgress.UnlockAll` is
+    off for the first time, which exposed a biome-gating hole and an oversized
+    padlock; environments now unlock sequentially. The THEREN Trial font is
+    gone, and the settings screen that was quietly rendering it now uses Groovy.
+    See Priority 6 below.
+
 ## 4. How to verify work — read this before changing anything
 
 There is a real verification loop here. Use it; several bugs were only ever
@@ -174,9 +180,11 @@ regression check, not as the source of truth.
 
 **Priority 1b — Playtest the redesigned menus and the new balance.** Nothing
 below has been played by a human yet, only render-verified:
-- **Locked states are completely unexercised.** `LevelProgress.UnlockAll` is
-  still `true`, so no preview can show a locked level tile (padlock, dimmed
-  face) or a locked biome card. Set it `false` and walk the flow once.
+- **Locked states — DONE and render-verified (phase 17).** `UnlockAll` is now
+  `false`. Flip it back to `true` if you need to jump straight to a late level
+  while debugging; with it off you have to play there. Turning it off found two
+  real bugs, see Priority 6 below. Still unplayed: the actual act of completing
+  a biome and watching the next one open.
 - The **Home button** on the level screen routes through
   `EnvironmentsScreen.ReturnToMenu()`; confirm it actually lands on the menu.
 - The **neon pulse** (`UiPulse`) only moves at runtime; batch renders capture a
@@ -344,9 +352,32 @@ RICHER than the sim assumes and upgrades will therefore do MORE in practice.
 - Sell value is 70% of TOTAL INVESTED, not of the build cost. Reverting that
   makes upgrading-then-selling a hidden loss.
 
-**Before release:** set `LevelProgress.UnlockAll = false`; delete the
-**THEREN Trial** font (see below); analytics + crash reporting; real app icon
-and store art; replace the synthesized SFX. See `DISTRIBUTION.md`.
+**Priority 6 — Locked progression. DONE (phase 17), the unlock MOMENT unplayed.**
+`UnlockAll` had been `true` since the beginning, so nothing behind it had ever
+run. Turning it off found two bugs that had been sitting there the whole time:
+
+- **Every biome was open on a fresh install.** Environment locking read a
+  hand-authored `isLocked` flag on `EnvironmentsScreen`'s inspector list, and all
+  seven entries were set to `false` — so with `UnlockAll` off a new player saw
+  all seven biomes unlocked but could only play level 1 of each, including
+  Environment 7 at difficulty 61. That flag is gone; `IsEnvironmentUnlocked`
+  now gates a biome on the PREVIOUS one being finished, which matches the
+  strictly sequential difficulty (env 1 is d1-10, env 7 is d61-70).
+  **The inspector list's ORDER is now load-bearing** — each entry gates the
+  next, so reordering it reorders the progression.
+- **The padlock overflowed its card.** `EnvironmentCard.BuildLock` set
+  `sizeDelta` to 92x92, but the prefab authors that object at `localScale 3`,
+  so it rendered at 276 and hung out past the bottom of the card. Nothing had
+  ever drawn a locked card, so nothing had ever caught it.
+
+Both are verified in `screen-environments` / `screen-levels`. What a human still
+has to do is finish Environment 1 and watch Environment 2 actually open — the
+write path (`MarkLevelCompleted`) is exercised, the transition is not.
+
+**Before release:** `LevelProgress.UnlockAll = false` (**done**); the
+**THEREN Trial** font is **deleted** (done — see below); analytics + crash
+reporting; real app icon and store art; replace the synthesized SFX. See
+`DISTRIBUTION.md`.
 
 ## 6. Things that will bite you
 
@@ -575,8 +606,17 @@ These each cost real debugging time. They are not obvious from the code.
   or checkmarks — use sprites (`UiSprites`, `StarSprite`). Any new runtime text
   must go through `UiFont` / `UiSkin.Label`.
 - Fonts: **Lato** = body, **"Groovy Font"** = display (titles, buttons, values).
-  **`MainButton` is "THEREN Trial"** — a trial font. Nothing references it, so
-  it is safe to delete, but do not start using it in a shipping build.
+  `MainButton` **was** "THEREN Trial", a trial font. An earlier version of this
+  file claimed nothing referenced it and it was safe to delete — **that was
+  wrong on both counts.** Five assets referenced it (`MainGame.unity` and the
+  pause / game-over / settings / victory screens), and on the settings screen it
+  was actually RENDERING: the three option labels were drawn in it. The other
+  four only held the reference, because runtime code restyles their text through
+  `UiSkin` before it is ever seen — which is presumably how the wrong conclusion
+  was reached. All five now point at `Title` (Groovy) and the asset is deleted.
+  Proof it was harmless everywhere else: after the swap, `screen-pause`,
+  `screen-gameover` and `screen-victory` re-rendered byte-identical, and only
+  `screen-settings` changed.
 - `LevelDecorator` reads `EnvironmentTheme.Current` **while building**. Apply
   the theme first or everything comes out unthemed.
 - `EnvironmentTheme.Current` is a **struct**, so before `Apply()` has run every

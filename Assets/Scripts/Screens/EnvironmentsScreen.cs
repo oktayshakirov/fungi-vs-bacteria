@@ -19,7 +19,6 @@ public class EnvironmentsScreen : MonoBehaviour
   {
     public Sprite environmentSprite;
     public string environmentName;
-    public bool isLocked;
   }
 
   [Header("Environments Data")]
@@ -215,12 +214,21 @@ public class EnvironmentsScreen : MonoBehaviour
 
   private void PopulateEnvironmentCards()
   {
+    // The previous entry in this list is what gates the next one, so the list's
+    // ORDER is now load-bearing - it has to stay in difficulty order.
+    string previousName = null;
+    int previousLevelCount = 0;
+
     foreach (var envData in environments)
     {
       // Never enable an environment with no levels yet (would open an empty list)
       var levels = LevelRepository.GetLevelsForEnvironment(envData.environmentName);
       bool hasLevels = levels.Count > 0;
-      bool isLocked = !hasLevels || (envData.isLocked && !LevelProgress.UnlockAll);
+      bool isLocked = !hasLevels ||
+        !LevelProgress.IsEnvironmentUnlocked(previousName, previousLevelCount);
+
+      previousName = envData.environmentName;
+      previousLevelCount = levels.Count;
 
       int completed = Mathf.Clamp(
         LevelProgress.GetHighestCompletedLevel(envData.environmentName), 0, levels.Count);

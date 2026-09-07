@@ -187,6 +187,14 @@ public class EnvironmentCard : MonoBehaviour
     // has to opt out of the layout group or the group resizes it straight back.
     var badge = lockIcon.rectTransform;
     Unmanaged(badge);
+
+    // The prefab authors this object at localScale 3. sizeDelta alone does not
+    // undo that - the badge renders at three times whatever size is set here -
+    // and because a locked card was never rendered until now (UnlockAll was on
+    // from the start), the padlock had been spilling out past the bottom of the
+    // card the whole time with nothing to catch it.
+    badge.localScale = Vector3.one;
+
     badge.anchorMin = new Vector2(0.5f, 1f);
     badge.anchorMax = new Vector2(0.5f, 1f);
     badge.pivot = new Vector2(0.5f, 1f);

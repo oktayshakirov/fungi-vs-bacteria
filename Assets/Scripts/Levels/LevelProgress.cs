@@ -2,8 +2,13 @@ using UnityEngine;
 
 public static class LevelProgress
 {
-  // TESTING: unlocks every environment and level. Set to false before release.
-  public const bool UnlockAll = true;
+  // TESTING: unlocks every environment and level. MUST be false in a store
+  // build. Flip it back to true to jump straight to a late level while
+  // debugging - with it false you have to play there.
+  // `static readonly`, not `const`: a compile-time constant makes every
+  // `if (UnlockAll) return true;` below fold away and the compiler then reports
+  // the returns as unreachable code, burying real warnings under noise.
+  public static readonly bool UnlockAll = false;
 
   private static string Key(string environmentName) => $"HighestCompletedLevel_{environmentName}";
 
@@ -25,6 +30,31 @@ public static class LevelProgress
   {
     if (UnlockAll) return true;
     return levelNumber <= GetHighestCompletedLevel(environmentName) + 1;
+  }
+
+  // An environment opens when the one before it is FINISHED, not part-done.
+  // Difficulty is strictly sequential across the seven biomes (env 1 is
+  // difficulty 1-10, env 7 is 61-70), so letting a player into env 7 with env 1
+  // half-played drops them onto difficulty 61 with a level-1 wallet.
+  //
+  // This replaces a hand-authored `isLocked` flag on each entry of
+  // EnvironmentsScreen's inspector list, which was set to false on all seven -
+  // so with UnlockAll off, every biome was open from a fresh install while only
+  // level 1 of each was playable. That combination was never rendered or played,
+  // which is exactly why UnlockAll had to be turned off to find it.
+  public static bool IsEnvironmentUnlocked(string previousEnvironmentName,
+    int previousLevelCount)
+  {
+    if (UnlockAll) return true;
+
+    // The first environment has nothing before it.
+    if (string.IsNullOrEmpty(previousEnvironmentName)) return true;
+
+    // An environment with no levels generated yet cannot gate anything, or a
+    // gap in the level assets would lock the player out of the rest of the game.
+    if (previousLevelCount <= 0) return true;
+
+    return GetHighestCompletedLevel(previousEnvironmentName) >= previousLevelCount;
   }
 
   private static string StarsKey(string environmentName, int levelNumber)
