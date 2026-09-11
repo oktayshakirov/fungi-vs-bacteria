@@ -67,6 +67,8 @@ public class Enemy : MonoBehaviour
   private SpawnOverride spawnOverride = SpawnOverride.Default;
 
   private MeshRenderer bodyRenderer;
+  private EnemyTrait[] traits;
+  private bool shieldWasUp = true;
   private static MaterialPropertyBlock propertyBlock;
   private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
   private static readonly int ColorId = Shader.PropertyToID("_Color");
@@ -89,7 +91,8 @@ public class Enemy : MonoBehaviour
     baseScale = transform.localScale;
     currentScale = baseScale;
 
-    bodyRenderer = GetComponentInChildren<MeshRenderer>();
+    traits = GetComponentsInChildren<EnemyTrait>(true);
+    bodyRenderer = FindBodyRenderer(gameObject);
     if (bodyRenderer != null && bodyRenderer.sharedMaterial != null &&
         bodyRenderer.sharedMaterial.HasProperty("_BaseColor"))
     {
@@ -106,6 +109,26 @@ public class Enemy : MonoBehaviour
   private void Start()
   {
     normalSpeed = speed;
+  }
+
+  // The body is the first MeshRenderer that is NOT part of an EnemyTrait.
+  //
+  // Everything that wants "the body" used to just take
+  // GetComponentInChildren<MeshRenderer>(), i.e. the first renderer in
+  // depth-first order. Trait geometry is parented under the same root, so that
+  // call can return a carapace or a spore crown instead - which would tint the
+  // trait and leave the body its authored colour, and would park the health bar
+  // at the trait's height. Shared so EnemyHealthBar and EnemySpawner agree with
+  // Enemy about which renderer is the body; do not reintroduce the bare call.
+  public static MeshRenderer FindBodyRenderer(GameObject root)
+  {
+    if (root == null) return null;
+    MeshRenderer[] all = root.GetComponentsInChildren<MeshRenderer>(true);
+    foreach (MeshRenderer r in all)
+    {
+      if (r != null && r.GetComponentInParent<EnemyTrait>() == null) return r;
+    }
+    return all.Length > 0 ? all[0] : null;
   }
 
   private void OnDisable()
@@ -154,6 +177,7 @@ public class Enemy : MonoBehaviour
     nextHealAt = Time.time + enemyConfig.healInterval;
 
     ApplyAppearance(enemyConfig, ov.sizeScale);
+    ApplyTraitAppearance();
 
     if (healthBar == null)
     {
@@ -205,6 +229,37 @@ public class Enemy : MonoBehaviour
       propertyBlock.SetColor(ColorId, bodyColor);
     }
     bodyRenderer.SetPropertyBlock(propertyBlock);
+  }
+
+  // Traits carry their own accent, so they are tinted separately from the body
+  // rather than inheriting bodyColor - a shielded enemy has to stay readably
+  // blue even in the biome that pushes every body towards blue.
+  private void ApplyTraitAppearance()
+  {
+    if (traits == null) return;
+    Color tint = EnvironmentTheme.EnemyTint;
+    bool up = shield > 0f;
+    shieldWasUp = up;
+    foreach (EnemyTrait t in traits)
+    {
+      if (t == null) continue;
+      t.ApplyTint(tint);
+      t.SetShieldUp(up);
+    }
+  }
+
+  // Called only when the shield crosses empty, not every frame: SetShieldUp
+  // walks the trait's renderers.
+  private void SyncShieldCue()
+  {
+    if (traits == null) return;
+    bool up = shield > 0f;
+    if (up == shieldWasUp) return;
+    shieldWasUp = up;
+    foreach (EnemyTrait t in traits)
+    {
+      if (t != null) t.SetShieldUp(up);
+    }
   }
 
   private void SetTargetRotation(Vector3 direction)
@@ -261,6 +316,7 @@ public class Enemy : MonoBehaviour
 
     shield = Mathf.Min(shieldMax,
       shield + shieldMax * config.shieldRegenRate * Time.deltaTime);
+    SyncShieldCue();
     UpdateHealthBar();
   }
 
@@ -329,6 +385,7 @@ public class Enemy : MonoBehaviour
       shield -= absorbed;
       dealt -= Mathf.RoundToInt(absorbed);
       FloatingText.Spawn(popupPos, Mathf.RoundToInt(absorbed).ToString(), ShieldColor);
+      SyncShieldCue();
     }
 
     if (dealt > 0)

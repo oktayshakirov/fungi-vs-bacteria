@@ -28,7 +28,9 @@ public class EnemyHealthBar : MonoBehaviour
   private void CreateBar()
   {
     // Measure the body before the bar quads add their own renderers
-    Renderer bodyRenderer = GetComponentInChildren<MeshRenderer>();
+    // Must skip trait geometry, or a spore crown parks the bar above the cap
+    // instead of above the body. See Enemy.FindBodyRenderer.
+    Renderer bodyRenderer = Enemy.FindBodyRenderer(gameObject);
     verticalOffset = (bodyRenderer != null ? bodyRenderer.bounds.size.y : 1f) + HeightMargin;
 
     barRoot = new GameObject("HealthBar").transform;

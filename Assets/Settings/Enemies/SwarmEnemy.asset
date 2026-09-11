@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SwarmEnemy
   m_EditorClassIdentifier: 
   enemyName: Swarm enemy
-  prefab: {fileID: 1836582025781914118, guid: d1262d322b06de749b5ea725b9bed9fe, type: 3}
+  prefab: {fileID: 6048904907794273391, guid: 6757ca4d732cf490dabc860c6b014536, type: 3}
   maxHealth: 35
   moveSpeed: 5
   baseDamage: 6

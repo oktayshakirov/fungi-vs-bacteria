@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SplitterEnemy
   m_EditorClassIdentifier: 
   enemyName: Splitter enemy
-  prefab: {fileID: 1508113181278614646, guid: c613a1b7b41e28742863b35db0b6572e, type: 3}
+  prefab: {fileID: 56862644507206609, guid: b04c6b1dbb0c84d30bec68ade81cea9f, type: 3}
   maxHealth: 120
   moveSpeed: 4.5
   baseDamage: 10

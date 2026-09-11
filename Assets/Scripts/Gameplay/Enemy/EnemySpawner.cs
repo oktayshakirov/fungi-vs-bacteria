@@ -195,7 +195,9 @@ public class EnemySpawner : MonoBehaviour
   private float GetEnemyHeight(GameObject prefab)
   {
     // Get the mesh renderer bounds to calculate actual model height
-    MeshRenderer renderer = prefab.GetComponentInChildren<MeshRenderer>();
+    // Skips trait geometry so the spawn height follows the body. See
+    // Enemy.FindBodyRenderer.
+    MeshRenderer renderer = Enemy.FindBodyRenderer(prefab);
     if (renderer != null)
     {
       return renderer.bounds.size.y;

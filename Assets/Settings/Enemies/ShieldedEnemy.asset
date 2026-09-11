@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ShieldedEnemy
   m_EditorClassIdentifier: 
   enemyName: Shielded enemy
-  prefab: {fileID: 7113848665490352492, guid: 4a73e280598e743a5b772cf6b9294274, type: 3}
+  prefab: {fileID: 8956011411990654214, guid: 3b0fafed890e543fda305cb25c4eb0ae, type: 3}
   maxHealth: 90
   moveSpeed: 4.5
   baseDamage: 10
@@ -36,5 +36,5 @@ MonoBehaviour:
   splitScaleShare: 0.65
   splitSpeedMultiplier: 1.15
   overrideBodyColor: 1
-  bodyColor: {r: 0.35, g: 0.62, b: 0.95, a: 1}
+  bodyColor: {r: 0.24, g: 0.34, b: 0.54, a: 1}
   scaleMultiplier: 1.05
