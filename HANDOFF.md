@@ -739,16 +739,29 @@ These each cost real debugging time. They are not obvious from the code.
 for it.** Blender is driven from the shell, which is strictly better here: the
 geometry is a checked-in Python script rather than a binary nobody can diff.
 
-Blender's own MCP server is installed as a Claude desktop extension and its
-tools reach a session, but it is only half the chain: it talks to a **Blender
-add-on** over `localhost:9876`, the add-on needs **Blender 5.1+** (hence the
-5.2.1 install), and it is installed by dragging it onto Blender twice from
-`blender.org/lab/mcp-server` - first drop adds the Lab repository, second
-installs the add-on. Note that `https://lab.blender.org/` is a **web page, not a
-repository URL**; adding it as a remote repository lists nothing. Blender's own
-page carries a blunt warning that the add-on executes generated code with no
-guards against data loss or exfiltration, and recommends a VM. It buys live
-scene inspection, and nothing the headless pipeline needs.
+Blender's own MCP server is **also connected now** (verified 2026-09-12: scene
+read, `bpy` execution and window screenshots all work against the live app). It
+is a two-part chain and both parts are needed:
+
+1. The **server**, a Claude desktop extension (`ant.dir.gh.blender.blender-mcp`).
+   Installing it requires restarting the desktop app before its tools appear.
+2. A **Blender add-on** (`bl_ext.lab_blender_org.mcp`) that it reaches over
+   `localhost:9876`. It requires **Blender 5.1+**, which is the only reason
+   5.2.1 was installed. Install it by dragging it onto a running Blender
+   **twice** from `blender.org/lab/mcp-server` - the first drop adds the Lab
+   repository, the second installs the add-on - then enable it and start its
+   server.
+
+Two dead ends worth not repeating: `https://lab.blender.org/` is a **web page,
+not a repository URL**, so adding it as a remote repository lists nothing; and
+on Blender 4.x the add-on is filtered out of the list entirely with no
+explanation, because of the 5.1 requirement.
+
+**It only works while Blender is open**, and Blender's own page warns that the
+add-on executes generated code with no guards against data loss or
+exfiltration, recommending a VM. What it buys is live scene inspection. The
+headless pipeline above needs none of it, so nothing in this repo depends on
+it being connected.
 
 ```
 blender --background --python Tools/Blender/enemy_traits.py -- Assets/Meshes/Enemies/Traits
