@@ -26,7 +26,10 @@ What is worth deliberately checking, and what to look for:
 | Unlocking a biome | Finish Environment 1 and watch Environment 2 open | New in phase 17. The locked STATES are render-verified, the unlock moment is not |
 | Kill effect | Watch a few enemies die | The fragments now arc under gravity instead of flying straight - an old struct-copy bug, fixed while pooling. Visibly different from every previous build |
 | Enemy tints | Play one level in env 3, 5 and 6 | Tints are eyeballed. Types must still be distinguishable from each other |
-| Variety enemy art | Play env 2-5 and watch a pack arrive; break a Shielded enemy's shield | New in phase 18. The four types now have authored silhouettes, verified in `Builds/EnemyPreview` at three biomes - but only in a still, one enemy at a time. Open questions: does a trait read at phone size inside a pack of thirty, and does the carapace vanishing read as "shield broken" or as a glitch |
+| Variety enemy art | Play env 2-5 and watch a pack arrive; break a Shielded enemy's shield | New in phase 18. All four are composed from parts of the existing models, verified in `Builds/EnemyPreview` and on the real board in `Builds/CameraPreview`. Still only stills, one enemy at a time. Does a part read at phone size inside a pack of thirty, and does the bubble popping read as "shield broken" or as a glitch? |
+| Enemy motion | Watch any wave walk, and a Splitter in particular | New in phase 18, and enemies never moved before at all. Amplitude has only ever been seen as a four-phase mock-up (`EnemyPreview.RenderMotion`); a still cannot tell a good waddle from a seasick one. Orbiting orbs and a pulsing aura likewise |
+| Glow | Look at a Splitter's orbs and the healer's crosses | **Bloom has never been seen.** It was active with zero intensity, so nothing in this game has ever glowed; it is on now. URP post-processing does not run in any preview here, so the halo is unverified. The parts are tuned to look right with bloom off, so if it looks wrong, turning bloom back down is safe |
+| Frame time | A busy late wave in env 6 or 7 | Bloom is new full-screen work and the Shielded enemy carries a translucent bubble. Both are fill-rate costs added to a game whose device performance has never been re-measured — see Priority 3 |
 | Balance | Env 7 levels 3, 6 and 10 | The sim cannot win these. It plays optimally, so if it loses, a human loses — but the real player enters richer than the sim models |
 | Locked states | Set `LevelProgress.UnlockAll = false` and walk the flow | Still `true`; no padlock or dimmed tile has ever been seen |
 
@@ -114,13 +117,14 @@ Roughly in order. Each is committed.
     `BalanceSim` models the whole thing. Measured over five sweeps — see
     Priority 5 below and the long comment in `TowerConfig`.
 
-18. **Real art for the four variety enemy types** — Swarm / Shielded /
-    Splitter / Healer were a tint and a scale on three shared bodies; each is
-    now composed out of parts of the existing models, so every surface is
-    authored art. Splitter and Healer no longer share a prefab. An earlier
+18. **Enemy art and motion** — Swarm / Shielded / Splitter / Healer were a tint
+    and a scale on three shared bodies; each is now composed out of parts of
+    the existing models, so every surface is authored art. Splitter and Healer
+    no longer share a prefab. Every enemy also **moves** now, which none of
+    them did before, and **bloom is on**, which it never was. An earlier
     version of this phase bolted on Blender-generated meshes and was rejected
-    as looking unnatural — see Priority 2b, which is worth reading before
-    adding any new enemy.
+    as looking unnatural — read Priority 2b before adding any new enemy or
+    touching an emissive material.
 
 17. **Locked progression + trial-font removal** — `LevelProgress.UnlockAll` is
     off for the first time, which exposed a biome-gating hole and an oversized
@@ -278,195 +282,184 @@ the last playtest and nothing below has been played against real usage yet:
   worked on launch and on returning from a rewarded ad; the prior fix (async
   audio session, delayed music start) reduced but did not eliminate it.
 
-**Priority 2b — Give the new types real art. DONE (phase 18), not yet played.**
-All four used to reuse the Basic/Fast/Armored prefabs, told apart only by a tint
-and a scale. Each is now **composed out of parts of the existing models** by
-`EnemyArtSetup` (see section 4). The four base models are untouched.
+**Priority 2b — Enemy art and motion. DONE (phase 18), not yet played.**
+The four variety types used to reuse the Basic/Fast/Armored prefabs, told apart
+only by a tint and a scale. Each is now **composed out of parts of the existing
+models** by `EnemyArtSetup`, and every enemy in the game now **moves**. The four
+base models are untouched.
 
 | Type | Base | Added from | Reads as |
 |---|---|---|---|
-| Shielded | ArmoredEnemy | one eye-white sphere, translucent | a bubble enclosing the whole body, gone when the shield breaks |
-| Splitter | BasicEnemy | two eye-white spheres, amber | daughter cells budding out of opposite sides |
+| Shielded | ArmoredEnemy | one eye-white sphere, translucent mint | a bubble enclosing the whole body, gone when the shield breaks |
+| Splitter | BasicEnemy | six eye-white spheres, emissive amber | daughter cells orbiting the parent |
 | Swarm | FastEnemy | two Fast bodies | a colony of rods rather than one small enemy |
 | Healer | BasicEnemy | Fast's hair mesh, plus three crossed-capsule signs | a pale aura reaching outward, with glowing red healing crosses circling it |
 
-**This is the second attempt, and the first one is the lesson.** It bolted on
-four small meshes generated in Blender - a carapace, a spore crown, budding
-lobes, a cilia fringe. They were 28KB, under 560 triangles, readable in every
-biome, and they were **rejected on sight**: script-made geometry beside detailed
-organic models reads as damage, not design. The verdict was "unnatural and
-distorted". Composing from existing parts cannot have that problem, because
-every surface in the game is authored art.
+### Why composition, and not new geometry
 
-Two parts carry all four compositions, and the choice between them matters:
-- **Fast's body** (552 verts) wherever a bacterial ROD is wanted. It is not
-  usable as a sphere - squashing it round exposes its facets, and the first
-  shield bubble built that way read as a lump of faceted glass.
+**The first attempt bolted on four meshes generated in Blender** - a carapace, a
+spore crown, budding lobes, a cilia fringe. They were 28KB, under 560 triangles,
+readable in every biome, and they were **rejected on sight**: script-made
+geometry beside detailed organic models reads as damage, not design. The verdict
+was "unnatural and distorted". Composing from existing parts cannot have that
+problem, because every surface is authored art. The meshes and their generator
+are deleted; the pipeline is still written up in section 8.
+
+**Two meshes carry all four compositions**, and the choice between them matters:
+- **Fast's body** (552 verts) wherever a bacterial ROD is wanted. Not usable as
+  a sphere - squashing it round exposes its facets, and the first shield bubble
+  built that way read as a lump of faceted glass.
 - **An eye white** (481 verts) wherever a SPHERE is wanted. It is the only
   proper sphere in the project's art, and at a flat colour nothing about it
   reads as an eye.
 
-Four things that each took a render to see, all of which generalise:
-- **An added part must clear the host body's silhouette.** Basic's spike field
-  reaches its full bounding radius, so a part centred anywhere inside it is
-  swallowed whatever its colour. Both the daughter cells and the healer's aura
-  had to be pushed past the body's own radius.
+Both are from the CHEAP end deliberately. Basic's body is 287k verts and
+Armored's is 171k; a late wave holds 30+ enemies, so duplicating either would
+add a quarter of a million verts per enemy. Run
+`EnemyArtSetup.ReportBaseParts` before choosing a part - it lists every
+reusable object with its vert count.
+
+### Motion
+
+Nothing on an enemy animated before this - no bob, no wobble, only position.
+The models are static meshes with no skeletons, so skeletal animation would mean
+rigging them, but transform-level motion is nearly free:
+
+- Every enemy has a squash-and-stretch **waddle** plus a small roll
+  (`Enemy.WaddleScale` / `Enemy.WaddleRoll`).
+- Composed parts animate via `EnemyTrait.Motion`: the splitter's orbs
+  **orbit**, the healer's aura and signs **pulse** and **orbit**, the shield
+  bubble and the swarm's rods **breathe**.
+
+### Bloom
+
+**It was never on.** The override sat in `DefaultVolumeProfile`, active, with an
+**intensity of zero**, so nothing in the game glowed and it looked as though
+emissive materials were being ignored. `RenderSetup.ApplyPostProcessing` is now
+the source of truth. Its threshold is **above 1** deliberately: only colours
+pushed past white by an emissive material bloom. At the stock 0.9 every bright
+surface joins in - white eyes, the sky, the neon UI cues - and the result is
+haze rather than glow.
+
+### Rules that generalise to the next enemy
+
+- **A part must clear the host body's silhouette.** Basic's spike field reaches
+  its full bounding radius, so a part centred anywhere inside it is swallowed
+  whatever its colour.
 - **Parts must be spread around the body, not clustered on one side.** An enemy
-  turns to follow the path, so a pair of cells both on -X is invisible for half
-  of every corner. The splitter's two cells sit roughly opposite.
-- **A part must contrast with the body, not harmonise.** Purple cells on a
+  turns to follow the path, so two cells both on -X are invisible for half of
+  every corner.
+- **A part must contrast with its body, not harmonise.** Purple cells on a
   purple body and a green aura on a green body both vanished. Parts opt out of
   `EnvironmentTheme.EnemyTint` entirely: the body carries the biome, the part is
   type identity.
-- **Translucency wants LOW smoothness.** At high smoothness the shield bubble
-  read as polished glass. And URP transparency is not one property - surface
-  mode, blend factors, depth write, render queue and a shader keyword must all
-  agree, or the material stays opaque at runtime and it looks like the alpha is
-  being ignored. `EnemyArtSetup.MakeTransparent` sets all of them.
+- **A new type must not collide with an existing one.** Shielded and Armored
+  were the same saturated blue sphere, so Shielded's body is now dark slate -
+  which is also what keeps it identifiable with its bubble popped. A red-bodied
+  healer was rendered and rejected for the same reason: the Basic enemy is
+  already a red spiky ball and the healer shares its body mesh. Red is the right
+  signal for healing, so it is confined to the signs.
+- **Flat beats upright for a symbol.** The healing crosses lie in the
+  horizontal plane because a plus is symmetric under a quarter turn, so a
+  horizontal one reads as a plus whichever way the enemy faces. An upright one
+  would have to billboard or it degenerates into a single bar - and
+  billboarding means feeding a camera into every part's animation for a
+  decoration.
 
-Also fixed on the way: Shielded and Armored were the same saturated blue spiky
-sphere. Shielded's body is now dark slate, which is what keeps the type
-identifiable **with its bubble popped** - rendered as
-`close-ShieldedEnemy-shielddown.png`.
+### Traps, worst first
 
-`BalanceSim` output is **byte-identical** across both attempts, which is the
-check that this changed nothing but appearance.
-
-**Second review pass, also phase 18.** The shield bubble is **mint**, chosen
-from a rendered sheet of four candidates (`EnemyPreview.RenderShieldColors`)
-because cyan sat too close to the Armored enemy's blue, violet to the splitter's
-purple and the boss's magenta, and gold to the splitter's amber orbs. The
-splitter's two buds became **six emissive orbs orbiting the body**.
-
-**Enemies now move, which they never did before.** Nothing on an enemy animated
-except its position - no bob, no wobble, nothing. The models are static meshes
-with no skeletons, so skeletal animation is not available without rigging them,
-but transform-level motion is nearly free:
-
-- Every enemy has a squash-and-stretch **waddle** plus a small roll, in
-  `Enemy.WaddleScale` / `Enemy.WaddleRoll`.
-- Composed parts animate via `EnemyTrait.Motion`: the splitter's orbs **orbit**,
-  the healer's aura **pulses**, the shield bubble and the swarm's rods
-  **breathe**.
-
-Five traps this created, all of them the kind that pass a still render:
-
+- **`Compositions` is a static initialiser, so anything it calls runs BEFORE
+  static fields declared later in the file.** A `static readonly Color` under
+  the table was still `(0,0,0,0)` when the parts were built. The signs came out
+  transparent black - and because alpha 0 also routes a material through
+  `MakeTransparent`, they rendered as invisible smudges rather than as anything
+  resembling a colour bug. Colours used by the table are **properties** now, so
+  declaration order stops mattering, and `BuildVariants` logs an error for any
+  part whose colour is still `default`.
+- **`EnemyArtSetup` must enable shader keywords LAST.** Assigning `mat.shader`
+  and changing surface properties both re-validate a material's keyword list,
+  so `_EMISSION` enabled earlier in the method is dropped before the asset is
+  written. Setting `globalIlluminationFlags = EmissiveIsBlack` alongside an
+  emission colour strips it too. The symptom is an `_EmissionColor` in the
+  `.mat` with no `_EMISSION` in `m_ValidKeywords`, and a part that renders as
+  flat bright paint. `Towers/PoisonTower/Projectile.mat` is a correct example.
+- **Emission both CLIPS and DESATURATES, and the two pull opposite ways.** It
+  multiplies into the base colour and clips per channel, so a light amber at
+  1.5 washed to near-white and the orbs needed a DEEPER base colour. It also
+  adds to the lit result, so a strong value lifts every channel and a saturated
+  red turned salmon - the signs needed WEAKER emission. There is no single
+  right number; check the render.
 - **No vertical bob on the enemy root, ever.** Pathing reads
   `transform.position`, moves it with `MoveTowards` and decides it has arrived
   when the distance to the waypoint drops under 0.1 - so lifting the root feeds
   the bob back into the arrival test and an enemy can hover beside a waypoint
   without ever reaching it. Squash and stretch buys the same footfall feel
   without touching position.
-- **Yaw is tracked separately** in `Enemy.yawRotation`. The waddle writes a roll
-  on top of the facing, and slerping toward the target FROM a rotation that
-  already carries the roll lets the two fight until the roll is absorbed.
-- **`EnemyTrait` has no `Update` on purpose.** A splitter carries six orbs and a
-  late wave holds 30+ enemies, so per-part Updates would be ~200 messages a
-  frame for decoration. `Enemy` caches its traits and calls `Animate` from its
-  own Update.
-- **Motion takes `time` as a parameter** rather than reading `Time.time`, so
-  `EnemyPreview.RenderMotion` can pose the same enemy at four phases in one
-  image. Amplitude is the only thing that can look wrong, and a single still at
-  an arbitrary phase cannot show it - an amplitude that is far too strong and
-  one that is effectively zero both look the same.
-- **Per-enemy phase offsets are mandatory.** Without them a whole wave waddles
-  in lockstep and reads as one object. Seeded from the instance id, not from
-  `Random`, so a pooled enemy animates the same way each time it is reused.
+- **Yaw is tracked separately** in `Enemy.yawRotation`, because the waddle
+  writes a roll on top of the facing and slerping toward the target FROM a
+  rotation that already carries the roll lets the two fight until the roll is
+  absorbed.
+- **`EnemyTrait` has no `Update` on purpose.** Six orbs across 30 enemies would
+  be ~200 messages a frame for decoration. `Enemy` caches its traits and calls
+  `Animate` from its own Update.
+- **`scaleShare` is the part's FINAL proportion**, not a correction to the
+  borrowed mesh's aspect - the builder already divides by that mesh's extents.
+  Pre-compensating on top is how the first shield bubble ended up inside its own
+  body. And a borrowed mesh is not centred on its pivot, so the builder
+  subtracts `mesh.bounds.center`; Fast's hair is the proof, its pivot sitting
+  well outside the tendrils.
+- **URP transparency is not one property.** Surface mode, blend factors, depth
+  write, render queue and a shader keyword must all agree or the material stays
+  opaque at runtime, which looks like the alpha being ignored.
+  `EnemyArtSetup.MakeTransparent` sets all of them. Translucency also wants LOW
+  smoothness - at high smoothness the bubble read as polished glass.
 
-**Bloom is now on, and it never was.** The override was present and active in
-`DefaultVolumeProfile` with an **intensity of zero**, so nothing in the game
-glowed and it looked as though emissive materials were being ignored.
-`RenderSetup.ApplyPostProcessing` is the source of truth for the values.
-Threshold is **above 1** deliberately: only colours pushed past white by an
-emissive material bloom, where at the stock 0.9 every bright surface joins in -
-the enemies' white eyes, the sky, the neon UI cues - and the result is haze.
+### How far this is verified, and how far it is not
 
-Two more that will cost time if forgotten:
+`BalanceSim` output is **byte-identical** across every iteration, which is the
+check that none of this changed anything but appearance. `Phase1Validator`
+passes.
 
-- **`EnemyArtSetup` must enable shader keywords LAST.** Assigning `mat.shader`
-  and changing surface properties both re-validate a material's keyword list,
-  so `_EMISSION` enabled earlier in the method is dropped before the asset is
-  written. And setting `globalIlluminationFlags = EmissiveIsBlack` alongside an
-  emission colour strips it too. The symptom is an `_EmissionColor` sitting in
-  the `.mat` with no `_EMISSION` in `m_ValidKeywords`, and a part that renders
-  as flat bright paint. Compare against `Towers/PoisonTower/Projectile.mat`,
-  which was already correct.
-- **Emission MULTIPLIES and clips per channel.** A light amber at emission 1.5
-  clipped to near-white and the orbs stopped reading as amber. Start from a
-  DEEPER colour than looks right so the clipped result keeps its hue.
+**Motion is verified only as a four-phase mock-up.** `EnemyPreview.RenderMotion`
+poses one enemy at four points in its cycle in a single image, because that is
+the only way a still can show amplitude - an amplitude far too strong and one
+that is effectively zero look identical in a single frame. Motion functions
+therefore take `time` as a parameter instead of reading `Time.time`.
 
-**Bloom's halo is UNVERIFIED.** Emission is confirmed working - the material
-carries the keyword and the orbs self-light in a render - but URP's
-post-processing does not run for a camera driven by `Camera.Render()` from an
-editor batch method, so **no preview in this project can show bloom.** The orbs
-are therefore tuned to look right with bloom OFF, so they degrade gracefully.
-Check the glow in the editor or on a device before trusting it.
+**Bloom's halo is UNVERIFIED and cannot be verified here.** Emission is
+confirmed working - the materials carry the keyword and the orbs self-light in a
+render - but URP's post-processing does not run for a camera driven by
+`Camera.Render()` from an editor batch method, so **no preview in this project
+can show bloom.** The glowing parts are tuned to look right with bloom OFF so
+they degrade gracefully. Check the glow in the editor or on a device.
 
-**Third review pass, also phase 18: the healer's signs.** The aura alone read
-as "good but unclear", so the healer now carries three glowing red healing
-crosses orbiting it, each built as two crossed capsules from Fast's body mesh.
-
-- **The crosses lie FLAT, in the horizontal plane, on purpose.** A plus is
-  symmetric under a quarter turn, so a horizontal one reads as a plus whichever
-  way the enemy is facing. An upright cross would have to billboard towards the
-  camera or it degenerates into a single bar every time the enemy turns
-  side-on - and billboarding means feeding a camera into every part's animation
-  for a decoration. The game camera looks down at 30-40 degrees, so a flat
-  cross is foreshortened but still unmistakable.
-- **The body stays GREEN and only the signs are red.** A red-bodied healer was
-  rendered and rejected: the Basic enemy is already a red spiky ball and the
-  healer shares its body mesh, so the two were nearly indistinguishable side by
-  side. `EnemyPreview.RenderHealerOptions` stands a Basic enemy next to the
-  variants so that collision is visible rather than argued about. Red is the
-  right signal; confining it to the signs is what keeps it usable.
-
-Two more traps, and the first one is the nastiest found in this whole phase:
-
-- **`Compositions` is a static initialiser, so anything it calls runs BEFORE
-  static fields declared later in the file.** A `static readonly Color HealRed`
-  declared under the table was still `(0,0,0,0)` when the parts were built. The
-  signs came out transparent black - and because alpha 0 also routes a material
-  through `MakeTransparent`, they rendered as invisible smudges rather than as
-  anything that looked like a colour bug. `HealRed` is now a **property**, so
-  it is evaluated on use and declaration order stops mattering, and
-  `BuildVariants` logs an error for any part whose colour is still `default`.
-- **Emission ADDS to the lit colour, so strong emission DESATURATES.** At 1.5
-  the red signs lifted their green and blue channels too and turned salmon,
-  which is the opposite of what a healing cross needs. They sit at 0.8. Note
-  this pulls the opposite way from the clipping rule above - the orbs needed a
-  deeper base colour, the signs needed weaker emission. There is no single
-  right number; check the render.
-
-**Checked on the real board, not just in the lineup.** Every judgement above
-came from `EnemyPreview`'s synthetic setup - its own camera, one directional
+**Checked on the real board, not only in the lineup.** Every judgement here
+began in `EnemyPreview`'s synthetic setup: its own camera, one directional
 light, flat ground, a head-on angle. `CameraPreview.Render` now also writes
-`<env>-enemies.png`: the whole cast on the path, at gameplay scale, oriented
-along it, lit by the scene's own lights and shot through the **game camera**.
-The enemy placement copies `EnemySpawner`'s height rule (half the BODY's height
-measured on the prefab, which ignores `UnitScale` exactly as the game does -
-the quirk is copied on purpose so the preview stays honest) and reads `Enemy`'s
-private `rotationOffset` by reflection rather than assuming a facing.
+`<env>-enemies.png` - the whole cast on the path, at gameplay scale, oriented
+along it, under the scene's own lights, through the **game camera**. Placement
+copies `EnemySpawner`'s height rule, including its quirk of measuring the body
+on the prefab and ignoring `UnitScale`, because copying the quirk is what keeps
+the preview honest, and it reads `Enemy`'s private `rotationOffset` by
+reflection rather than assuming a facing.
 
-What it showed, measured rather than eyeballed: an enemy is about **10% of the
-frame's height**, so roughly 100px tall on a 1080p phone. At that size the
-silhouettes and colours all hold, and the fine detail holds better than
-expected - the healer's crosses do read as small red plus marks and the
-splitter's orbs as amber dots. Two things the lineup had hidden:
-
+Measured there: an enemy is about **10% of frame height**, roughly 100px on a
+1080p phone. Silhouettes and colours hold, and the fine detail holds better than
+expected - the crosses read as small red plus marks, the orbs as amber dots. Two
+things the lineup had hidden:
 - **Enemies read noticeably smaller than towers.** The tower models are
   intrinsically larger and `UnitScale.Tower` is 1.5 against `UnitScale.Enemy`
-  1.35. Not obviously wrong, but it is a game-feel question the lineup could
-  never have raised.
+  1.35. Not obviously wrong, but a game-feel question the lineup could not raise.
 - **Props occlude enemies.** `LevelDecorator`'s rocks and grass sit beside the
-  path and partly hide an enemy walking past. Pre-existing, unrelated to the
-  new art, and worth a look during the playtest.
+  path and partly hide an enemy walking past. Pre-existing and unrelated to the
+  new art.
 
-What still needs a human: whether a part reads at phone size in a pack of
-thirty, whether the bubble popping reads as "shield broken", whether the waddle
-amplitude feels alive or seasick in motion, and what the translucent bubble plus
-bloom cost in overdraw on a real device. That last one matters more now than it
-did - bloom is full-screen work on a phone whose performance has never been
-re-measured (Priority 3).
+**What still needs a human:** whether a part reads at phone size in a pack of
+thirty rather than alone; whether the bubble popping reads as "shield broken" or
+as a glitch; whether the waddle feels alive or seasick in motion; whether bloom
+glows at all; and what the translucent bubble plus bloom cost in frame time.
+That last one matters more than it did - bloom is full-screen work on a phone
+whose performance has never been re-measured (Priority 3).
 
 **Priority 4 — Gameplay haptics. DONE (`c13cffe`), not felt on device yet.**
 Placement, wave start and sell already fired through `AudioManager.PlaySound`;
@@ -787,10 +780,11 @@ These each cost real debugging time. They are not obvious from the code.
   health/reward multipliers are derived from the **parent's already wave-scaled
   values**, not from the raw config — otherwise children spawn at level-1
   strength in level 70.
-- **"The body" is no longer just the first MeshRenderer.** Trait geometry is
+- **"The body" is no longer just the first MeshRenderer.** Composed parts are
   parented under the same root, so `GetComponentInChildren<MeshRenderer>()` can
-  return a carapace or a spore crown. That would tint the trait and leave the
-  body its authored colour, and would park the health bar at the trait's height.
+  return a shield bubble or a daughter cell. That would tint the part and leave
+  the body its authored colour, and would park the health bar at the part's
+  height.
   Use **`Enemy.FindBodyRenderer`**, which skips anything under an `EnemyTrait`;
   `Enemy`, `EnemyHealthBar` and `EnemySpawner` all go through it. Do not
   reintroduce the bare call, and do not rely on sibling order instead.
