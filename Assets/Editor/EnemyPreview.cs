@@ -475,7 +475,11 @@ public static class EnemyPreview
     return b;
   }
 
-  private static void TintBody(GameObject go, EnemyConfig cfg)
+  // Public so CameraPreview can tint the cast the same way. Duplicating the
+  // rule would let the board render and the lineup disagree about what an
+  // enemy's colour is, which is exactly the sort of drift that makes a preview
+  // worthless as evidence.
+  public static void TintBody(GameObject go, EnemyConfig cfg)
   {
     MeshRenderer body = Enemy.FindBodyRenderer(go);
     if (body == null || body.sharedMaterial == null) return;
@@ -495,7 +499,7 @@ public static class EnemyPreview
     body.SetPropertyBlock(block);
   }
 
-  private static void TintTraits(GameObject go)
+  public static void TintTraits(GameObject go)
   {
     foreach (EnemyTrait trait in go.GetComponentsInChildren<EnemyTrait>(true))
     {

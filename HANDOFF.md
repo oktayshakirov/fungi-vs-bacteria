@@ -155,7 +155,7 @@ but until then a new file is silently not compiled.
 | `DisplaySetup.Apply` | Rewrites scenes: board size, camera presets, canvas scaler, menu layout, safe areas | yes |
 | `LevelGenerator.GenerateBatch` | Regenerates all 70 levels | yes |
 | `Phase1Validator.Validate` | Level asset QA gate | yes |
-| `CameraPreview.Render` | The 3D board per environment | **no** |
+| `CameraPreview.Render` | The 3D board per environment, plus a `-enemies` shot of each with the whole cast standing on the path | **no** |
 | `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art | **no** |
 | `UiPreview.Render` | HUD + every screen, as PNGs — including the main menu, the placement bar (`hud-placing`), the selected-tower panel (`hud-tower-actions`) and the tutorial (`screen-tutorial`) | **no** |
 | `EnemyArtSetup.BuildVariants` | Rebuilds the four variety enemy prefabs by composing existing model parts | yes |
@@ -437,10 +437,33 @@ Two more traps, and the first one is the nastiest found in this whole phase:
   deeper base colour, the signs needed weaker emission. There is no single
   right number; check the render.
 
+**Checked on the real board, not just in the lineup.** Every judgement above
+came from `EnemyPreview`'s synthetic setup - its own camera, one directional
+light, flat ground, a head-on angle. `CameraPreview.Render` now also writes
+`<env>-enemies.png`: the whole cast on the path, at gameplay scale, oriented
+along it, lit by the scene's own lights and shot through the **game camera**.
+The enemy placement copies `EnemySpawner`'s height rule (half the BODY's height
+measured on the prefab, which ignores `UnitScale` exactly as the game does -
+the quirk is copied on purpose so the preview stays honest) and reads `Enemy`'s
+private `rotationOffset` by reflection rather than assuming a facing.
+
+What it showed, measured rather than eyeballed: an enemy is about **10% of the
+frame's height**, so roughly 100px tall on a 1080p phone. At that size the
+silhouettes and colours all hold, and the fine detail holds better than
+expected - the healer's crosses do read as small red plus marks and the
+splitter's orbs as amber dots. Two things the lineup had hidden:
+
+- **Enemies read noticeably smaller than towers.** The tower models are
+  intrinsically larger and `UnitScale.Tower` is 1.5 against `UnitScale.Enemy`
+  1.35. Not obviously wrong, but it is a game-feel question the lineup could
+  never have raised.
+- **Props occlude enemies.** `LevelDecorator`'s rocks and grass sit beside the
+  path and partly hide an enemy walking past. Pre-existing, unrelated to the
+  new art, and worth a look during the playtest.
+
 What still needs a human: whether a part reads at phone size in a pack of
 thirty, whether the bubble popping reads as "shield broken", whether the waddle
-amplitude feels alive or seasick in motion, whether the healing crosses read as
-crosses on a phone or just as red flecks, and what the translucent bubble plus
+amplitude feels alive or seasick in motion, and what the translucent bubble plus
 bloom cost in overdraw on a real device. That last one matters more now than it
 did - bloom is full-screen work on a phone whose performance has never been
 re-measured (Priority 3).

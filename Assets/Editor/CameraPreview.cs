@@ -119,6 +119,13 @@ public static class CameraPreview
       string label = env.Replace(" ", "").ToLower(); // environment1, ...
       Capture(rig, cam, Devices[1], 0, label, false);
 
+      // The same shot with the cast standing on the path. Separate from the
+      // clean plate deliberately: the plate is how the environment art is
+      // judged, and eight enemies in front of it would get in the way.
+      List<GameObject> cast = PlaceRealEnemies(grid);
+      Capture(rig, cam, Devices[1], 0, label + "-enemies", false);
+      foreach (GameObject e in cast) Object.DestroyImmediate(e);
+
       // The play camera barely sees the island's underside. Pose 1 is the low
       // intro orbit, which is where the cliff silhouette can actually be judged.
       if (env == "Environment 1") Capture(rig, cam, Devices[1], 1, label + "-cliff", false);
@@ -224,6 +231,90 @@ public static class CameraPreview
     Object.DestroyImmediate(rt);
     Object.DestroyImmediate(texture);
     rig.enabled = true;
+  }
+
+  // Stands the whole enemy cast on the path, at gameplay scale, oriented along
+  // it, lit by the scene's own lights and shot through the game camera.
+  //
+  // This exists because every judgement about the new enemy art until now came
+  // from EnemyPreview's synthetic lineup: its own camera, its own single
+  // directional light, flat ground, and a head-on angle. The real board is a
+  // themed island seen from a steep three-quarter view with the environment's
+  // own lighting, and "reads clearly" in one is not evidence for the other.
+  private static List<GameObject> PlaceRealEnemies(GridManager grid)
+  {
+    var created = new List<GameObject>();
+    Vector3[] pts = PreviewPathPoints(grid);
+    if (pts == null || pts.Length < 3) return created;
+
+    // Ordered so each variety type stands next to the base body it reuses.
+    string[] names =
+    {
+      "BasicEnemy", "SplitterEnemy", "HealerEnemy", "FastEnemy",
+      "SwarmEnemy", "ArmoredEnemy", "ShieldedEnemy", "BossEnemy",
+    };
+
+    for (int i = 0; i < names.Length; i++)
+    {
+      var cfg = AssetDatabase.LoadAssetAtPath<EnemyConfig>(
+        $"Assets/Settings/Enemies/{names[i]}.asset");
+      if (cfg == null || cfg.prefab == null) continue;
+
+      // Spread along the path, skipping the very ends so nothing sits on the
+      // portal or the base.
+      float t = (i + 0.5f) / names.Length;
+      int index = Mathf.Clamp(Mathf.RoundToInt(t * (pts.Length - 1)), 1, pts.Length - 2);
+
+      var go = (GameObject)PrefabUtility.InstantiatePrefab(cfg.prefab);
+      PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely,
+                                        InteractionMode.AutomatedAction);
+
+      // Matches EnemyPool (UnitScale) and Enemy.ApplyAppearance
+      // (scaleMultiplier), then poses the walk cycle with Enemy's own helper
+      // so the silhouette is the one the game draws rather than the rest pose.
+      Vector3 rest = go.transform.localScale *
+                     (UnitScale.Enemy * Mathf.Max(0.01f, cfg.scaleMultiplier));
+      float time = i * 0.37f;
+      go.transform.localScale = Enemy.WaddleScale(rest, time, 0f);
+
+      // Height matches EnemySpawner: half the BODY's height measured on the
+      // prefab, which deliberately ignores UnitScale the same way the game
+      // does - copying the quirk keeps the preview honest.
+      MeshRenderer body = Enemy.FindBodyRenderer(cfg.prefab);
+      float y = body != null ? body.bounds.size.y * 0.5f : 0.5f;
+
+      Vector3 here = pts[index];
+      Vector3 next = pts[Mathf.Min(index + 1, pts.Length - 1)];
+      Vector3 dir = (next - here);
+      dir.y = 0f;
+      if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
+
+      float yawOffset = 0f;
+      var enemy = go.GetComponent<Enemy>();
+      if (enemy != null)
+      {
+        // rotationOffset is private and serialized; the preview has to read it
+        // the same way the game does or the cast faces the wrong way.
+        var field = typeof(Enemy).GetField("rotationOffset",
+          System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        if (field != null) yawOffset = (float)field.GetValue(enemy);
+      }
+
+      go.transform.position = new Vector3(here.x, y, here.z);
+      go.transform.rotation = Quaternion.LookRotation(dir.normalized) *
+                              Quaternion.Euler(0f, yawOffset, 0f) *
+                              Enemy.WaddleRoll(time, 0f);
+
+      EnemyPreview.TintBody(go, cfg);
+      EnemyPreview.TintTraits(go);
+      foreach (EnemyTrait trait in go.GetComponentsInChildren<EnemyTrait>(true))
+      {
+        trait.Animate(time);
+      }
+
+      created.Add(go);
+    }
+    return created;
   }
 
   private static Vector3[] PreviewPathPoints(GridManager grid)
