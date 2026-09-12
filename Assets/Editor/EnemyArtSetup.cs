@@ -2,132 +2,247 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
-// Builds the four variety enemy prefabs: a base body plus one authored trait
-// mesh, so Swarm / Shielded / Splitter / Healer have their own silhouettes
-// instead of being a tint and a scale on a shared body.
+// Builds the four variety enemy prefabs by COMPOSING them out of parts taken
+// from the four existing enemy models.
 //
 // Run: Tools/Enemies/Build Variety Prefabs, or
 //   -executeMethod EnemyArtSetup.BuildVariants   (works with -nographics)
+// See also Tools/Enemies/Report Base Parts, which lists what is available.
 //
-// Why a tool and not hand-authored prefabs: the placement of a trait depends on
-// the base body's measured bounds, and the four base models have wildly
-// different intrinsic sizes (BasicEnemy spans ~6.4 units and is scaled to 0.2
-// on its prefab; ArmoredEnemy spans ~3.3 at scale 1). Eyeballing four offsets
-// per trait in the inspector would bake those numbers in invisibly; measuring
-// them here means re-running the tool after a base model changes is enough.
+// The four base models are never modified. A new type is its base prefab plus
+// one or more extra renderers that reference an EXISTING mesh, repositioned,
+// rescaled and recoloured - so every surface in the game is authored art, and
+// a new enemy cannot look hand-made or distorted, because there is nothing
+// hand-made in it.
 //
-// It is idempotent: re-running overwrites the four prefabs and the four
-// materials and rewrites the configs' prefab reference. The four BASE prefabs
-// and the eight source configs' stats are never touched.
+// This replaced a first attempt that bolted on small meshes generated in
+// Blender (a carapace, a spore crown, budding lobes, a cilia fringe). They were
+// cheap and they were readable, and they still looked wrong: script-made
+// geometry next to detailed organic models reads as damage rather than as
+// design. The generated meshes and their Blender script are gone; the pipeline
+// that produced them is still written up in HANDOFF section 8 if it is ever
+// wanted for something that is not a creature.
+//
+// Two constraints worth knowing before adding a part:
+//
+//  * COST. The base bodies are wildly uneven - Basic's body is 287k verts and
+//    Armored's is 171k, against 552 for Fast's and 1292 for Boss's. A late
+//    wave puts 30+ enemies on screen, so an extra part must come from the
+//    CHEAP end. Every composition below builds out of Fast's body (552), its
+//    hair (4194) or its tail (375). Duplicating a Basic or Armored body would
+//    add a quarter of a million verts per enemy.
+//  * BODIES, NOT WHOLE MODELS. Each model keeps its Body separate from its
+//    eyes, so a part can be a bare body. Reusing a whole model as a part would
+//    graft a second pair of eyes onto the enemy.
 public static class EnemyArtSetup
 {
-  private const string TraitMeshDir = "Assets/Meshes/Enemies/Traits";
   private const string PrefabDir = "Assets/Prefabs/Enemies";
   private const string MaterialDir = "Assets/Materials/Enemies";
   private const string ConfigDir = "Assets/Settings/Enemies";
 
-  // How a trait is fitted onto a body. Sizes and heights are FRACTIONS of the
-  // body's measured bounds, never world units, so they survive a base swap.
-  private struct Trait
+  // One extra renderer on a composed enemy.
+  //
+  // Offsets and scales are FRACTIONS of the base body's measured bounds, never
+  // world units: the four bases differ by 3x in intrinsic size and each carries
+  // its own prefab scale (Basic 0.2, Armored 1.0), so a world-unit offset that
+  // suits one base is meaningless on another.
+  private struct Part
   {
-    public string configName;     // EnemyConfig asset, also names the prefab
-    public string baseName;       // base prefab to build a variant of
-    public string meshName;       // OBJ in TraitMeshDir
-    public Color accent;
-    public bool tintWithBiome;
+    public string sourcePrefab;  // base prefab to borrow the mesh from
+    public string meshObject;    // its child object, e.g. "Body_Body"
+    public string materialName;  // asset written under MaterialDir
+    // Position of the part's CENTRE. x/z are offsets from the body's centre,
+    // y is measured up from the body's base; all three as shares of the body's
+    // size on that axis, so y = 0.5 is the body's centre.
+    public Vector3 offsetShare;
+    // The part's FINAL size on each axis, as a share of the body's width. The
+    // builder divides by the source mesh's own extents, so these are absolute
+    // proportions and not corrections to the source's aspect ratio - a share
+    // of 1 means "as wide as the body" whatever mesh is borrowed. Getting this
+    // backwards is what put the first shield bubble inside its own body.
+    public Vector3 scaleShare;
+    public Vector3 euler;
+    public Color color;          // alpha below 1 makes the material transparent
     public bool hideWhileShieldDown;
-    public float widthShare;      // trait width / body width
-    public float heightShare;     // attach height / body height, from its base
-    public float forwardShare;    // along -X (the models' facing axis), + is forward
-    public float pitch;           // degrees about Z, to lean a trait back
-    // Optional body recolour. Lives here rather than being hand-edited into
-    // the .asset so the trait and the body it has to read against are chosen
-    // in one place - and because hand-editing configs is how their fields end
-    // up mismatched (HANDOFF section 6).
-    public bool setBodyColor;
-    public Color bodyColor;
   }
 
-  // Every trait opts OUT of the biome tint, deliberately.
-  //
-  // The first pass tinted them like bodies and two of the four vanished: the
-  // splitter's lobes were purple on a purple body and the healer's crown was
-  // green on a green body, so at a glance both read as a plain Basic enemy in a
-  // different colour - exactly the problem the traits exist to solve. The body
-  // still carries EnvironmentTheme.EnemyTint, so the cast still belongs to its
-  // biome; the trait is the part that has to stay the same everywhere, because
-  // it is the type's identity rather than its surroundings.
-  private static readonly Trait[] Traits =
+  private struct Composition
   {
-    // Swarm rides on FastEnemy and is scaled to 0.65, so its fringe has to be
-    // proportionally wide or it disappears: a swarm enemy is the smallest thing
-    // on the board and the fringe is the only reason it is not just "a small
-    // Fast enemy". Sat low and swept back, reading as motion.
-    new Trait
+    public string configName;
+    public string baseName;
+    public bool setBodyColor;
+    public Color bodyColor;
+    public Part[] parts;
+  }
+
+  // Two cheap building blocks carry every composition below.
+  //
+  // Fast's body is a 552-vert capsule, used where a bacterial ROD is wanted.
+  // It is not usable as a sphere: squashing it round exposes its facets, and
+  // the first shield bubble built that way read as a chunk of faceted glass.
+  //
+  // For anything round, borrow an EYE. Each model's eye white is a smooth
+  // 481-vert sphere - the only proper sphere in the project's art - and at a
+  // flat colour nothing about it reads as an eye. It is the shield bubble and
+  // the splitter's daughter cells.
+  private const string FastBody = "Body_Body";
+  private const string SphereMesh = "defaultMaterial.004_EyeWhite";
+
+  private static readonly Composition[] Compositions =
+  {
+    // SHIELDED - a full bubble around the Armored body.
+    //
+    // The shield has to read as protection on EVERY side. A partial shell,
+    // which is what the first attempt used, reads as damage or as a hat, and
+    // the review said so. A closed translucent bubble is symmetric by
+    // construction, needs no orientation, and gives the clearest possible cue
+    // when it pops: the enemy is visibly naked afterwards.
+    new Composition
     {
-      configName = "SwarmEnemy", baseName = "FastEnemy", meshName = "CiliaFringe",
-      accent = new Color(0.99f, 0.96f, 0.72f), tintWithBiome = false,
-      widthShare = 0.95f, heightShare = 0.22f, forwardShare = -0.10f, pitch = 0f,
+      configName = "ShieldedEnemy", baseName = "ArmoredEnemy",
+      // Dark body under a pale bubble. Armored and Shielded were both
+      // saturated blue spheres, so the body is recoloured too - and it stays
+      // recoloured with the bubble gone, which is what keeps the two types
+      // apart while the shield is regenerating.
+      setBodyColor = true, bodyColor = new Color(0.26f, 0.36f, 0.56f),
+      parts = new[]
+      {
+        new Part
+        {
+          sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
+          materialName = "ShieldBubble",
+          offsetShare = new Vector3(0f, 0.5f, 0f),
+          // Round, and a little wider than the body so it encloses the spikes.
+          scaleShare = new Vector3(1.22f, 1.22f, 1.22f),
+          euler = Vector3.zero,
+          color = new Color(0.58f, 0.84f, 1f, 0.28f),
+          hideWhileShieldDown = true,
+        },
+      },
     },
-    // Shielded rides on ArmoredEnemy, which is already the bulkiest body - the
-    // carapace arches over its back and is the one trait that toggles, so a
-    // broken shield is visible before the health bar is read.
-    new Trait
+
+    // SPLITTER - two daughter cells already budding out of the parent.
+    //
+    // Smooth round cells against the parent's spiky shell: the contrast is
+    // what makes them read as separate organisms rather than as lumps, and it
+    // tells the player what is about to happen before the parent dies.
+    new Composition
     {
-      configName = "ShieldedEnemy", baseName = "ArmoredEnemy", meshName = "Carapace",
-      accent = new Color(0.62f, 0.84f, 1f), tintWithBiome = false,
-      hideWhileShieldDown = true,
-      // Was 1.12: a share above 1 turned the carapace into an umbrella that
-      // covered the body, its eyes and its spikes, so the type read as a white
-      // dome rather than as an armoured enemy carrying a shield.
-      // Sizing note, because this one is not intuitive: the authored mesh's
-      // bounding box is the arc's CHORD, not its radius, so the shell sits at
-      // roughly 0.55 of the box. A share of 0.82 therefore put the shell
-      // radius INSIDE the body's and it vanished behind it; 1.12 put it 23%
-      // outside and it read as an umbrella covering the eyes. Just over 1 is
-      // the band where it caps the body and still clears it.
-      // The carapace is the only trait whose geometry is an arc around an
-      // implied centre, so it wants to be CONCENTRIC with the body: heightShare
-      // 0.50 is the body's own centre, and widthShare just over 1 puts the
-      // shell's radius a few percent outside the body's. Both matter. At 0.42
-      // the shell rode the body's widest point and showed only as slivers
-      // behind the silhouette; at 0.68 it rode the crown and became a lid.
-      widthShare = 1.14f, heightShare = 0.50f, forwardShare = -0.06f, pitch = -8f,
-      // Armored and Shielded were both saturated blue spiky spheres, so the
-      // shell was doing 100% of the work of telling them apart. The body is
-      // therefore recoloured too - but DARK, not pale: the first attempt at a
-      // pale steel body landed within a few percent of the shell's own colour
-      // and the shell stopped reading as a separate object at all.
-      setBodyColor = true, bodyColor = new Color(0.24f, 0.34f, 0.54f),
+      configName = "SplitterEnemy", baseName = "BasicEnemy",
+      parts = new[]
+      {
+        new Part
+        {
+          sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
+          materialName = "DaughterCell",
+          // The two cells sit on roughly OPPOSITE sides, and each one's centre
+          // is pushed past the body's own radius. Both matter. An enemy turns
+          // to follow the path, so a pair of cells clustered on one side is
+          // hidden for half of every corner - the first version put both on
+          // -X and they were invisible from the camera. And a cell centred
+          // inside the spike field is swallowed by it whatever its colour.
+          offsetShare = new Vector3(0.52f, 0.46f, 0.16f),
+          scaleShare = new Vector3(0.42f, 0.42f, 0.42f),
+          euler = Vector3.zero,
+          // Bright amber against a purple parent. A same-hue cell disappears,
+          // which is what the review of the previous attempt was pointing at.
+          color = new Color(1f, 0.82f, 0.38f),
+        },
+        new Part
+        {
+          sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
+          materialName = "DaughterCell",
+          offsetShare = new Vector3(-0.30f, 0.26f, -0.48f),
+          scaleShare = new Vector3(0.33f, 0.33f, 0.33f),
+          euler = Vector3.zero,
+          color = new Color(1f, 0.76f, 0.32f),
+        },
+      },
     },
-    // Splitter and Healer both ride on BasicEnemy and were previously
-    // distinguishable only by a purple-vs-green tint at two similar scales.
-    // These two traits are therefore the ones that have to differ MOST: lobes
-    // bulge sideways and low, the crown sits high and central.
-    new Trait
+
+    // SWARM - a colony of three rods rather than one small enemy.
+    //
+    // Swarm's problem was never colour, it was that a shrunken Fast enemy is
+    // still a Fast enemy. Repeating its body twice more, off-axis and smaller,
+    // changes the SHAPE into a clump - and a clump is what the mechanic is.
+    new Composition
     {
-      configName = "SplitterEnemy", baseName = "BasicEnemy", meshName = "BudLobes",
-      // Amber against a purple body, and pushed out to roughly the body's own
-      // radius so the lobes break the silhouette instead of sitting inside it -
-      // at forwardShare -0.28 they were buried under the body's spikes and
-      // invisible from every angle.
-      accent = new Color(0.99f, 0.80f, 0.38f), tintWithBiome = false,
-      widthShare = 0.70f, heightShare = 0.28f, forwardShare = -0.50f, pitch = 0f,
+      configName = "SwarmEnemy", baseName = "FastEnemy",
+      parts = new[]
+      {
+        new Part
+        {
+          sourcePrefab = "FastEnemy", meshObject = FastBody,
+          materialName = "ColonyRod",
+          offsetShare = new Vector3(0.08f, 0.52f, 0.52f),
+          scaleShare = new Vector3(1.28f, 0.36f, 0.36f),
+          euler = new Vector3(0f, -22f, 9f),
+          color = new Color(0.97f, 0.58f, 0.22f),
+        },
+        new Part
+        {
+          sourcePrefab = "FastEnemy", meshObject = FastBody,
+          materialName = "ColonyRod",
+          offsetShare = new Vector3(-0.05f, 0.44f, -0.55f),
+          scaleShare = new Vector3(1.07f, 0.30f, 0.30f),
+          euler = new Vector3(0f, 17f, -7f),
+          color = new Color(0.99f, 0.70f, 0.30f),
+        },
+      },
     },
-    new Trait
+
+    // HEALER - the Fast model's tendril mesh, wrapped around the Basic body as
+    // an aura that reaches outward.
+    //
+    // A healer acts on its NEIGHBOURS, so the silhouette should reach out of
+    // itself. Tendrils do that and are authored organic geometry, so they sit
+    // on a detailed body without looking bolted on - which the cone they
+    // replaced did not.
+    new Composition
     {
-      configName = "HealerEnemy", baseName = "BasicEnemy", meshName = "SporeCrown",
-      // A pale cap, not a green one: the healer body is green, so a green
-      // crown disappeared into it.
-      accent = new Color(0.97f, 0.94f, 0.86f), tintWithBiome = false,
-      // heightShare counts from the body's BASE and the crown is itself 0.83
-      // of its own box tall, so a share chosen to look like "near the top"
-      // (0.72) stacked the two and left the cap hovering clear of the body.
-      // 0.50 seats it in among the body's spikes.
-      widthShare = 0.62f, heightShare = 0.50f, forwardShare = 0f, pitch = 0f,
+      configName = "HealerEnemy", baseName = "BasicEnemy",
+      parts = new[]
+      {
+        new Part
+        {
+          sourcePrefab = "FastEnemy", meshObject = "Hair_Hair",
+          materialName = "HealerAura",
+          offsetShare = new Vector3(0f, 0.50f, 0f),
+          // Has to be BIGGER than the body, not the same size. At 1.1 the
+          // tendrils ended inside the spike field and read as tangle rather
+          // than as reach; the whole point is a silhouette that extends past
+          // the creature towards its neighbours.
+          scaleShare = new Vector3(1.55f, 1.45f, 1.45f),
+          euler = Vector3.zero,
+          // Near-white, not green. A green aura on a green body is the same
+          // mistake as a purple cell on a purple body.
+          color = new Color(0.97f, 1f, 0.92f),
+        },
+      },
     },
   };
+
+  [MenuItem("Tools/Enemies/Report Base Parts")]
+  public static void ReportBaseParts()
+  {
+    var lines = new List<string>();
+    foreach (string name in new[] { "BasicEnemy", "FastEnemy", "ArmoredEnemy", "BossEnemy" })
+    {
+      GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/{name}.prefab");
+      if (prefab == null) { lines.Add($"{name}: MISSING"); continue; }
+      lines.Add($"--- {name} (prefab scale {prefab.transform.localScale.x:F3})");
+      foreach (MeshRenderer r in prefab.GetComponentsInChildren<MeshRenderer>(true))
+      {
+        Mesh m = r.GetComponent<MeshFilter>()?.sharedMesh;
+        lines.Add($"    obj={r.gameObject.name,-36} verts={(m == null ? 0 : m.vertexCount),-8} " +
+                  $"mat={(r.sharedMaterial == null ? "none" : r.sharedMaterial.name),-12} " +
+                  $"bounds={(m == null ? default : m.bounds.size)}");
+      }
+    }
+    Debug.Log("BASE PARTS:\n" + string.Join("\n", lines));
+  }
 
   [MenuItem("Tools/Enemies/Build Variety Prefabs")]
   public static void BuildVariants()
@@ -135,117 +250,103 @@ public static class EnemyArtSetup
     Directory.CreateDirectory(MaterialDir);
     var report = new List<string>();
 
-    foreach (Trait trait in Traits)
+    foreach (Composition comp in Compositions)
     {
-      string basePath = $"{PrefabDir}/{trait.baseName}.prefab";
-      GameObject basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(basePath);
+      GameObject basePrefab =
+        AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/{comp.baseName}.prefab");
       if (basePrefab == null)
       {
-        Debug.LogError($"EnemyArtSetup: base prefab missing at {basePath}");
-        continue;
-      }
-
-      string meshPath = $"{TraitMeshDir}/{trait.meshName}.obj";
-      Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
-      if (mesh == null)
-      {
-        // The OBJ importer names the mesh after the object inside the file, so
-        // the top-level Mesh load can miss it; fall back to a sub-asset sweep.
-        foreach (Object o in AssetDatabase.LoadAllAssetsAtPath(meshPath))
-        {
-          if (o is Mesh m) { mesh = m; break; }
-        }
-      }
-      if (mesh == null)
-      {
-        Debug.LogError($"EnemyArtSetup: trait mesh missing at {meshPath}. " +
-                       "Re-run Tools/Blender/enemy_traits.py.");
+        Debug.LogError($"EnemyArtSetup: base prefab missing: {comp.baseName}");
         continue;
       }
 
       // Instantiating the base prefab and saving that instance under a new name
-      // produces a prefab VARIANT, so the variety prefabs keep inheriting the
-      // base body's Enemy component, scale and material assignments.
+      // produces a prefab VARIANT, so each variety prefab keeps inheriting the
+      // base body's Enemy component, prefab scale and material assignments.
       GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(basePrefab);
-      instance.name = trait.configName;
+      instance.name = comp.configName;
 
       MeshRenderer body = Enemy.FindBodyRenderer(instance);
       if (body == null)
       {
-        Debug.LogError($"EnemyArtSetup: no body renderer under {trait.baseName}");
+        Debug.LogError($"EnemyArtSetup: no body renderer under {comp.baseName}");
         Object.DestroyImmediate(instance);
         continue;
       }
 
-      // Bounds have to be measured in the ROOT's local space: the trait is
-      // parented to the root, so it inherits the root's scale, and renderer
-      // bounds are in world space. Converting through the root's inverse matrix
-      // is what makes widthShare/heightShare mean the same thing on a body
-      // scaled 0.2 and one scaled 1.
       Bounds local = LocalBounds(instance.transform, body);
-
-      GameObject traitObject = new GameObject(trait.meshName);
-      traitObject.transform.SetParent(instance.transform, false);
-      traitObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-      MeshRenderer renderer = traitObject.AddComponent<MeshRenderer>();
-      renderer.sharedMaterial = TraitMaterial(trait);
-      // Traits are small and never the silhouette that matters for a shadow;
-      // the board already draws 30+ enemies at once.
-      renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-      EnemyTrait marker = traitObject.AddComponent<EnemyTrait>();
-      marker.accentColor = trait.accent;
-      marker.tintWithBiome = trait.tintWithBiome;
-      marker.hideWhileShieldDown = trait.hideWhileShieldDown;
-
-      // The authored mesh is a unit box centred in X/Z and sitting on Y=0, so
-      // one uniform scale maps it onto a share of the body's width.
-      //
-      // The metric is the MEAN of the two horizontal extents, not the max.
-      // FastEnemy is elongated - 7.07 along X against 2.27 along Z - so the max
-      // sized Swarm's fringe against the body's LENGTH and produced a fringe
-      // three times wider than the body it wraps. The mean tracks the body a
-      // trait actually has to sit on.
       float width = (local.size.x + local.size.z) * 0.5f;
-      float scale = Mathf.Max(0.0001f, width * trait.widthShare);
-      traitObject.transform.localScale = Vector3.one * scale;
-      traitObject.transform.localPosition = new Vector3(
-        local.center.x - trait.forwardShare * local.size.x,
-        local.min.y + local.size.y * trait.heightShare,
-        local.center.z);
-      traitObject.transform.localRotation = Quaternion.Euler(0f, 0f, trait.pitch);
+      int added = 0;
 
-      // Read anything wanted for the report BEFORE destroying the instance -
-      // the trait transform belongs to it and goes away with it.
-      Vector3 placedAt = traitObject.transform.localPosition;
+      foreach (Part part in comp.parts)
+      {
+        Mesh mesh = FindPartMesh(part.sourcePrefab, part.meshObject);
+        if (mesh == null)
+        {
+          Debug.LogError($"EnemyArtSetup: part {part.sourcePrefab}/{part.meshObject} " +
+                         "not found. Run Tools/Enemies/Report Base Parts.");
+          continue;
+        }
 
-      string prefabPath = $"{PrefabDir}/{trait.configName}.prefab";
+        var go = new GameObject($"{part.materialName}{++added}");
+        go.transform.SetParent(instance.transform, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        MeshRenderer renderer = go.AddComponent<MeshRenderer>();
+        renderer.sharedMaterial = PartMaterial(part);
+        // Added parts are never the silhouette a shadow needs to describe, and
+        // the board already draws 30+ enemies.
+        renderer.shadowCastingMode = ShadowCastingMode.Off;
+
+        EnemyTrait marker = go.AddComponent<EnemyTrait>();
+        marker.accentColor = part.color;
+        marker.tintWithBiome = false;
+        marker.hideWhileShieldDown = part.hideWhileShieldDown;
+
+        // The mesh is scaled RELATIVE TO ITS OWN SIZE so that a scaleShare of
+        // 1 means "as wide as the body". Without dividing by the source mesh's
+        // extents, every share would be in units of whatever that mesh
+        // happened to measure, and the numbers above would mean nothing.
+        Vector3 src = mesh.bounds.size;
+        go.transform.localScale = new Vector3(
+          width * part.scaleShare.x / Mathf.Max(0.0001f, src.x),
+          width * part.scaleShare.y / Mathf.Max(0.0001f, src.y),
+          width * part.scaleShare.z / Mathf.Max(0.0001f, src.z));
+        go.transform.localRotation = Quaternion.Euler(part.euler);
+        go.transform.localPosition = new Vector3(
+          local.center.x + part.offsetShare.x * local.size.x,
+          local.min.y + part.offsetShare.y * local.size.y,
+          local.center.z + part.offsetShare.z * local.size.z);
+
+        // The source mesh is not centred on its own pivot, so a part placed by
+        // its transform alone lands off by its pivot offset - most visible on
+        // Fast's hair, whose pivot sits well outside the tendrils.
+        go.transform.localPosition -= go.transform.localRotation *
+          Vector3.Scale(mesh.bounds.center, go.transform.localScale);
+      }
+
+      string prefabPath = $"{PrefabDir}/{comp.configName}.prefab";
       GameObject saved = PrefabUtility.SaveAsPrefabAsset(instance, prefabPath);
       Object.DestroyImmediate(instance);
 
-      // Point the config at its own prefab. Splitter and Healer both used
-      // BasicEnemy, so before this they shared a pool AND a silhouette.
       var config = AssetDatabase.LoadAssetAtPath<EnemyConfig>(
-        $"{ConfigDir}/{trait.configName}.asset");
+        $"{ConfigDir}/{comp.configName}.asset");
       if (config == null)
       {
-        Debug.LogError($"EnemyArtSetup: config missing for {trait.configName}");
+        Debug.LogError($"EnemyArtSetup: config missing for {comp.configName}");
       }
       else
       {
         config.prefab = saved;
-        if (trait.setBodyColor)
+        if (comp.setBodyColor)
         {
           config.overrideBodyColor = true;
-          config.bodyColor = trait.bodyColor;
+          config.bodyColor = comp.bodyColor;
         }
         EditorUtility.SetDirty(config);
       }
 
-      report.Add($"{trait.configName,-16} base={trait.baseName,-13} " +
-                 $"trait={trait.meshName,-12} scale={scale:F3} " +
-                 $"pos={placedAt} " +
-                 $"bodyLocal(size={local.size}, min.y={local.min.y:F3})");
+      report.Add($"{comp.configName,-16} base={comp.baseName,-13} parts={added} " +
+                 $"bodyWidth={width:F2} bodyLocal(size={local.size})");
     }
 
     AssetDatabase.SaveAssets();
@@ -253,9 +354,22 @@ public static class EnemyArtSetup
     Debug.Log("EnemyArtSetup built:\n" + string.Join("\n", report));
   }
 
-  // World-space renderer bounds, expressed in the root's local space. Uses the
+  private static Mesh FindPartMesh(string prefabName, string objectName)
+  {
+    GameObject prefab =
+      AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/{prefabName}.prefab");
+    if (prefab == null) return null;
+    foreach (MeshRenderer r in prefab.GetComponentsInChildren<MeshRenderer>(true))
+    {
+      if (r.gameObject.name != objectName) continue;
+      return r.GetComponent<MeshFilter>()?.sharedMesh;
+    }
+    return null;
+  }
+
+  // World-space renderer bounds expressed in the root's local space. Uses the
   // renderer's own transform because a base body can sit at an offset under the
-  // root, which is exactly the case that a root-relative guess gets wrong.
+  // root, which is exactly the case a root-relative guess gets wrong.
   private static Bounds LocalBounds(Transform root, MeshRenderer body)
   {
     Mesh mesh = body.GetComponent<MeshFilter>()?.sharedMesh;
@@ -263,7 +377,7 @@ public static class EnemyArtSetup
     Matrix4x4 toRoot = root.worldToLocalMatrix * body.transform.localToWorldMatrix;
 
     Vector3 c = source.center, e = source.extents;
-    Bounds result = new Bounds(toRoot.MultiplyPoint3x4(c), Vector3.zero);
+    var result = new Bounds(toRoot.MultiplyPoint3x4(c), Vector3.zero);
     for (int i = 0; i < 8; i++)
     {
       Vector3 corner = c + new Vector3(
@@ -275,25 +389,47 @@ public static class EnemyArtSetup
     return result;
   }
 
-  // One material per trait, so the accent has somewhere to live and the
-  // MaterialPropertyBlock in EnemyTrait has a _BaseColor to override. Written
-  // as an asset rather than created at runtime so the prefab can reference it.
-  private static Material TraitMaterial(Trait trait)
+  // One material per part role. Written as an asset rather than created at
+  // runtime so the prefab can reference it, and so EnemyTrait's
+  // MaterialPropertyBlock has a _BaseColor to override.
+  private static Material PartMaterial(Part part)
   {
-    string path = $"{MaterialDir}/{trait.meshName}.mat";
+    string path = $"{MaterialDir}/{part.materialName}.mat";
     Material existing = AssetDatabase.LoadAssetAtPath<Material>(path);
     Shader shader = Shader.Find("Universal Render Pipeline/Lit") ??
                     Shader.Find("Standard");
     Material mat = existing ?? new Material(shader);
     mat.shader = shader;
-    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", trait.accent);
-    if (mat.HasProperty("_Color")) mat.color = trait.accent;
-    // Slightly glossy: the bodies are matte, so a little specular separation
-    // keeps a trait from reading as a lump of the same material.
-    if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.45f);
+
+    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", part.color);
+    if (mat.HasProperty("_Color")) mat.color = part.color;
     if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
+    // A translucent part wants LOW smoothness: at high smoothness the shield
+    // bubble read as polished glass rather than as a membrane.
+    if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", part.color.a < 1f ? 0.25f : 0.4f);
+
+    if (part.color.a < 1f) MakeTransparent(mat);
+
     if (existing == null) AssetDatabase.CreateAsset(mat, path);
     else EditorUtility.SetDirty(mat);
     return mat;
+  }
+
+  // URP's transparency is not one property: the surface mode, the blend
+  // factors, depth writing, the render queue AND a shader keyword all have to
+  // agree. Setting only _Surface leaves the material opaque at runtime, which
+  // looks like the alpha being ignored.
+  private static void MakeTransparent(Material mat)
+  {
+    mat.SetFloat("_Surface", 1f);
+    mat.SetFloat("_Blend", 0f);
+    mat.SetFloat("_ZWrite", 0f);
+    mat.SetFloat("_AlphaClip", 0f);
+    mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+    mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+    mat.DisableKeyword("_ALPHATEST_ON");
+    mat.SetOverrideTag("RenderType", "Transparent");
+    mat.renderQueue = (int)RenderQueue.Transparent;
   }
 }
