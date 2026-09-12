@@ -75,8 +75,12 @@ public static class EnemyPreview
         // inside the bigger bodies.
         foreach (Posed p in cast)
         {
-          float d = Mathf.Max(1.2f, p.radius) * 3.1f;
-          Vector3 at = p.go.transform.position + Vector3.up * p.radius * 0.55f;
+          // Aim at the measured bounds centre, not at the transform plus a
+          // guessed lift: FastEnemy is 3x longer than it is tall, so a lift
+          // scaled by the LARGEST half-extent pointed the camera at bare
+          // ground above the Swarm enemy entirely.
+          float d = Mathf.Max(1.2f, p.framing) * 3.1f;
+          Vector3 at = p.centre;
           cam.transform.position = at + new Vector3(d * 0.42f, d * 0.45f, -d * 0.80f);
           cam.transform.LookAt(at);
           Capture(cam, 560, 560, $"close-{p.name}");
@@ -114,7 +118,9 @@ public static class EnemyPreview
   {
     public GameObject go;
     public string name;
-    public float radius;
+    public float radius;   // horizontal half-extent, used for spacing
+    public float framing;  // largest half-extent, used for camera distance
+    public Vector3 centre; // world bounds centre, used as the look-at target
   }
 
   private static List<Posed> BuildLineup(out float span)
@@ -152,6 +158,11 @@ public static class EnemyPreview
       // Swarm to a 1.5x Boss and a fixed gap overlaps the big end.
       Bounds b = WorldBounds(go);
       float half = Mathf.Max(0.3f, Mathf.Max(b.extents.x, b.extents.z));
+      // Framing radius includes HEIGHT, spacing does not. The healer's crown
+      // reaches well above its body, and a radius taken from the horizontal
+      // extents alone cropped the cap out of its own close-up - the one shot
+      // whose whole purpose is to show it.
+      float framing = Mathf.Max(half, b.extents.y);
       x += previousHalf + half + 0.9f;
       previousHalf = half;
 
@@ -159,7 +170,14 @@ public static class EnemyPreview
       // matches how it is seen in play.
       go.transform.position = new Vector3(x, -b.min.y, 0f);
 
-      cast.Add(new Posed { go = go, name = name, radius = half });
+      // Re-measure after the final placement: the bounds above were taken at
+      // the origin, and the look-at wants the real centre.
+      Bounds placed = WorldBounds(go);
+      cast.Add(new Posed
+      {
+        go = go, name = name, radius = half, framing = framing,
+        centre = placed.center,
+      });
     }
 
     span = Mathf.Max(1f, x + previousHalf);
