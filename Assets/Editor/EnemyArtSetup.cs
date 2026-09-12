@@ -65,6 +65,11 @@ public static class EnemyArtSetup
     public Vector3 scaleShare;
     public Vector3 euler;
     public Color color;          // alpha below 1 makes the material transparent
+    // Emission strength. Above zero the part lights itself, and because Bloom
+    // is active in DefaultVolumeProfile it also blooms. Kept modest: bloom is
+    // fill-rate work on a phone and performance is still unmeasured
+    // (HANDOFF Priority 3).
+    public float emission;
     public bool hideWhileShieldDown;
   }
 
@@ -123,42 +128,26 @@ public static class EnemyArtSetup
       },
     },
 
-    // SPLITTER - two daughter cells already budding out of the parent.
+    // SPLITTER - a shoal of glowing daughter cells orbiting the parent.
     //
-    // Smooth round cells against the parent's spiky shell: the contrast is
-    // what makes them read as separate organisms rather than as lumps, and it
-    // tells the player what is about to happen before the parent dies.
+    // Two buds read correctly but quietly. Six smaller orbs spread all the way
+    // around, self-lit so they catch the eye, say "this one multiplies" before
+    // it ever dies - and because they ring the body there is no angle from
+    // which the type is unreadable.
+    //
+    // Positions are hand-spread rather than generated on a circle so they look
+    // like cells budding at their own pace instead of a mechanical halo.
     new Composition
     {
       configName = "SplitterEnemy", baseName = "BasicEnemy",
       parts = new[]
       {
-        new Part
-        {
-          sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
-          materialName = "DaughterCell",
-          // The two cells sit on roughly OPPOSITE sides, and each one's centre
-          // is pushed past the body's own radius. Both matter. An enemy turns
-          // to follow the path, so a pair of cells clustered on one side is
-          // hidden for half of every corner - the first version put both on
-          // -X and they were invisible from the camera. And a cell centred
-          // inside the spike field is swallowed by it whatever its colour.
-          offsetShare = new Vector3(0.52f, 0.46f, 0.16f),
-          scaleShare = new Vector3(0.42f, 0.42f, 0.42f),
-          euler = Vector3.zero,
-          // Bright amber against a purple parent. A same-hue cell disappears,
-          // which is what the review of the previous attempt was pointing at.
-          color = new Color(1f, 0.82f, 0.38f),
-        },
-        new Part
-        {
-          sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
-          materialName = "DaughterCell",
-          offsetShare = new Vector3(-0.30f, 0.26f, -0.48f),
-          scaleShare = new Vector3(0.33f, 0.33f, 0.33f),
-          euler = Vector3.zero,
-          color = new Color(1f, 0.76f, 0.32f),
-        },
+        Orb(new Vector3(0.54f, 0.52f, 0.14f), 0.30f),
+        Orb(new Vector3(-0.32f, 0.26f, -0.50f), 0.24f),
+        Orb(new Vector3(0.16f, 0.18f, 0.55f), 0.21f),
+        Orb(new Vector3(-0.50f, 0.62f, 0.22f), 0.18f),
+        Orb(new Vector3(0.30f, 0.78f, -0.34f), 0.16f),
+        Orb(new Vector3(-0.14f, 0.86f, 0.12f), 0.13f),
       },
     },
 
@@ -222,6 +211,19 @@ public static class EnemyArtSetup
         },
       },
     },
+  };
+
+  // A glowing daughter cell. Amber against the splitter's purple body, which
+  // is the contrast rule from Priority 2b: a same-hue part disappears.
+  private static Part Orb(Vector3 offsetShare, float size) => new Part
+  {
+    sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
+    materialName = "DaughterCell",
+    offsetShare = offsetShare,
+    scaleShare = new Vector3(size, size, size),
+    euler = Vector3.zero,
+    color = new Color(1f, 0.80f, 0.36f),
+    emission = 1.6f,
   };
 
   [MenuItem("Tools/Enemies/Report Base Parts")]
@@ -407,6 +409,17 @@ public static class EnemyArtSetup
     // A translucent part wants LOW smoothness: at high smoothness the shield
     // bubble read as polished glass rather than as a membrane.
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", part.color.a < 1f ? 0.25f : 0.4f);
+
+    if (part.emission > 0f && mat.HasProperty("_EmissionColor"))
+    {
+      mat.SetColor("_EmissionColor", part.color * part.emission);
+      mat.EnableKeyword("_EMISSION");
+      mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+    }
+    else
+    {
+      mat.DisableKeyword("_EMISSION");
+    }
 
     if (part.color.a < 1f) MakeTransparent(mat);
 

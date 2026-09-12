@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 // Renders the whole enemy cast in a row, at gameplay scale, so trait placement
@@ -34,16 +35,33 @@ public static class EnemyPreview
     "BossEnemy",
   };
 
+
+  // A bare `new GameObject` + Camera has no UniversalAdditionalCameraData, so
+  // URP runs it with post-processing OFF and logs a warning rather than an
+  // error. That silently disables Bloom, which is the whole reason an emissive
+  // part looks like flat bright paint in a preview and glows in the game. Any
+  // preview camera that needs to judge emission must go through here.
+  private static Camera MakePreviewCamera(string name)
+  {
+    var go = new GameObject(name);
+    Camera cam = go.AddComponent<Camera>();
+    cam.clearFlags = CameraClearFlags.SolidColor;
+    cam.backgroundColor = new Color(0.14f, 0.16f, 0.19f);
+    cam.fieldOfView = 32f;
+    cam.allowHDR = true;
+    UniversalAdditionalCameraData data = go.AddComponent<UniversalAdditionalCameraData>();
+    data.renderPostProcessing = true;
+    data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+    return cam;
+  }
+
   public static void Render()
   {
     EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
     Directory.CreateDirectory(OutputDir);
 
-    var camGo = new GameObject("EnemyPreviewCam");
-    Camera cam = camGo.AddComponent<Camera>();
-    cam.clearFlags = CameraClearFlags.SolidColor;
-    cam.backgroundColor = new Color(0.14f, 0.16f, 0.19f);
-    cam.fieldOfView = 32f;
+    Camera cam = MakePreviewCamera("EnemyPreviewCam");
+    GameObject camGo = cam.gameObject;
 
     // A dedicated light: MainGame's own rig is themed per environment and the
     // point here is to read silhouette, not lighting.
@@ -121,6 +139,82 @@ public static class EnemyPreview
     public float radius;   // horizontal half-extent, used for spacing
     public float framing;  // largest half-extent, used for camera distance
     public Vector3 centre; // world bounds centre, used as the look-at target
+  }
+
+  // Candidate bubble colours for the Shielded enemy, rendered side by side so
+  // the choice is made by looking rather than by imagining. The bubble's
+  // colour is one number in EnemyArtSetup; this only previews it.
+  private static readonly (string name, Color bubble, Color body)[] ShieldOptions =
+  {
+    ("cyan",   new Color(0.58f, 0.84f, 1.00f, 0.28f), new Color(0.26f, 0.36f, 0.56f)),
+    ("mint",   new Color(0.62f, 1.00f, 0.86f, 0.28f), new Color(0.20f, 0.40f, 0.40f)),
+    ("violet", new Color(0.78f, 0.68f, 1.00f, 0.28f), new Color(0.30f, 0.26f, 0.50f)),
+    ("gold",   new Color(1.00f, 0.90f, 0.55f, 0.28f), new Color(0.40f, 0.32f, 0.22f)),
+  };
+
+  // Renders the Shielded enemy once per candidate colour, in one wide shot.
+  public static void RenderShieldColors()
+  {
+    EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
+    Directory.CreateDirectory(OutputDir);
+
+    Camera cam = MakePreviewCamera("ShieldPreviewCam");
+    GameObject camGo = cam.gameObject;
+
+    var lightGo = new GameObject("ShieldPreviewLight");
+    Light key = lightGo.AddComponent<Light>();
+    key.type = LightType.Directional;
+    key.intensity = 1.25f;
+    key.transform.rotation = Quaternion.Euler(42f, 150f, 0f);
+
+    EnvironmentTheme.Apply("Environment 1");
+    var cfg = AssetDatabase.LoadAssetAtPath<EnemyConfig>($"{ConfigDir}/ShieldedEnemy.asset");
+    var made = new List<GameObject>();
+    float x = 0f;
+
+    foreach ((string name, Color bubble, Color body) option in ShieldOptions)
+    {
+      var go = (GameObject)PrefabUtility.InstantiatePrefab(cfg.prefab);
+      PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely,
+                                        InteractionMode.AutomatedAction);
+      go.transform.localScale *= UnitScale.Enemy * Mathf.Max(0.01f, cfg.scaleMultiplier);
+      go.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+
+      MeshRenderer bodyRenderer = Enemy.FindBodyRenderer(go);
+      if (bodyRenderer != null)
+      {
+        var block = new MaterialPropertyBlock();
+        bodyRenderer.GetPropertyBlock(block);
+        block.SetColor("_BaseColor", option.body);
+        block.SetColor("_Color", option.body);
+        bodyRenderer.SetPropertyBlock(block);
+      }
+
+      foreach (EnemyTrait trait in go.GetComponentsInChildren<EnemyTrait>(true))
+      {
+        typeof(EnemyTrait)
+          .GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)
+          ?.Invoke(trait, null);
+        trait.accentColor = option.bubble;
+        trait.ApplyTint(Color.white);
+      }
+
+      Bounds b = WorldBounds(go);
+      x += Mathf.Max(b.extents.x, b.extents.z) * 2.1f + 1.2f;
+      go.transform.position = new Vector3(x, -b.min.y, 0f);
+      made.Add(go);
+    }
+
+    var focus = new Vector3(x * 0.5f, 1.6f, 0f);
+    cam.transform.position = focus + new Vector3(0f, x * 0.26f, -x * 0.70f);
+    cam.transform.LookAt(focus);
+    Capture(cam, 1600, 560, "shield-colours");
+
+    foreach (GameObject go in made) Object.DestroyImmediate(go);
+    Object.DestroyImmediate(camGo);
+    Object.DestroyImmediate(lightGo);
+    Debug.Log("EnemyPreview wrote shield-colours (left to right: " +
+              string.Join(", ", System.Array.ConvertAll(ShieldOptions, o => o.name)) + ")");
   }
 
   private static List<Posed> BuildLineup(out float span)
