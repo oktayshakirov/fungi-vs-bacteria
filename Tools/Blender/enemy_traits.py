@@ -1,8 +1,13 @@
 # Authors the four "trait" meshes that tell the variety enemy types apart.
 #
 # Run headless:
-#   /Applications/Blender.app/Contents/MacOS/Blender --background \
-#     --python Tools/Blender/enemy_traits.py -- <outDir>
+#   blender --background --python Tools/Blender/enemy_traits.py -- <outDir>
+#
+# Verified byte-identical (ignoring the version comment the exporter writes)
+# under Blender 4.3.2 and 5.2.1, so either will do. `blender` on PATH is the
+# Homebrew cask's wrapper and tracks the current release; 4.3.2 is kept at
+# /Applications/Blender 4.3.app because it is what the committed meshes were
+# first generated with.
 #
 # Why traits and not whole new enemies: the four base models in
 # Assets/Meshes/Enemies are authored, detailed and heavy (up to 124k verts),

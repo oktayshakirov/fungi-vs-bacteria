@@ -735,19 +735,38 @@ These each cost real debugging time. They are not obvious from the code.
 
 ## 8. Blender / 3D models — resolved 2026-09-11
 
-**There is still no Blender MCP connector**, and one is not needed. Blender is
-installed at `/Applications/Blender.app` and can be driven headlessly from the
-shell, which is strictly better here: the geometry is a checked-in Python script
-rather than a binary nobody can diff.
+**The headless route is the one that matters, and one connector is not needed
+for it.** Blender is driven from the shell, which is strictly better here: the
+geometry is a checked-in Python script rather than a binary nobody can diff.
+
+Blender's own MCP server is installed as a Claude desktop extension and its
+tools reach a session, but it is only half the chain: it talks to a **Blender
+add-on** over `localhost:9876`, the add-on needs **Blender 5.1+** (hence the
+5.2.1 install), and it is installed by dragging it onto Blender twice from
+`blender.org/lab/mcp-server` - first drop adds the Lab repository, second
+installs the add-on. Note that `https://lab.blender.org/` is a **web page, not a
+repository URL**; adding it as a remote repository lists nothing. Blender's own
+page carries a blunt warning that the add-on executes generated code with no
+guards against data loss or exfiltration, and recommends a VM. It buys live
+scene inspection, and nothing the headless pipeline needs.
 
 ```
-/Applications/Blender.app/Contents/MacOS/Blender --background \
-  --python Tools/Blender/enemy_traits.py -- Assets/Meshes/Enemies/Traits
+blender --background --python Tools/Blender/enemy_traits.py -- Assets/Meshes/Enemies/Traits
 ```
 
-Blender 4.3.2, Python 3.11, with the glTF and FBX exporters present. The project
-imports models as **OBJ** (there is no glTF package in `Packages/manifest.json`),
-so the script exports OBJ to match the four existing enemy models.
+`blender` on PATH is the Homebrew cask's wrapper, currently **5.2.1 LTS**;
+**4.3.2** is kept beside it at `/Applications/Blender 4.3.app` because it is
+what the committed meshes were first generated with. The script's output is
+**byte-identical under both** once the version comment the exporter writes is
+ignored, so the pipeline is not pinned to a version - but re-check that after
+the next major bump rather than assuming it.
+
+Update Blender with `brew upgrade --cask blender`. There is **no in-app
+updater**; Blender only self-updates extensions, never the program.
+
+The project imports models as **OBJ** (there is no glTF package in
+`Packages/manifest.json`), so the script exports OBJ to match the four existing
+enemy models. The glTF and FBX exporters are also present if that ever changes.
 
 **Two traps in the export itself**, both of which produced silently wrong
 geometry on the first run:
