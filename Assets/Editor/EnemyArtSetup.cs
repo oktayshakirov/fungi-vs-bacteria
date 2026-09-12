@@ -71,6 +71,9 @@ public static class EnemyArtSetup
     // (HANDOFF Priority 3).
     public float emission;
     public bool hideWhileShieldDown;
+    public EnemyTrait.Motion motion;
+    public float motionSpeed;
+    public float motionAmount;
   }
 
   private struct Composition
@@ -111,7 +114,10 @@ public static class EnemyArtSetup
       // saturated blue spheres, so the body is recoloured too - and it stays
       // recoloured with the bubble gone, which is what keeps the two types
       // apart while the shield is regenerating.
-      setBodyColor = true, bodyColor = new Color(0.26f, 0.36f, 0.56f),
+      // Mint, chosen in review over cyan, violet and gold: cyan sat too close
+      // to the Armored enemy's blue, violet to the splitter's purple and the
+      // boss's magenta, and gold to the splitter's amber orbs.
+      setBodyColor = true, bodyColor = new Color(0.20f, 0.40f, 0.40f),
       parts = new[]
       {
         new Part
@@ -122,8 +128,9 @@ public static class EnemyArtSetup
           // Round, and a little wider than the body so it encloses the spikes.
           scaleShare = new Vector3(1.22f, 1.22f, 1.22f),
           euler = Vector3.zero,
-          color = new Color(0.58f, 0.84f, 1f, 0.28f),
+          color = new Color(0.62f, 1f, 0.86f, 0.28f),
           hideWhileShieldDown = true,
+          motion = EnemyTrait.Motion.Breathe, motionSpeed = 0.55f,
         },
       },
     },
@@ -169,6 +176,7 @@ public static class EnemyArtSetup
           scaleShare = new Vector3(1.28f, 0.36f, 0.36f),
           euler = new Vector3(0f, -22f, 9f),
           color = new Color(0.97f, 0.58f, 0.22f),
+          motion = EnemyTrait.Motion.Breathe, motionSpeed = 1.3f, motionAmount = 1.4f,
         },
         new Part
         {
@@ -178,6 +186,7 @@ public static class EnemyArtSetup
           scaleShare = new Vector3(1.07f, 0.30f, 0.30f),
           euler = new Vector3(0f, 17f, -7f),
           color = new Color(0.99f, 0.70f, 0.30f),
+          motion = EnemyTrait.Motion.Breathe, motionSpeed = 1.1f, motionAmount = 1.4f,
         },
       },
     },
@@ -203,11 +212,17 @@ public static class EnemyArtSetup
           // tendrils ended inside the spike field and read as tangle rather
           // than as reach; the whole point is a silhouette that extends past
           // the creature towards its neighbours.
-          scaleShare = new Vector3(1.55f, 1.45f, 1.45f),
+          // Big enough to reach past the spikes, not so big it buries the
+          // body: at 1.55 the aura read as a white dandelion and the green
+          // creature inside it was barely visible.
+          scaleShare = new Vector3(1.32f, 1.26f, 1.26f),
           euler = Vector3.zero,
           // Near-white, not green. A green aura on a green body is the same
           // mistake as a purple cell on a purple body.
-          color = new Color(0.97f, 1f, 0.92f),
+          // Off-white with a green cast, so it still contrasts with the body
+          // without becoming the brightest thing on the board.
+          color = new Color(0.86f, 1f, 0.84f),
+          motion = EnemyTrait.Motion.Pulse, motionSpeed = 0.7f,
         },
       },
     },
@@ -222,8 +237,22 @@ public static class EnemyArtSetup
     offsetShare = offsetShare,
     scaleShare = new Vector3(size, size, size),
     euler = Vector3.zero,
-    color = new Color(1f, 0.80f, 0.36f),
-    emission = 1.6f,
+    // Deeper amber than it looks like it should be, because emission
+    // MULTIPLIES and anything over 1 clips per channel. A light amber at
+    // emission 1.5 clipped to near-white and the orbs stopped reading as
+    // amber at all; starting darker means the clipped result is still amber.
+    color = new Color(1f, 0.58f, 0.12f),
+    // Tuned to look right with NO bloom, deliberately. Emission is verified
+    // working here (the material carries _EMISSION and the orbs self-light),
+    // but bloom's halo could not be verified: URP's post-processing does not
+    // run for a camera driven by Camera.Render() from an editor batch method,
+    // so no preview in this project can show it. Anything above ~2 clips to
+    // white and the orbs lose their amber identity, which is a real regression
+    // if bloom turns out to be off on a device.
+    emission = 1.35f,
+    // Slow: these are meant to drift around the parent, and anything faster
+    // reads as a spinning prop bolted to it.
+    motion = EnemyTrait.Motion.Orbit, motionSpeed = 0.16f,
   };
 
   [MenuItem("Tools/Enemies/Report Base Parts")]
@@ -303,6 +332,9 @@ public static class EnemyArtSetup
         marker.accentColor = part.color;
         marker.tintWithBiome = false;
         marker.hideWhileShieldDown = part.hideWhileShieldDown;
+        marker.motion = part.motion;
+        marker.motionSpeed = part.motionSpeed > 0f ? part.motionSpeed : 1f;
+        marker.motionAmount = part.motionAmount > 0f ? part.motionAmount : 1f;
 
         // The mesh is scaled RELATIVE TO ITS OWN SIZE so that a scaleShare of
         // 1 means "as wide as the body". Without dividing by the source mesh's
@@ -413,15 +445,28 @@ public static class EnemyArtSetup
     if (part.emission > 0f && mat.HasProperty("_EmissionColor"))
     {
       mat.SetColor("_EmissionColor", part.color * part.emission);
+      // RealtimeEmissive, matching the project's existing emissive materials
+      // (Towers/PoisonTower/Projectile.mat). EmissiveIsBlack is the flag that
+      // tells Unity this material does not emit, and setting it alongside an
+      // emission colour is how the _EMISSION keyword ends up stripped on save:
+      // the colour persists, the keyword does not, and the material renders as
+      // flat bright paint with no clue why.
+      mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+    }
+
+    if (part.color.a < 1f) MakeTransparent(mat);
+
+    // Keywords LAST. Assigning mat.shader and changing surface properties both
+    // re-validate a material's keyword list, so a keyword enabled earlier in
+    // this method can be dropped again before the asset is written.
+    if (part.emission > 0f && mat.HasProperty("_EmissionColor"))
+    {
       mat.EnableKeyword("_EMISSION");
-      mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
     }
     else
     {
       mat.DisableKeyword("_EMISSION");
     }
-
-    if (part.color.a < 1f) MakeTransparent(mat);
 
     if (existing == null) AssetDatabase.CreateAsset(mat, path);
     else EditorUtility.SetDirty(mat);

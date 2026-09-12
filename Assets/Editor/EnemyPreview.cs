@@ -217,6 +217,77 @@ public static class EnemyPreview
               string.Join(", ", System.Array.ConvertAll(ShieldOptions, o => o.name)) + ")");
   }
 
+  // Renders one enemy at four points in its walk cycle, side by side.
+  //
+  // Animation is the one thing a normal preview cannot check: a still frame at
+  // an arbitrary phase looks like any other still, so an amplitude that is far
+  // too strong or effectively zero both pass unnoticed. Posing the same enemy
+  // at four phases makes the travel visible in a single image, and it uses
+  // Enemy's own WaddleScale/WaddleRoll so it cannot drift from the game.
+  public static void RenderMotion()
+  {
+    EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
+    Directory.CreateDirectory(OutputDir);
+
+    Camera cam = MakePreviewCamera("MotionPreviewCam");
+    var lightGo = new GameObject("MotionPreviewLight");
+    Light key = lightGo.AddComponent<Light>();
+    key.type = LightType.Directional;
+    key.intensity = 1.25f;
+    key.transform.rotation = Quaternion.Euler(42f, 150f, 0f);
+
+    EnvironmentTheme.Apply("Environment 1");
+
+    foreach (string name in new[] { "SplitterEnemy", "HealerEnemy", "ShieldedEnemy", "SwarmEnemy" })
+    {
+      var cfg = AssetDatabase.LoadAssetAtPath<EnemyConfig>($"{ConfigDir}/{name}.asset");
+      if (cfg == null || cfg.prefab == null) continue;
+
+      var made = new List<GameObject>();
+      float x = 0f;
+      float half = 1f;
+
+      // A whole cycle of the SLOWEST thing on the enemy, so the orbit is
+      // sampled across a full revolution rather than four adjacent frames.
+      for (int i = 0; i < 4; i++)
+      {
+        float time = i / 4f * (Mathf.PI * 2f / Enemy.WaddleSpeed) + i * 1.55f;
+
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(cfg.prefab);
+        PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely,
+                                          InteractionMode.AutomatedAction);
+        Vector3 rest = go.transform.localScale *
+                       (UnitScale.Enemy * Mathf.Max(0.01f, cfg.scaleMultiplier));
+        go.transform.localScale = Enemy.WaddleScale(rest, time, 0f);
+        go.transform.rotation = Quaternion.Euler(0f, 90f, 0f) * Enemy.WaddleRoll(time, 0f);
+
+        TintBody(go, cfg);
+        TintTraits(go);
+        foreach (EnemyTrait trait in go.GetComponentsInChildren<EnemyTrait>(true))
+        {
+          trait.Animate(time);
+        }
+
+        Bounds b = WorldBounds(go);
+        half = Mathf.Max(b.extents.x, b.extents.z);
+        x += half * 2f + 0.9f;
+        go.transform.position = new Vector3(x, -b.min.y, 0f);
+        made.Add(go);
+      }
+
+      var focus = new Vector3(x * 0.5f, half * 0.9f, 0f);
+      cam.transform.position = focus + new Vector3(0f, x * 0.22f, -x * 0.62f);
+      cam.transform.LookAt(focus);
+      Capture(cam, 1500, 520, $"motion-{name}");
+
+      foreach (GameObject go in made) Object.DestroyImmediate(go);
+    }
+
+    Object.DestroyImmediate(cam.gameObject);
+    Object.DestroyImmediate(lightGo);
+    Debug.Log($"EnemyPreview wrote motion sheets to {OutputDir}");
+  }
+
   private static List<Posed> BuildLineup(out float span)
   {
     var cast = new List<Posed>();

@@ -105,6 +105,9 @@ MonoBehaviour:
   accentColor: {r: 0.97, g: 0.58, b: 0.22, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 3
+  motionSpeed: 1.3
+  motionAmount: 1.4
 --- !u!1 &7737114328426932474
 GameObject:
   m_ObjectHideFlags: 0
@@ -210,6 +213,9 @@ MonoBehaviour:
   accentColor: {r: 0.99, g: 0.7, b: 0.3, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 3
+  motionSpeed: 1.1
+  motionAmount: 1.4
 --- !u!1001 &5372477044253326953
 PrefabInstance:
   m_ObjectHideFlags: 0

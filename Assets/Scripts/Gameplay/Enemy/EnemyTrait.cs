@@ -1,52 +1,122 @@
 using UnityEngine;
 
-// Marks the extra geometry that gives a variety enemy type its own silhouette.
+// Marks and animates the extra geometry that gives a variety enemy type its own
+// silhouette. See EnemyArtSetup for how the parts are assembled.
 //
-// Why this exists at all: Swarm / Shielded / Splitter / Healer all reuse one of
-// the four authored base bodies, and until now the only thing telling them
-// apart was a colour tint and a scale factor. A tint does not read at phone
-// size against seven different biome palettes, and two types that differ only
-// in size read as the same type at two distances. So each of them now carries
-// one small authored mesh - a fringe, a carapace, budding lobes, a spore crown
-// - parented under the base body. See Tools/Blender/enemy_traits.py.
+// The component is a MARKER first. Enemy, EnemyHealthBar and EnemySpawner all
+// need to find "the body", and the bare GetComponentInChildren<MeshRenderer>()
+// they used to call returns the FIRST renderer in depth-first order - which
+// after composition can be a shield bubble or a daughter cell. That would tint
+// the part instead of the body and hang the health bar off the wrong thing.
+// Enemy.FindBodyRenderer skips anything under an EnemyTrait; nothing else may
+// assume sibling order.
 //
-// The component is a MARKER first and a behaviour second. Enemy,
-// EnemyHealthBar and EnemySpawner all resolve "the body" with
-// GetComponentInChildren<MeshRenderer>(), which returns the FIRST renderer in
-// depth-first order - so without a way to recognise a trait, adding one could
-// silently make the trait the thing that gets tinted, and make the health bar
-// hover at the trait's height instead of the body's. Enemy.FindBodyRenderer
-// skips anything under an EnemyTrait; nothing else may assume sibling order.
+// It is also where a part's motion lives, but it deliberately has NO Update.
+// A splitter carries six orbs and a late wave holds 30+ enemies, so per-part
+// Update calls would be ~200 messages a frame for decoration. Enemy already
+// caches its traits and drives them from its own Update by calling Animate.
 [DisallowMultipleComponent]
 public class EnemyTrait : MonoBehaviour
 {
-  [Tooltip("Accent colour for the trait itself, before the biome tint. Kept " +
-           "separate from the body colour so the trait stays legible against " +
-           "a body that the biome has pushed towards the same hue.")]
+  public enum Motion
+  {
+    None,
+    Orbit,    // circles the host's vertical axis, with a slow vertical drift
+    Pulse,    // swells and shrinks, for an aura that should look like it acts
+    Breathe,  // a gentler swell, for a membrane that should not look rigid
+  }
+
+  [Tooltip("Accent colour for the part itself. Kept separate from the body " +
+           "colour so the part stays legible against a body the biome has " +
+           "pushed towards the same hue.")]
   public Color accentColor = Color.white;
 
   [Tooltip("Multiplies the biome enemy tint into the accent. Off keeps the " +
-           "trait a fixed colour everywhere, which is what makes a shielded " +
-           "enemy read blue in all seven biomes.")]
+           "part a fixed colour everywhere, which is what makes a type read " +
+           "the same in all seven biomes.")]
   public bool tintWithBiome = true;
 
-  [Tooltip("Hides the trait while the enemy's shield pool is empty. This is " +
-           "the carapace: a shielded enemy with no shield left should look " +
-           "like it lost something, and it is the only in-world cue that the " +
-           "regen delay is running.")]
+  [Tooltip("Hides the part while the enemy's shield pool is empty. This is " +
+           "the shield bubble: a shielded enemy with no shield left should " +
+           "look like it lost something, and it is the only in-world cue " +
+           "that the regen delay is running.")]
   public bool hideWhileShieldDown = false;
+
+  [Header("Motion")]
+  public Motion motion = Motion.None;
+  [Tooltip("Cycles per second.")]
+  public float motionSpeed = 1f;
+  [Tooltip("Scales the whole effect. 1 is the tuned default.")]
+  public float motionAmount = 1f;
 
   private MeshRenderer[] renderers;
   private MaterialPropertyBlock block;
   private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
   private static readonly int ColorId = Shader.PropertyToID("_Color");
 
+  // Rest pose, captured once. Orbit works in polar coordinates around the
+  // host's axis so a part keeps the radius and the bearing it was authored at
+  // and simply travels around - which preserves the hand-spread arrangement of
+  // the splitter's orbs instead of snapping them onto an even ring.
+  private Vector3 restPosition;
+  private Vector3 restScale;
+  private float restRadius;
+  private float restAngle;
+  private float phase;
+  private bool captured;
+
   private void Awake()
   {
     renderers = GetComponentsInChildren<MeshRenderer>(true);
+    Capture();
   }
 
-  // Called by Enemy whenever it applies its own appearance.
+  private void Capture()
+  {
+    if (captured) return;
+    restPosition = transform.localPosition;
+    restScale = transform.localScale;
+    restRadius = new Vector2(restPosition.x, restPosition.z).magnitude;
+    restAngle = Mathf.Atan2(restPosition.z, restPosition.x);
+    // Per-part offset so parts on one enemy do not pulse in lockstep, derived
+    // from the rest bearing rather than from Random so a pooled part animates
+    // identically every time it is reused.
+    phase = restAngle + restPosition.y;
+    captured = true;
+  }
+
+  // Driven by Enemy.Update. `time` is passed in rather than read from Time.time
+  // so a preview can render the same part at several points in its cycle - the
+  // amplitude is the only thing that can look wrong here, and a still frame at
+  // one phase cannot show it.
+  public void Animate(float time)
+  {
+    if (motion == Motion.None) return;
+    Capture();
+
+    float t = time * motionSpeed * Mathf.PI * 2f + phase;
+
+    switch (motion)
+    {
+      case Motion.Orbit:
+      {
+        float angle = restAngle + time * motionSpeed * Mathf.PI * 2f;
+        float lift = Mathf.Sin(t * 0.7f) * 0.05f * motionAmount * Mathf.Max(0.001f, restRadius);
+        transform.localPosition = new Vector3(
+          Mathf.Cos(angle) * restRadius,
+          restPosition.y + lift,
+          Mathf.Sin(angle) * restRadius);
+        break;
+      }
+      case Motion.Pulse:
+        transform.localScale = restScale * (1f + Mathf.Sin(t) * 0.10f * motionAmount);
+        break;
+      case Motion.Breathe:
+        transform.localScale = restScale * (1f + Mathf.Sin(t) * 0.035f * motionAmount);
+        break;
+    }
+  }
+
   public void ApplyTint(Color biomeTint)
   {
     if (renderers == null || renderers.Length == 0) return;

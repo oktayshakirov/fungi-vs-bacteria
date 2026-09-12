@@ -28,8 +28,8 @@ Transform:
   m_GameObject: {fileID: 443570198267110861}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.010411231, y: 1.7830209, z: 0.32341948}
-  m_LocalScale: {x: 1.1741514, y: 1.8794861, z: 1.5747336}
+  m_LocalPosition: {x: -0.008866339, y: 1.7716838, z: 0.2810404}
+  m_LocalScale: {x: 0.9999226, y: 1.6332085, z: 1.3683892}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4634665863112011470}
@@ -102,9 +102,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 0.97, g: 1, b: 0.92, a: 1}
+  accentColor: {r: 0.86, g: 1, b: 0.84, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 2
+  motionSpeed: 0.7
+  motionAmount: 1
 --- !u!1001 &6915154435499474946
 PrefabInstance:
   m_ObjectHideFlags: 0

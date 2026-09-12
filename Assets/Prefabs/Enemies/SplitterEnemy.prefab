@@ -102,9 +102,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 1, g: 0.8, b: 0.36, a: 1}
+  accentColor: {r: 1, g: 0.58, b: 0.12, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 1
+  motionSpeed: 0.16
+  motionAmount: 1
 --- !u!1 &942045029586205546
 GameObject:
   m_ObjectHideFlags: 0
@@ -207,9 +210,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 1, g: 0.8, b: 0.36, a: 1}
+  accentColor: {r: 1, g: 0.58, b: 0.12, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 1
+  motionSpeed: 0.16
+  motionAmount: 1
 --- !u!1 &945351362341902334
 GameObject:
   m_ObjectHideFlags: 0
@@ -312,9 +318,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 1, g: 0.8, b: 0.36, a: 1}
+  accentColor: {r: 1, g: 0.58, b: 0.12, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 1
+  motionSpeed: 0.16
+  motionAmount: 1
 --- !u!1 &1596046071059650981
 GameObject:
   m_ObjectHideFlags: 0
@@ -417,9 +426,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 1, g: 0.8, b: 0.36, a: 1}
+  accentColor: {r: 1, g: 0.58, b: 0.12, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 1
+  motionSpeed: 0.16
+  motionAmount: 1
 --- !u!1 &2023300877955274344
 GameObject:
   m_ObjectHideFlags: 0
@@ -522,9 +534,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 1, g: 0.8, b: 0.36, a: 1}
+  accentColor: {r: 1, g: 0.58, b: 0.12, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 1
+  motionSpeed: 0.16
+  motionAmount: 1
 --- !u!1 &3494251194850645321
 GameObject:
   m_ObjectHideFlags: 0
@@ -627,9 +642,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 1, g: 0.8, b: 0.36, a: 1}
+  accentColor: {r: 1, g: 0.58, b: 0.12, a: 1}
   tintWithBiome: 0
   hideWhileShieldDown: 0
+  motion: 1
+  motionSpeed: 0.16
+  motionAmount: 1
 --- !u!1001 &1452376471466497959
 PrefabInstance:
   m_ObjectHideFlags: 0

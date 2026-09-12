@@ -69,9 +69,22 @@ public class Enemy : MonoBehaviour
   private MeshRenderer bodyRenderer;
   private EnemyTrait[] traits;
   private bool shieldWasUp = true;
+  // Yaw is tracked separately from transform.rotation because the body's waddle
+  // writes a roll on top of it. Slerping towards the target FROM the rotation
+  // that already carries the roll would let the two fight, and the roll would
+  // be slowly absorbed into the facing.
+  private Quaternion yawRotation = Quaternion.identity;
+  private float motionPhase;
   private static MaterialPropertyBlock propertyBlock;
   private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
   private static readonly int ColorId = Shader.PropertyToID("_Color");
+
+  // Public so EnemyPreview can pose an enemy at a chosen point in the walk
+  // cycle using the SAME numbers the game runs - a still frame is the only way
+  // to check the amplitude, and duplicating the constants in the preview is
+  // how a preview ends up reassuring you about motion the game does not have.
+  public const float WaddleSpeed = 7.5f;
+  public const float WaddleRollDegrees = 3.5f;
 
   private static readonly Color DamageColor = new Color(1f, 0.85f, 0.2f);
   private static readonly Color GoldColor = new Color(1f, 0.9f, 0.35f);
@@ -149,6 +162,10 @@ public class Enemy : MonoBehaviour
     isRemoved = false;
     slowAmount = 0f;
     hitPunch = 0f;
+    // A per-enemy offset, or a whole wave waddles in lockstep and reads as one
+    // object. Seeded from the instance id so a pooled enemy is stable rather
+    // than re-randomising every time it is reused.
+    motionPhase = (GetInstanceID() & 1023) / 1023f * Mathf.PI * 2f;
 
     waypoints = path;
     currentWaypointIndex = Mathf.Clamp(ov.startWaypoint, 0, waypoints.Length - 1);
@@ -194,6 +211,7 @@ public class Enemy : MonoBehaviour
     {
       Vector3 initialDirection = (waypoints[next] - waypoints[currentWaypointIndex]).normalized;
       SetTargetRotation(initialDirection);
+      yawRotation = targetRotation;
       transform.rotation = targetRotation; // snap on spawn only
     }
 
@@ -262,6 +280,50 @@ public class Enemy : MonoBehaviour
     }
   }
 
+  // The walk: a squash-and-stretch waddle and a small roll, plus whatever each
+  // composed part does.
+  //
+  // Deliberately NOT a vertical bob on this transform. Pathing reads
+  // transform.position, moves it with MoveTowards and decides it has arrived
+  // when the distance to the waypoint drops under 0.1 - so lifting the root
+  // would feed the bob straight back into the arrival test and an enemy could
+  // hover next to a waypoint without ever reaching it. Squash and stretch buys
+  // the same sense of a footfall without touching position at all.
+  //
+  // Runs on SCALED time so the 2x and 3x speed controls make the walk faster,
+  // which is what the eye expects when the whole board speeds up.
+  private void ApplyMotion(float time)
+  {
+    Vector3 scale = WaddleScale(currentScale, time, motionPhase);
+    transform.localScale = scale * (1f + hitPunch * 0.18f);
+
+    transform.rotation = yawRotation * WaddleRoll(time, motionPhase);
+
+    if (traits == null) return;
+    foreach (EnemyTrait trait in traits)
+    {
+      if (trait != null) trait.Animate(time);
+    }
+  }
+
+  // Volume-preserving-ish: tall and narrow, then short and wide. Amplitudes
+  // are small on purpose - the models are detailed and organic, and anything
+  // stronger reads as the mesh deforming rather than as the creature walking.
+  public static Vector3 WaddleScale(Vector3 rest, float time, float phase)
+  {
+    float wave = Mathf.Sin(time * WaddleSpeed + phase);
+    return new Vector3(
+      rest.x * (1f - wave * 0.028f),
+      rest.y * (1f + wave * 0.055f),
+      rest.z * (1f - wave * 0.028f));
+  }
+
+  public static Quaternion WaddleRoll(float time, float phase)
+  {
+    return Quaternion.Euler(
+      0f, 0f, Mathf.Sin((time * WaddleSpeed + phase) * 0.5f) * WaddleRollDegrees);
+  }
+
   private void SetTargetRotation(Vector3 direction)
   {
     if (direction != Vector3.zero)
@@ -283,14 +345,14 @@ public class Enemy : MonoBehaviour
     // Look in the movement direction, turning smoothly instead of snapping
     Vector3 direction = (targetPosition - transform.position).normalized;
     SetTargetRotation(direction);
-    transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, turnSpeed * Time.deltaTime);
+    yawRotation = Quaternion.Slerp(yawRotation, targetRotation, turnSpeed * Time.deltaTime);
 
-    // Decay the hit-punch scale back to normal
     if (hitPunch > 0f)
     {
       hitPunch = Mathf.Max(0f, hitPunch - Time.deltaTime * 6f);
-      transform.localScale = currentScale * (1f + hitPunch * 0.18f);
     }
+
+    ApplyMotion(Time.time);
 
     TickShield();
     TickHealer();

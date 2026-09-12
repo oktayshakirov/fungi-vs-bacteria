@@ -161,6 +161,9 @@ but until then a new file is silently not compiled.
 | `EnemyArtSetup.BuildVariants` | Rebuilds the four variety enemy prefabs by composing existing model parts | yes |
 | `EnemyArtSetup.ReportBaseParts` | Lists every reusable part of the four base models, with vert counts | yes |
 | `EnemyPreview.Render` | The whole enemy cast in a row, per biome, plus close-ups | **no** |
+| `EnemyPreview.RenderMotion` | One enemy posed at four points in its walk cycle | **no** |
+| `EnemyPreview.RenderShieldColors` | Candidate shield-bubble colours side by side | **no** |
+| `RenderSetup.ApplyPostProcessing` | Writes the bloom values into the volume profile | yes |
 | `SceneCost.Report` | Draw calls / triangles / materials | **no** |
 | `SceneCost.RenderCliff` | The island underside | **no** |
 | `BalanceSim.RunBatch` | Plays all 70 levels, writes `Builds/Balance/balance.csv` | yes |
@@ -328,9 +331,82 @@ identifiable **with its bubble popped** - rendered as
 `BalanceSim` output is **byte-identical** across both attempts, which is the
 check that this changed nothing but appearance.
 
+**Second review pass, also phase 18.** The shield bubble is **mint**, chosen
+from a rendered sheet of four candidates (`EnemyPreview.RenderShieldColors`)
+because cyan sat too close to the Armored enemy's blue, violet to the splitter's
+purple and the boss's magenta, and gold to the splitter's amber orbs. The
+splitter's two buds became **six emissive orbs orbiting the body**.
+
+**Enemies now move, which they never did before.** Nothing on an enemy animated
+except its position - no bob, no wobble, nothing. The models are static meshes
+with no skeletons, so skeletal animation is not available without rigging them,
+but transform-level motion is nearly free:
+
+- Every enemy has a squash-and-stretch **waddle** plus a small roll, in
+  `Enemy.WaddleScale` / `Enemy.WaddleRoll`.
+- Composed parts animate via `EnemyTrait.Motion`: the splitter's orbs **orbit**,
+  the healer's aura **pulses**, the shield bubble and the swarm's rods
+  **breathe**.
+
+Five traps this created, all of them the kind that pass a still render:
+
+- **No vertical bob on the enemy root, ever.** Pathing reads
+  `transform.position`, moves it with `MoveTowards` and decides it has arrived
+  when the distance to the waypoint drops under 0.1 - so lifting the root feeds
+  the bob back into the arrival test and an enemy can hover beside a waypoint
+  without ever reaching it. Squash and stretch buys the same footfall feel
+  without touching position.
+- **Yaw is tracked separately** in `Enemy.yawRotation`. The waddle writes a roll
+  on top of the facing, and slerping toward the target FROM a rotation that
+  already carries the roll lets the two fight until the roll is absorbed.
+- **`EnemyTrait` has no `Update` on purpose.** A splitter carries six orbs and a
+  late wave holds 30+ enemies, so per-part Updates would be ~200 messages a
+  frame for decoration. `Enemy` caches its traits and calls `Animate` from its
+  own Update.
+- **Motion takes `time` as a parameter** rather than reading `Time.time`, so
+  `EnemyPreview.RenderMotion` can pose the same enemy at four phases in one
+  image. Amplitude is the only thing that can look wrong, and a single still at
+  an arbitrary phase cannot show it - an amplitude that is far too strong and
+  one that is effectively zero both look the same.
+- **Per-enemy phase offsets are mandatory.** Without them a whole wave waddles
+  in lockstep and reads as one object. Seeded from the instance id, not from
+  `Random`, so a pooled enemy animates the same way each time it is reused.
+
+**Bloom is now on, and it never was.** The override was present and active in
+`DefaultVolumeProfile` with an **intensity of zero**, so nothing in the game
+glowed and it looked as though emissive materials were being ignored.
+`RenderSetup.ApplyPostProcessing` is the source of truth for the values.
+Threshold is **above 1** deliberately: only colours pushed past white by an
+emissive material bloom, where at the stock 0.9 every bright surface joins in -
+the enemies' white eyes, the sky, the neon UI cues - and the result is haze.
+
+Two more that will cost time if forgotten:
+
+- **`EnemyArtSetup` must enable shader keywords LAST.** Assigning `mat.shader`
+  and changing surface properties both re-validate a material's keyword list,
+  so `_EMISSION` enabled earlier in the method is dropped before the asset is
+  written. And setting `globalIlluminationFlags = EmissiveIsBlack` alongside an
+  emission colour strips it too. The symptom is an `_EmissionColor` sitting in
+  the `.mat` with no `_EMISSION` in `m_ValidKeywords`, and a part that renders
+  as flat bright paint. Compare against `Towers/PoisonTower/Projectile.mat`,
+  which was already correct.
+- **Emission MULTIPLIES and clips per channel.** A light amber at emission 1.5
+  clipped to near-white and the orbs stopped reading as amber. Start from a
+  DEEPER colour than looks right so the clipped result keeps its hue.
+
+**Bloom's halo is UNVERIFIED.** Emission is confirmed working - the material
+carries the keyword and the orbs self-light in a render - but URP's
+post-processing does not run for a camera driven by `Camera.Render()` from an
+editor batch method, so **no preview in this project can show bloom.** The orbs
+are therefore tuned to look right with bloom OFF, so they degrade gracefully.
+Check the glow in the editor or on a device before trusting it.
+
 What still needs a human: whether a part reads at phone size in a pack of
-thirty, whether the bubble popping reads as "shield broken", and whether the
-translucent bubble costs anything in overdraw on a real device.
+thirty, whether the bubble popping reads as "shield broken", whether the waddle
+amplitude feels alive or seasick in motion, and what the translucent bubble plus
+bloom cost in overdraw on a real device. That last one matters more now than it
+did - bloom is full-screen work on a phone whose performance has never been
+re-measured (Priority 3).
 
 **Priority 4 — Gameplay haptics. DONE (`c13cffe`), not felt on device yet.**
 Placement, wave start and sell already fired through `AudioManager.PlaySound`;

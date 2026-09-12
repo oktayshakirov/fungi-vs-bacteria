@@ -102,9 +102,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
-  accentColor: {r: 0.58, g: 0.84, b: 1, a: 0.28}
+  accentColor: {r: 0.62, g: 1, b: 0.86, a: 0.28}
   tintWithBiome: 0
   hideWhileShieldDown: 1
+  motion: 3
+  motionSpeed: 0.55
+  motionAmount: 1
 --- !u!1001 &2230217800666596458
 PrefabInstance:
   m_ObjectHideFlags: 0
