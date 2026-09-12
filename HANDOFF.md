@@ -163,6 +163,7 @@ but until then a new file is silently not compiled.
 | `EnemyPreview.Render` | The whole enemy cast in a row, per biome, plus close-ups | **no** |
 | `EnemyPreview.RenderMotion` | One enemy posed at four points in its walk cycle | **no** |
 | `EnemyPreview.RenderShieldColors` | Candidate shield-bubble colours side by side | **no** |
+| `EnemyPreview.RenderHealerOptions` | Healer colour variants, with a Basic enemy beside them | **no** |
 | `RenderSetup.ApplyPostProcessing` | Writes the bloom values into the volume profile | yes |
 | `SceneCost.Report` | Draw calls / triangles / materials | **no** |
 | `SceneCost.RenderCliff` | The island underside | **no** |
@@ -287,7 +288,7 @@ and a scale. Each is now **composed out of parts of the existing models** by
 | Shielded | ArmoredEnemy | one eye-white sphere, translucent | a bubble enclosing the whole body, gone when the shield breaks |
 | Splitter | BasicEnemy | two eye-white spheres, amber | daughter cells budding out of opposite sides |
 | Swarm | FastEnemy | two Fast bodies | a colony of rods rather than one small enemy |
-| Healer | BasicEnemy | Fast's hair mesh, near-white | an aura reaching out past the body towards neighbours |
+| Healer | BasicEnemy | Fast's hair mesh, plus three crossed-capsule signs | a pale aura reaching outward, with glowing red healing crosses circling it |
 
 **This is the second attempt, and the first one is the lesson.** It bolted on
 four small meshes generated in Blender - a carapace, a spore crown, budding
@@ -401,9 +402,45 @@ editor batch method, so **no preview in this project can show bloom.** The orbs
 are therefore tuned to look right with bloom OFF, so they degrade gracefully.
 Check the glow in the editor or on a device before trusting it.
 
+**Third review pass, also phase 18: the healer's signs.** The aura alone read
+as "good but unclear", so the healer now carries three glowing red healing
+crosses orbiting it, each built as two crossed capsules from Fast's body mesh.
+
+- **The crosses lie FLAT, in the horizontal plane, on purpose.** A plus is
+  symmetric under a quarter turn, so a horizontal one reads as a plus whichever
+  way the enemy is facing. An upright cross would have to billboard towards the
+  camera or it degenerates into a single bar every time the enemy turns
+  side-on - and billboarding means feeding a camera into every part's animation
+  for a decoration. The game camera looks down at 30-40 degrees, so a flat
+  cross is foreshortened but still unmistakable.
+- **The body stays GREEN and only the signs are red.** A red-bodied healer was
+  rendered and rejected: the Basic enemy is already a red spiky ball and the
+  healer shares its body mesh, so the two were nearly indistinguishable side by
+  side. `EnemyPreview.RenderHealerOptions` stands a Basic enemy next to the
+  variants so that collision is visible rather than argued about. Red is the
+  right signal; confining it to the signs is what keeps it usable.
+
+Two more traps, and the first one is the nastiest found in this whole phase:
+
+- **`Compositions` is a static initialiser, so anything it calls runs BEFORE
+  static fields declared later in the file.** A `static readonly Color HealRed`
+  declared under the table was still `(0,0,0,0)` when the parts were built. The
+  signs came out transparent black - and because alpha 0 also routes a material
+  through `MakeTransparent`, they rendered as invisible smudges rather than as
+  anything that looked like a colour bug. `HealRed` is now a **property**, so
+  it is evaluated on use and declaration order stops mattering, and
+  `BuildVariants` logs an error for any part whose colour is still `default`.
+- **Emission ADDS to the lit colour, so strong emission DESATURATES.** At 1.5
+  the red signs lifted their green and blue channels too and turned salmon,
+  which is the opposite of what a healing cross needs. They sit at 0.8. Note
+  this pulls the opposite way from the clipping rule above - the orbs needed a
+  deeper base colour, the signs needed weaker emission. There is no single
+  right number; check the render.
+
 What still needs a human: whether a part reads at phone size in a pack of
 thirty, whether the bubble popping reads as "shield broken", whether the waddle
-amplitude feels alive or seasick in motion, and what the translucent bubble plus
+amplitude feels alive or seasick in motion, whether the healing crosses read as
+crosses on a phone or just as red flecks, and what the translucent bubble plus
 bloom cost in overdraw on a real device. That last one matters more now than it
 did - bloom is full-screen work on a phone whose performance has never been
 re-measured (Priority 3).

@@ -288,6 +288,123 @@ public static class EnemyPreview
     Debug.Log($"EnemyPreview wrote motion sheets to {OutputDir}");
   }
 
+  // Healer variants, side by side: the question is whether the RED belongs on
+  // the signs or on the creature. It cannot be answered in the abstract,
+  // because the Basic enemy is already a red spiky ball and the healer shares
+  // its body mesh - so a red-bodied healer risks reading as a Basic enemy with
+  // decorations. The rightmost option puts a Basic enemy next to it to make
+  // that collision visible rather than theoretical.
+  public static void RenderHealerOptions()
+  {
+    EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
+    Directory.CreateDirectory(OutputDir);
+
+    Camera cam = MakePreviewCamera("HealerPreviewCam");
+    var lightGo = new GameObject("HealerPreviewLight");
+    Light key = lightGo.AddComponent<Light>();
+    key.type = LightType.Directional;
+    key.intensity = 1.25f;
+    key.transform.rotation = Quaternion.Euler(42f, 150f, 0f);
+
+    EnvironmentTheme.Apply("Environment 1");
+
+    var green = new Color(0.35f, 0.9f, 0.45f);
+    var red = new Color(0.88f, 0.20f, 0.18f);
+    var signRed = new Color(1f, 0.13f, 0.10f);
+    var signWhite = new Color(1f, 0.97f, 0.94f);
+
+    // name, healer body, sign colour, aura colour, and whether to stand a
+    // Basic enemy beside it for comparison.
+    var options = new (string name, Color body, Color sign, Color aura, bool withBasic)[]
+    {
+      ("green body, red signs", green, signRed, new Color(0.86f, 1f, 0.84f), false),
+      ("red body, white signs", red, signWhite, new Color(1f, 0.94f, 0.92f), false),
+      ("red body, red signs", red, signRed, new Color(1f, 0.90f, 0.88f), true),
+    };
+
+    var cfg = AssetDatabase.LoadAssetAtPath<EnemyConfig>($"{ConfigDir}/HealerEnemy.asset");
+    var basicCfg = AssetDatabase.LoadAssetAtPath<EnemyConfig>($"{ConfigDir}/BasicEnemy.asset");
+    var made = new List<GameObject>();
+    float x = 0f;
+    float half = 1f;
+
+    foreach (var option in options)
+    {
+      GameObject go = Pose(cfg, option.body, option.sign, option.aura);
+      Bounds b = WorldBounds(go);
+      half = Mathf.Max(b.extents.x, b.extents.z);
+      x += half + 1.0f;
+      go.transform.position = new Vector3(x, -b.min.y, 0f);
+      x += half;
+      made.Add(go);
+
+      if (!option.withBasic || basicCfg == null) continue;
+      GameObject basic = Pose(basicCfg, Color.clear, Color.clear, Color.clear);
+      Bounds bb = WorldBounds(basic);
+      float bh = Mathf.Max(bb.extents.x, bb.extents.z);
+      x += bh + 0.5f;
+      basic.transform.position = new Vector3(x, -bb.min.y, 0f);
+      x += bh;
+      made.Add(basic);
+    }
+
+    var focus = new Vector3(x * 0.5f, half * 0.8f, 0f);
+    cam.transform.position = focus + new Vector3(0f, x * 0.24f, -x * 0.66f);
+    cam.transform.LookAt(focus);
+    Capture(cam, 1700, 600, "healer-options");
+
+    foreach (GameObject go in made) Object.DestroyImmediate(go);
+    Object.DestroyImmediate(cam.gameObject);
+    Object.DestroyImmediate(lightGo);
+    Debug.Log("EnemyPreview wrote healer-options (left to right: " +
+              string.Join(", ", System.Array.ConvertAll(options, o => o.name)) +
+              ", then a Basic enemy for comparison)");
+  }
+
+  // Instantiates an enemy at gameplay scale. A body colour with zero alpha
+  // means "leave the config's own colour alone", which is how the Basic enemy
+  // is posed unchanged beside the recoloured healers.
+  private static GameObject Pose(EnemyConfig cfg, Color body, Color sign, Color aura)
+  {
+    var go = (GameObject)PrefabUtility.InstantiatePrefab(cfg.prefab);
+    PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely,
+                                      InteractionMode.AutomatedAction);
+    go.transform.localScale *= UnitScale.Enemy * Mathf.Max(0.01f, cfg.scaleMultiplier);
+    go.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+
+    if (body.a > 0f)
+    {
+      MeshRenderer bodyRenderer = Enemy.FindBodyRenderer(go);
+      if (bodyRenderer != null)
+      {
+        var block = new MaterialPropertyBlock();
+        bodyRenderer.GetPropertyBlock(block);
+        block.SetColor("_BaseColor", body);
+        block.SetColor("_Color", body);
+        bodyRenderer.SetPropertyBlock(block);
+      }
+    }
+    else
+    {
+      TintBody(go, cfg);
+    }
+
+    foreach (EnemyTrait trait in go.GetComponentsInChildren<EnemyTrait>(true))
+    {
+      typeof(EnemyTrait)
+        .GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?.Invoke(trait, null);
+      if (sign.a > 0f)
+      {
+        // The aura is the part that pulses; the signs are the ones that orbit.
+        bool isSign = trait.motion == EnemyTrait.Motion.Orbit;
+        trait.accentColor = isSign ? sign : aura;
+      }
+      trait.ApplyTint(Color.white);
+    }
+    return go;
+  }
+
   private static List<Posed> BuildLineup(out float span)
   {
     var cast = new List<Posed>();

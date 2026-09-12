@@ -191,40 +191,22 @@ public static class EnemyArtSetup
       },
     },
 
-    // HEALER - the Fast model's tendril mesh, wrapped around the Basic body as
-    // an aura that reaches outward.
+    // HEALER - a reaching aura, plus glowing healing crosses circling it.
     //
-    // A healer acts on its NEIGHBOURS, so the silhouette should reach out of
-    // itself. Tendrils do that and are authored organic geometry, so they sit
-    // on a detailed body without looking bolted on - which the cone they
-    // replaced did not.
+    // A healer acts on its NEIGHBOURS, so the silhouette reaches out of itself
+    // and the crosses say what the reaching is FOR. The aura alone was read as
+    // "good but unclear"; the crosses are the part that names the mechanic.
+    //
+    // Note the crosses are red while the body stays green, deliberately. Red
+    // is the universal healing sign, but the Basic enemy is already a red
+    // spiky ball - so a red-BODIED healer would collide with the most common
+    // enemy in the game. Keeping the red confined to the signs gets the
+    // reading without the collision. See EnemyPreview.RenderHealerOptions,
+    // which renders the alternative side by side.
     new Composition
     {
       configName = "HealerEnemy", baseName = "BasicEnemy",
-      parts = new[]
-      {
-        new Part
-        {
-          sourcePrefab = "FastEnemy", meshObject = "Hair_Hair",
-          materialName = "HealerAura",
-          offsetShare = new Vector3(0f, 0.50f, 0f),
-          // Has to be BIGGER than the body, not the same size. At 1.1 the
-          // tendrils ended inside the spike field and read as tangle rather
-          // than as reach; the whole point is a silhouette that extends past
-          // the creature towards its neighbours.
-          // Big enough to reach past the spikes, not so big it buries the
-          // body: at 1.55 the aura read as a white dandelion and the green
-          // creature inside it was barely visible.
-          scaleShare = new Vector3(1.32f, 1.26f, 1.26f),
-          euler = Vector3.zero,
-          // Near-white, not green. A green aura on a green body is the same
-          // mistake as a purple cell on a purple body.
-          // Off-white with a green cast, so it still contrasts with the body
-          // without becoming the brightest thing on the board.
-          color = new Color(0.86f, 1f, 0.84f),
-          motion = EnemyTrait.Motion.Pulse, motionSpeed = 0.7f,
-        },
-      },
+      parts = HealerParts(),
     },
   };
 
@@ -254,6 +236,95 @@ public static class EnemyArtSetup
     // reads as a spinning prop bolted to it.
     motion = EnemyTrait.Motion.Orbit, motionSpeed = 0.16f,
   };
+
+  // A glowing healing cross, built as two crossed capsules.
+  //
+  // It lies FLAT, in the horizontal plane, and that is the whole trick: a plus
+  // is symmetric under a quarter turn, so a horizontal one still reads as a
+  // plus no matter which way the enemy is facing. An upright cross would need
+  // to billboard towards the camera - otherwise it degenerates into a single
+  // bar every time the enemy turns side-on - and billboarding means feeding a
+  // camera into every part's animation for a decoration.
+  //
+  // The game camera looks down at roughly 30-40 degrees, so a flat cross is
+  // foreshortened rather than square. It still reads; a bar does not.
+  //
+  // Both bars share the same offsetShare, which is what keeps them together
+  // while orbiting: Orbit preserves each part's own radius and bearing, so two
+  // parts authored at the same position travel as one object.
+  private static Part[] HealerParts()
+  {
+    var parts = new List<Part>
+    {
+      new Part
+      {
+        sourcePrefab = "FastEnemy", meshObject = "Hair_Hair",
+        materialName = "HealerAura",
+        offsetShare = new Vector3(0f, 0.50f, 0f),
+        // Pulled in from 1.32 to leave the crosses somewhere to sit. With the
+        // aura at its old size the signs were inside the tendrils and read as
+        // red specks caught in them.
+        scaleShare = new Vector3(1.12f, 1.08f, 1.08f),
+        euler = Vector3.zero,
+        color = new Color(0.86f, 1f, 0.84f),
+        motion = EnemyTrait.Motion.Pulse, motionSpeed = 0.7f,
+      },
+    };
+
+    // Three crosses at different bearings and heights, so at least one is on
+    // the camera side at any point in the orbit.
+    // Radii are deliberately OUTSIDE the aura's 1.12 half-width (so beyond
+    // ~0.56 of the body's size), and the arms are long: a small cross at this
+    // camera's elevation is foreshortened into an unreadable speck, which is
+    // exactly what the first attempt produced.
+    parts.AddRange(Cross(new Vector3(0.84f, 0.62f, 0.14f), 0.32f, HealRed));
+    parts.AddRange(Cross(new Vector3(-0.42f, 0.36f, -0.72f), 0.27f, HealRed));
+    parts.AddRange(Cross(new Vector3(-0.20f, 0.94f, 0.60f), 0.23f, HealRed));
+    return parts.ToArray();
+  }
+
+  // Deep red, not a light one: emission multiplies and clips per channel, so a
+  // pale red washes out to pink-white at any useful emission strength.
+  //
+  // A PROPERTY, not a static readonly field, and that matters. `Compositions`
+  // is a static initialiser that calls HealerParts(), so it runs before any
+  // static field declared later in the file - a `static readonly Color` here
+  // was still (0,0,0,0) when the parts were built. The signs came out
+  // transparent black, and because alpha 0 also routes the material through
+  // MakeTransparent they rendered as invisible smudges rather than as anything
+  // that looked like a colour mistake. A property is evaluated on use, so
+  // declaration order stops mattering.
+  private static Color HealRed => new Color(0.94f, 0.07f, 0.06f);
+
+  private static Part[] Cross(Vector3 offsetShare, float size, Color color)
+  {
+    Part Bar(Vector3 scaleShare) => new Part
+    {
+      sourcePrefab = "FastEnemy", meshObject = FastBody,
+      materialName = "HealSign",
+      offsetShare = offsetShare,
+      scaleShare = scaleShare,
+      euler = Vector3.zero,
+      color = color,
+      // Low. Emission ADDS to the lit colour, so a strong value lifts the
+      // green and blue channels too and a saturated red turns salmon - which
+      // is the opposite of what a healing sign needs. Just enough to look
+      // self-lit.
+      emission = 0.8f,
+      motion = EnemyTrait.Motion.Orbit, motionSpeed = 0.12f,
+    };
+
+    float arm = size;
+    // Thin enough that the two bars read as a cross rather than as a blob.
+    // The bars are capsules, so their rounded ends eat into the apparent arm
+    // length; at 0.24 the two of them merged into a fat lozenge.
+    float thick = size * 0.15f;
+    return new[]
+    {
+      Bar(new Vector3(arm, thick, thick)),
+      Bar(new Vector3(thick, thick, arm)),
+    };
+  }
 
   [MenuItem("Tools/Enemies/Report Base Parts")]
   public static void ReportBaseParts()
@@ -311,6 +382,17 @@ public static class EnemyArtSetup
 
       foreach (Part part in comp.parts)
       {
+        // Catches the static-initialisation-order trap described on HealRed,
+        // and any other part that reaches here with an unset colour: alpha 0
+        // is silently valid (it means "transparent"), so without this the part
+        // just quietly disappears.
+        if (part.color == default)
+        {
+          Debug.LogError($"EnemyArtSetup: {comp.configName} part " +
+                         $"'{part.materialName}' has an unset colour. If it " +
+                         "came from a static field, see the note on HealRed.");
+        }
+
         Mesh mesh = FindPartMesh(part.sourcePrefab, part.meshObject);
         if (mesh == null)
         {
