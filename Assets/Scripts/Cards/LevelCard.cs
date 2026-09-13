@@ -20,11 +20,27 @@ public class LevelCard : MonoBehaviour
   private RectTransform starsRow;
   private RectTransform lockBadge;
 
-  public const float TileSize = 170f;
-  // The star pill overlaps the tile's bottom edge, so the cell only needs a
+  // Set once per screen by LevelSelectionScreen before any card is built, from
+  // the width the canvas actually has. Five 170-wide tiles plus their gaps come
+  // to more than a 4:3 tablet's 960 canvas units, so a fixed size cannot hold
+  // one row of five on every device.
+  //
+  // Static because the tile is built out of five absolutely-placed layers that
+  // all measure off it, and every card on screen is the same size by
+  // definition - there is never a second level grid at a second scale.
+  public static float TileSize { get; private set; } = MaxTileSize;
+  public const float MaxTileSize = 170f;
+  private const float MinTileSize = 104f;
+
+  // The star pill straddles the tile's bottom edge, so the cell needs only a
   // little extra height beneath it.
-  public const float CellHeight = 212f;
-  private const float EdgeDepth = 7f;
+  public static float CellHeight => TileSize + 42f;
+  private static float EdgeDepth => Mathf.Round(TileSize * 0.041f) + 1f;
+
+  public static void SetTileSize(float size)
+  {
+    TileSize = Mathf.Clamp(size, MinTileSize, MaxTileSize);
+  }
 
   // The card prefab has a VerticalLayoutGroup, which would treat these
   // decorations as content and push them out of the bottom of the card once the
@@ -88,7 +104,17 @@ public class LevelCard : MonoBehaviour
       levelText.alignment = TextAlignmentOptions.Center;
       levelText.textWrappingMode = TextWrappingModes.NoWrap;
       levelText.raycastTarget = false;
-      levelText.gameObject.SetActive(!isLocked);
+
+      // Shown on LOCKED tiles too. A padlock alone says "not yet" but not
+      // "not yet WHAT" - with the numbers hidden, the grid gave no sense of
+      // how far the biome runs or how close the next one is. Locked tiles
+      // carry the number in muted grey with the padlock demoted to a small
+      // badge in the corner, so the two states stay instantly distinguishable
+      // by colour and depth rather than by whether anything is written on them.
+      levelText.gameObject.SetActive(true);
+      levelText.enableAutoSizing = true;
+      levelText.fontSizeMin = 24f;
+      levelText.fontSizeMax = 68f;
       // A soft dark edge keeps the numeral legible on the brighter biomes
       // (ice blue, blossom pink) without darkening the tile itself.
       levelText.outlineWidth = 0.14f;
@@ -211,13 +237,17 @@ public class LevelCard : MonoBehaviour
     if (lockBadge != null) Destroy(lockBadge.gameObject);
     if (!isLocked) return;
 
-    Image padlock = UiSkin.Icon(face, UiSprites.Lock(), new Color(1f, 1f, 1f, 0.55f), 62f);
+    // Tucked into the corner rather than centred on the tile: the level number
+    // now occupies the middle of a locked tile as well, and a padlock over it
+    // read as a rendering fault rather than as a state.
+    float badgeSize = Mathf.Round(TileSize * 0.26f);
+    Image padlock = UiSkin.Icon(face, UiSprites.Lock(), new Color(1f, 1f, 1f, 0.62f), badgeSize);
     lockBadge = (RectTransform)padlock.transform;
     Detach(lockBadge);
-    lockBadge.anchorMin = new Vector2(0.5f, 0.5f);
-    lockBadge.anchorMax = new Vector2(0.5f, 0.5f);
-    lockBadge.pivot = new Vector2(0.5f, 0.5f);
-    lockBadge.anchoredPosition = Vector2.zero;
+    lockBadge.anchorMin = new Vector2(1f, 1f);
+    lockBadge.anchorMax = new Vector2(1f, 1f);
+    lockBadge.pivot = new Vector2(1f, 1f);
+    lockBadge.anchoredPosition = new Vector2(-8f, -8f);
   }
 
   // stars < 0 means locked (no row); 0..3 shows filled/empty stars on a dark
@@ -238,7 +268,7 @@ public class LevelCard : MonoBehaviour
     // edge put the stars themselves behind the tile face, which read as though
     // they had been clipped in half.
     starsRow.anchoredPosition = new Vector2(0f, -(TileSize + EdgeDepth + 9f));
-    starsRow.sizeDelta = new Vector2(TileSize - 30f, 42f);
+    starsRow.sizeDelta = new Vector2(TileSize - 30f, 38f);
 
     var pill = pillGo.AddComponent<Image>();
     UiSkin.Panel(pill, new Color(0.06f, 0.07f, 0.11f, 0.88f), UiSkin.RadiusChip);

@@ -207,8 +207,10 @@ public class EnvironmentsScreen : MonoBehaviour
       view.anchorMin = Vector2.zero;
       view.anchorMax = Vector2.one;
       view.pivot = new Vector2(0.5f, 0.5f);
-      view.offsetMin = new Vector2(0f, 96f);
-      view.offsetMax = new Vector2(0f, -166f);
+      view.offsetMin = new Vector2(0f, 40f);
+      // Clear of the header band (inset + the title plate + its glow), rather
+      // than a literal that has to be re-guessed whenever the header changes.
+      view.offsetMax = new Vector2(0f, -(ScreenTheme.HeaderInset + 88f + 26f));
     }
   }
 

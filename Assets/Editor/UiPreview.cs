@@ -40,6 +40,7 @@ public static class UiPreview
 
     Shoot(cam, 2400, 1080, "hud-20x9");
     Shoot(cam, 1920, 1080, "hud-16x9");
+    Shoot(cam, 1440, 1080, "hud-4x3");
 
     // The real modal prefabs, themed by the real ScreenTheme
     ShootScreen(cam, "Assets/Prefabs/Screens/PauseGameScreen.prefab", "ResumeGame", "screen-pause");
@@ -63,6 +64,18 @@ public static class UiPreview
     GameSession.SelectedEnvironment = "Environment 1";
     ShootLive(cam, "Assets/Prefabs/Screens/EnvironmentsScreen.prefab", "screen-environments");
     ShootLive(cam, "Assets/Prefabs/Screens/LevelsScreen.prefab", "screen-levels");
+
+    // The same two screens at the extremes of the aspect range the game ships
+    // on. The canvas is match-height, so these are the NARROWEST (4:3 tablet,
+    // 960 canvas units wide) and WIDEST (20:9 phone, 1600) layouts any device
+    // produces - which is where a header or a grid sized against a literal
+    // 1280 either overlaps the corner buttons or runs off the edge.
+    ShootLive(cam, "Assets/Prefabs/Screens/EnvironmentsScreen.prefab",
+      "screen-environments-4x3", 1440, 1080);
+    ShootLive(cam, "Assets/Prefabs/Screens/LevelsScreen.prefab",
+      "screen-levels-4x3", 1440, 1080);
+    ShootLive(cam, "Assets/Prefabs/Screens/LevelsScreen.prefab",
+      "screen-levels-20x9", 2400, 1080);
     ShootLive(cam, "Assets/Prefabs/Screens/LoadingScreen.prefab", "screen-loading");
 
     Debug.Log("UI PREVIEW OK");
@@ -148,9 +161,9 @@ public static class UiPreview
 
   // Instantiates a prefab and drives its Start(), so screens that build their
   // content at runtime can be captured as the player actually sees them.
-  private static void ShootLive(Camera cam, string prefabPath, string name)
+  private static void ShootLive(Camera cam, string prefabPath, string name,
+    int width = 1920, int height = 1080)
   {
-    const int width = 1920, height = 1080;
     ClearCanvases();
 
     var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
@@ -630,7 +643,13 @@ public static class UiPreview
 
     var scaler = go.AddComponent<CanvasScaler>();
     scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-    scaler.referenceResolution = new Vector2(1920f, 1080f);
+    // The GAME's reference (DisplaySetup.UiReference*), not the shot's pixel
+    // size. Match-height means the canvas is 720 units tall and its WIDTH is
+    // whatever the aspect ratio makes it, so a preview built against a
+    // 1920-unit-wide canvas was laying out a screen 50% wider, in units, than
+    // any device the game ships on - exactly the measurement every adaptive
+    // layout here is sized from.
+    scaler.referenceResolution = new Vector2(1280f, 720f);
     scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
     scaler.matchWidthOrHeight = 1f;
     go.AddComponent<GraphicRaycaster>();
@@ -649,7 +668,9 @@ public static class UiPreview
 
     var scaler = canvasGo.AddComponent<CanvasScaler>();
     scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-    scaler.referenceResolution = new Vector2(1920f, 1080f);
+    // See HostCanvas: the game's reference, so the preview lays out in the same
+    // units the device does.
+    scaler.referenceResolution = new Vector2(1280f, 720f);
     scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
     scaler.matchWidthOrHeight = 1f; // match height, as the game does in landscape
     canvasGo.AddComponent<GraphicRaycaster>();
@@ -725,6 +746,9 @@ public static class UiPreview
     // would exercise a different code path than the real HUD does.
     grid.cellSize = new Vector2(160f, 160f);
     grid.spacing = new Vector2(0f, 0f);
+    // Deliberately the SCENE's authored two-column setup, not the one-column
+    // rail HudTheme collapses it to: the point of this shot is that the
+    // override happens.
     grid.padding = new RectOffset(10, 10, 10, 10);
     grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
     grid.constraintCount = 2;

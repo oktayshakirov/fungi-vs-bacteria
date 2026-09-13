@@ -14,15 +14,26 @@ using UnityEngine.UI;
 // are set here.
 public static class MenuLayout
 {
-  // Verified against an actual render (Tools/UI Preview -> screen-mainmenu.png),
-  // not eyeballed in the editor: the vs-battle art plus Play used to leave only
-  // ~27 units of clearance above the art and ~100 empty below Play, out of 720
-  // - the whole cluster read as pinned to the top with the ground below it
-  // unused. Both this and ApplyLogo shift down by the same 37 units, splitting
-  // that slack roughly evenly, while keeping the gap between them (and between
-  // Play and the bottom edge) exactly as it was - nothing here was placed to
-  // clear the art below it, so nothing needs reproving.
+  // How far ApplyLogo lifts the vs-battle art off the centre line, on top of
+  // the 125 the scene authors. The art and Play used to be shifted DOWN by this
+  // same amount together, which moved the pair without changing the gap between
+  // them; the two now move apart instead - art up, Play down - because the
+  // slack was never above or below the cluster, it was inside it.
   private const float VerticalRebalance = 37f;
+
+  // One inset for every corner control on the menu (gear, coin chip). Tighter
+  // than the 28 the list screens use: those corners hold a labelled BACK plate
+  // that needs breathing room, while the menu's corners hold single icons and
+  // read as "not quite in the corner" at 28 - and the menu already sits inside
+  // a SafeArea, so this is measured from the notch inset, never from the bezel.
+  public const float CornerInset = 16f;
+
+  // Play sits this far off the bottom of the safe area. It used to sit at 49
+  // with a further ~130 units of dead grass below the art above it, so the
+  // whole cluster read as floating in the middle of the screen; dropping the
+  // button and raising the art splits the slack to the two ends instead of
+  // leaving it in one block between them.
+  private const float PlayBottomInset = 30f;
 
   public static void ApplyPlay(Button play)
   {
@@ -34,7 +45,7 @@ public static class MenuLayout
     rect.anchorMin = new Vector2(0.5f, 0f);
     rect.anchorMax = new Vector2(0.5f, 0f);
     rect.pivot = new Vector2(0.5f, 0f);
-    rect.anchoredPosition = new Vector2(0f, 86f - VerticalRebalance);
+    rect.anchoredPosition = new Vector2(0f, PlayBottomInset);
     rect.sizeDelta = new Vector2(620f, 150f);
 
     var image = play.GetComponent<Image>();
@@ -73,8 +84,8 @@ public static class MenuLayout
     rect.anchorMin = new Vector2(1f, 1f);
     rect.anchorMax = new Vector2(1f, 1f);
     rect.pivot = new Vector2(1f, 1f);
-    rect.anchoredPosition = new Vector2(-28f, -28f);
-    rect.sizeDelta = new Vector2(150f, 150f);   // the gear fills the button
+    rect.anchoredPosition = new Vector2(-CornerInset, -CornerInset);
+    rect.sizeDelta = new Vector2(120f, 120f);   // the gear fills the button
     Press(settings);
   }
 
@@ -83,7 +94,10 @@ public static class MenuLayout
   public static void ApplyLogo(RectTransform logo)
   {
     if (logo == null) return;
-    logo.anchoredPosition = new Vector2(logo.anchoredPosition.x, 125f - VerticalRebalance);
+    // Centre-anchored, so this is an offset from the middle of the screen. The
+    // art is far taller than the 90-unit rect suggests; raising it takes back
+    // the band Play just vacated instead of opening a hole between the two.
+    logo.anchoredPosition = new Vector2(logo.anchoredPosition.x, 125f + VerticalRebalance);
   }
 
   // Press/disable feedback without touching the button's artwork.

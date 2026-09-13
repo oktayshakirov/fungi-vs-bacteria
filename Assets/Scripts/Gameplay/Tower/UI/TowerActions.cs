@@ -20,21 +20,14 @@ namespace TowerDefense.UI
     [SerializeField] private TextMeshProUGUI towerNameText;
     [SerializeField] private TextMeshProUGUI towerStatsText;
 
-    // Shares the bottom-left slot with the placement bar. The two are mutually
-    // exclusive by construction (see TowerPlacement.StartPlacement and
+    // Shares the bottom-left slot with the placement bar, at the same size and
+    // in the same position - both are built out of TowerInfoPanel, which is
+    // where all of that is decided. The two are mutually exclusive by
+    // construction (see TowerPlacement.StartPlacement and
     // HUDManager.ShowTowerActions), so they can never be on screen together.
-    private const float PanelWidth = 400f;
-    private const float PanelHeight = 176f;
-    private const float BottomOffset = 110f;
-
-    // Grown by exactly one line when the next tier is previewed. Without that
-    // preview the panel offers, say, "UPGRADE 788" on a tower that cost 150 and
-    // sells for 472, and the price reads as nonsense - the upgrade curve is
-    // deliberately steep (see TowerConfig) and the only thing that makes it
-    // legible is showing what the money actually buys.
-    private const float PreviewLineHeight = 26f;
 
     private Tower currentTower;
+    private TMP_Text sellValueText;
     private TMP_Text descriptionText;
     private TMP_Text upgradePreviewText;
     private Button upgradeButton;
@@ -61,7 +54,13 @@ namespace TowerDefense.UI
       towerNameText.text = tower.MaxLevel > 1
         ? $"{config.towerName}   Lv {tower.Level}"
         : config.towerName;
-      sellButtonText.text = $"SELL  +{tower.SellValue}";
+
+      // The sell value goes in the HEADER, where the placement panel puts the
+      // build cost: same row, same coin, same place on screen, so the number
+      // that answers "what is this tower worth to me right now" never moves.
+      // The button below is then just the verb.
+      if (sellValueText != null) sellValueText.text = tower.SellValue.ToString();
+      sellButtonText.text = "SELL";
       descriptionText.text = string.IsNullOrWhiteSpace(config.description)
         ? string.Empty
         : config.description;
@@ -104,11 +103,10 @@ namespace TowerDefense.UI
       }
 
       // The panel is sized to its content by hand rather than by a
-      // ContentSizeFitter: Build() anchors it to the bottom-left corner with an
-      // explicit sizeDelta, and a fitter would fight that every frame.
-      var rect = (RectTransform)transform;
-      rect.sizeDelta = new Vector2(PanelWidth,
-        PanelHeight + (available ? PreviewLineHeight : 0f));
+      // ContentSizeFitter: it is anchored into a corner with an explicit
+      // sizeDelta, and a fitter would fight that every frame.
+      TowerInfoPanel.Place((RectTransform)transform,
+        TowerInfoPanel.BaseHeight + (available ? TowerInfoPanel.ExtraLineHeight : 0f));
 
       if (!available) return;
 
@@ -177,108 +175,39 @@ namespace TowerDefense.UI
       if (built) return;
       built = true;
 
-      var rect = (RectTransform)transform;
-      rect.anchorMin = Vector2.zero;
-      rect.anchorMax = Vector2.zero;
-      rect.pivot = Vector2.zero;
-      rect.anchoredPosition = new Vector2(HudTheme.EdgeMargin, BottomOffset);
-      rect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
+      TowerInfoPanel.Place((RectTransform)transform, TowerInfoPanel.BaseHeight);
+      TowerInfoPanel.Frame(gameObject);
 
-      var background = GetComponent<Image>();
-      if (background == null) background = gameObject.AddComponent<Image>();
-      UiSkin.Panel(background, UiSkin.PanelDark, UiSkin.RadiusPanel);
-      background.raycastTarget = true;   // don't let taps fall through to the board
-      UiSkin.AddBorder(rect, UiSkin.RadiusPanel).transform.SetAsFirstSibling();
+      // The scene's own labels and buttons are REPARENTED into the shared rows
+      // rather than recreated, so every reference wired up in the inspector
+      // (and the onClick that calls SellTower/UpgradeTower) stays intact.
+      TMP_Text name = towerNameText;
+      TowerInfoPanel.Header(transform, ref name, out sellValueText);
 
-      var layout = GetComponent<VerticalLayoutGroup>();
-      if (layout == null) layout = gameObject.AddComponent<VerticalLayoutGroup>();
-      layout.padding = new RectOffset(14, 14, 10, 10);
-      layout.spacing = 4f;
-      layout.childAlignment = TextAnchor.UpperLeft;
-      layout.childControlWidth = true;
-      layout.childControlHeight = true;
-      layout.childForceExpandWidth = true;
-      layout.childForceExpandHeight = false;
-
-      StyleLabel(towerNameText, UiSkin.Role.Heading, UiSkin.TextPrimary,
-        TextAlignmentOptions.MidlineLeft, 32f);
-
-      // Built here rather than in the scene: the scene has no object for it,
-      // and adding one by hand would drift from this layout.
-      var descGo = new GameObject("TowerDescriptionText", typeof(RectTransform));
-      descGo.transform.SetParent(transform, false);
-      descriptionText = descGo.AddComponent<TextMeshProUGUI>();
-      UiSkin.Label(descriptionText, UiSkin.Role.Caption, UiSkin.TextPrimary);
-      descriptionText.alignment = TextAlignmentOptions.TopLeft;
-      descriptionText.raycastTarget = false;
-      descGo.AddComponent<LayoutElement>().preferredHeight = 44f;
-
-      StyleLabel(towerStatsText, UiSkin.Role.Caption, UiSkin.TextMuted,
-        TextAlignmentOptions.MidlineLeft, 22f);
-
-      var previewGo = new GameObject("UpgradePreviewText", typeof(RectTransform));
-      previewGo.transform.SetParent(transform, false);
-      upgradePreviewText = previewGo.AddComponent<TextMeshProUGUI>();
-      UiSkin.Label(upgradePreviewText, UiSkin.Role.Caption, UiSkin.Primary);
-      upgradePreviewText.alignment = TextAlignmentOptions.MidlineLeft;
-      upgradePreviewText.raycastTarget = false;
-      previewGo.AddComponent<LayoutElement>().preferredHeight = PreviewLineHeight - 4f;
+      descriptionText = TowerInfoPanel.Description(transform);
+      TowerInfoPanel.Stats(transform, towerStatsText);
+      upgradePreviewText = TowerInfoPanel.Note(transform, "UpgradePreviewText");
 
       // The buttons go into a row of their own so Upgrade sits beside Sell
       // instead of stacking the panel taller.
-      var rowGo = new GameObject("Actions", typeof(RectTransform));
-      rowGo.transform.SetParent(transform, false);
-      var row = rowGo.AddComponent<HorizontalLayoutGroup>();
-      row.spacing = 8f;
-      row.childAlignment = TextAnchor.MiddleCenter;
-      row.childControlWidth = true;
-      row.childControlHeight = true;
-      row.childForceExpandWidth = true;
-      row.childForceExpandHeight = true;
-      rowGo.AddComponent<LayoutElement>().preferredHeight = 46f;
+      Transform actions = TowerInfoPanel.Actions(transform);
 
       foreach (Button button in GetComponentsInChildren<Button>(true))
       {
         bool isUpgrade = button.name.ToLowerInvariant().Contains("upgrade");
         if (isUpgrade) upgradeButton = button;
 
-        button.transform.SetParent(rowGo.transform, false);
-        UiSkin.StyleButton(button, isUpgrade ? UiSkin.Primary : UiSkin.Neutral,
-          UiSkin.RadiusButton);
-
-        var element = button.GetComponent<LayoutElement>();
-        if (element == null) element = button.gameObject.AddComponent<LayoutElement>();
-        element.flexibleWidth = 1f;
-
-        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
-        if (label != null)
-        {
-          label.alignment = TextAlignmentOptions.Midline;
-          label.textWrappingMode = TextWrappingModes.NoWrap;
-          UiSkin.Stretch(label.rectTransform);
-        }
+        button.transform.SetParent(actions, false);
+        TowerInfoPanel.StyleAction(button, isUpgrade ? UiSkin.Primary : UiSkin.Neutral);
       }
 
-      // Order: name, description, stats, buttons. The scene's own order puts
-      // the buttons in the middle.
-      if (towerNameText != null) towerNameText.transform.SetSiblingIndex(1);
-      descGo.transform.SetSiblingIndex(2);
+      // Order: header, description, stats, preview, buttons. The scene's own
+      // order puts the buttons in the middle.
+      transform.Find("Header").SetSiblingIndex(1);
+      descriptionText.transform.SetSiblingIndex(2);
       if (towerStatsText != null) towerStatsText.transform.SetSiblingIndex(3);
-      previewGo.transform.SetSiblingIndex(4);
-      rowGo.transform.SetAsLastSibling();
-    }
-
-    private static void StyleLabel(TMP_Text label, UiSkin.Role role, Color color,
-      TextAlignmentOptions alignment, float height)
-    {
-      if (label == null) return;
-      UiSkin.Label(label, role, color);
-      label.alignment = alignment;
-      label.raycastTarget = false;
-
-      var element = label.GetComponent<LayoutElement>();
-      if (element == null) element = label.gameObject.AddComponent<LayoutElement>();
-      element.preferredHeight = height;
+      upgradePreviewText.transform.SetSiblingIndex(4);
+      actions.SetAsLastSibling();
     }
 
     public void SellTower()

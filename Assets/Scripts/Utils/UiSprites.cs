@@ -199,6 +199,19 @@ public static class UiSprites
     return Finish(tex, px, size, new Vector4(r + 8f, r + 8f, r + 8f, r + 8f));
   });
 
+  // A single chevron, pointing up. Rotate the Image 180 degrees for "down".
+  // Used by the towers panel's collapse toggle: the TMP atlases in this project
+  // are static and ASCII-only, so an arrow GLYPH would render as a blank box —
+  // every directional cue in this UI has to be a sprite.
+  public static Sprite Chevron(int size = 64) => Cached("chevron" + size, () =>
+    Shape(size, (x, y) =>
+    {
+      // Distance from the V formed by two arms meeting at the top centre.
+      float arm = Mathf.Abs(x - 0.5f);
+      float edge = 0.30f + arm;          // the chevron's lower edge
+      return arm <= 0.42f && y >= edge - 0.17f && y <= edge;
+    }));
+
   // A padlock, for locked levels and environments.
   public static Sprite Lock(int size = 64) => Cached("lock" + size, () => Shape(size, (x, y) =>
   {

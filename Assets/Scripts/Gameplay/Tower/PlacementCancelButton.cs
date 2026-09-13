@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using TowerDefense.UI;
 
 // The bar shown while a tower is armed for placement: what the tower is, what
 // it does, what it costs, and a way to back out.
@@ -11,19 +12,17 @@ using TMPro;
 // when "what does this one actually do?" matters, and one panel instead of two
 // is one less thing that can overlap something else.
 //
-// Anchored bottom-LEFT and stacked ABOVE the Start Wave button rather than
-// bottom-centre, which is where the bare Cancel button used to sit. Centre is
-// not safe: the canvas is matched-height so its WIDTH shrinks on a 4:3 tablet,
-// and a centred bar there runs into Start Wave on the left and the towers panel
-// on the right. The strip above Start Wave is clear on every aspect ratio - the
-// speed/camera buttons stop far higher up.
+// Anchored bottom-LEFT, not bottom-centre where the bare Cancel button used to
+// sit. Centre is not safe: the canvas is matched-height so its WIDTH shrinks on
+// a 4:3 tablet, and a centred bar there runs into whatever is in both corners.
+// The bottom-left corner belongs to this panel and to TowerActions alone since
+// Start Wave moved under the towers rail.
+//
+// Its size, position and every row in it come from TowerInfoPanel, which
+// TowerActions builds from as well - the two are one panel to the player and
+// must not drift apart. See that file.
 public class PlacementCancelButton : MonoBehaviour
 {
-  private const float BarWidth = 400f;
-  private const float BarHeight = 158f;
-  // Start Wave sits at y = 20 and is 75 tall, so this clears it with a margin.
-  private const float BottomOffset = 110f;
-
   private static PlacementCancelButton instance;
 
   public static void Show(TowerConfig config, Action onCancel)
@@ -58,77 +57,31 @@ public class PlacementCancelButton : MonoBehaviour
 
   private void Build()
   {
-    var rect = (RectTransform)transform;
-    rect.anchorMin = Vector2.zero;
-    rect.anchorMax = Vector2.zero;
-    rect.pivot = Vector2.zero;
-    rect.anchoredPosition = new Vector2(HudTheme.EdgeMargin, BottomOffset);
-    rect.sizeDelta = new Vector2(BarWidth, BarHeight);
+    TowerInfoPanel.Place((RectTransform)transform, TowerInfoPanel.BaseHeight);
+    TowerInfoPanel.Frame(gameObject);
 
-    var background = gameObject.AddComponent<Image>();
-    UiSkin.Panel(background, UiSkin.PanelDark, UiSkin.RadiusPanel);
-    UiSkin.AddBorder(rect, UiSkin.RadiusPanel).transform.SetAsFirstSibling();
+    TMP_Text name = null;
+    TowerInfoPanel.Header(transform, ref name, out costLabel);
+    nameLabel = name;
 
-    var layout = gameObject.AddComponent<VerticalLayoutGroup>();
-    layout.padding = new RectOffset(14, 14, 10, 10);
-    layout.spacing = 4f;
-    layout.childAlignment = TextAnchor.UpperLeft;
-    layout.childControlWidth = true;
-    layout.childControlHeight = true;
-    layout.childForceExpandWidth = true;
-    layout.childForceExpandHeight = false;
+    descriptionLabel = TowerInfoPanel.Description(transform);
+    statsLabel = TowerInfoPanel.Stats(transform);
 
-    // --- name + cost on one row
-    var headerGo = new GameObject("Header", typeof(RectTransform));
-    headerGo.transform.SetParent(transform, false);
-    var header = headerGo.AddComponent<HorizontalLayoutGroup>();
-    header.spacing = 8f;
-    header.childAlignment = TextAnchor.MiddleLeft;
-    header.childControlWidth = true;
-    header.childControlHeight = true;
-    header.childForceExpandWidth = false;
-    header.childForceExpandHeight = true;
-    headerGo.AddComponent<LayoutElement>().preferredHeight = 34f;
+    Transform actions = TowerInfoPanel.Actions(transform);
 
-    nameLabel = Label(headerGo.transform, "Name", UiSkin.Role.Heading, UiSkin.TextPrimary);
-    nameLabel.alignment = TextAlignmentOptions.MidlineLeft;
-    nameLabel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
-
-    Image coin = UiSkin.Icon(headerGo.transform, UiSprites.Coin(), UiSkin.Gold, 22f);
-    var coinElement = coin.gameObject.AddComponent<LayoutElement>();
-    coinElement.preferredWidth = 22f;
-    coinElement.flexibleWidth = 0f;
-
-    costLabel = Label(headerGo.transform, "Cost", UiSkin.Role.Value, UiSkin.Gold);
-    costLabel.alignment = TextAlignmentOptions.MidlineRight;
-    costLabel.gameObject.AddComponent<LayoutElement>().preferredWidth = 62f;
-
-    // --- what it is for
-    descriptionLabel = Label(transform, "Description", UiSkin.Role.Caption, UiSkin.TextPrimary);
-    descriptionLabel.alignment = TextAlignmentOptions.TopLeft;
-    descriptionLabel.gameObject.AddComponent<LayoutElement>().preferredHeight = 44f;
-
-    // --- the numbers, which the description deliberately does not repeat
-    statsLabel = Label(transform, "Stats", UiSkin.Role.Caption, UiSkin.TextMuted);
-    statsLabel.alignment = TextAlignmentOptions.MidlineLeft;
-    statsLabel.gameObject.AddComponent<LayoutElement>().preferredHeight = 22f;
-
-    // --- cancel
     var cancelGo = new GameObject("Cancel", typeof(RectTransform));
-    cancelGo.transform.SetParent(transform, false);
+    cancelGo.transform.SetParent(actions, false);
     cancelGo.AddComponent<Image>();
     var button = cancelGo.AddComponent<Button>();
-    UiSkin.StyleButton(button, UiSkin.Danger, UiSkin.RadiusButton);
-    cancelGo.AddComponent<LayoutElement>().preferredHeight = 42f;
 
     var labelGo = new GameObject("Label", typeof(RectTransform));
     labelGo.transform.SetParent(cancelGo.transform, false);
     var cancelLabel = labelGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(cancelLabel, UiSkin.Role.ButtonLabel);
     cancelLabel.text = "CANCEL";
-    cancelLabel.alignment = TextAlignmentOptions.Midline;
     cancelLabel.raycastTarget = false;
-    UiSkin.Stretch((RectTransform)labelGo.transform);
+
+    TowerInfoPanel.StyleAction(button, UiSkin.Danger);
 
     button.onClick.AddListener(() =>
     {
@@ -146,35 +99,7 @@ public class PlacementCancelButton : MonoBehaviour
     descriptionLabel.text = string.IsNullOrWhiteSpace(config.description)
       ? "Place it on any free tile."
       : config.description;
-    statsLabel.text = StatLine(config);
-  }
-
-  // A support tower has no damage or fire rate to report, so listing them as
-  // zeroes would read as a broken tower rather than a different KIND of tower.
-  private static string StatLine(TowerConfig config)
-  {
-    if (config.isSupport)
-    {
-      string boost = config.damageBoost > 0f
-        ? $"+{Mathf.RoundToInt(config.damageBoost * 100f)}% damage"
-        : $"+{Mathf.RoundToInt(config.fireRateBoost * 100f)}% fire rate";
-      return $"Range {config.range:0.#}   {boost}";
-    }
-
-    string line = $"Damage {config.damage}   Range {config.range:0.#}   {config.fireRate:0.#}/s";
-    if (config.isAoE) line += "   Splash";
-    if (config.slowsEnemies) line += "   Slow";
-    return line;
-  }
-
-  private static TMP_Text Label(Transform parent, string name, UiSkin.Role role, Color color)
-  {
-    var go = new GameObject(name, typeof(RectTransform));
-    go.transform.SetParent(parent, false);
-    var label = go.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(label, role, color);
-    label.raycastTarget = false;
-    return label;
+    statsLabel.text = TowerInfoPanel.StatLine(config);
   }
 
   private static Canvas FindHudCanvas()

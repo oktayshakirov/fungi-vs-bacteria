@@ -15,11 +15,12 @@ public class TutorialOverlay : MonoBehaviour
 {
   private const string CompletedKey = "TutorialCompleted";
 
-  // Width the towers panel claims down the right-hand edge, so the card can be
-  // centred on what is left. Kept in step with HudTheme's frame by eye rather
-  // than read from it: the panel is built by the HUD, which the tutorial has no
-  // handle on, and being a little conservative here costs nothing.
-  private const float TowersColumn = 380f;
+  // Width the towers rail claims down the right-hand edge, so the card can be
+  // centred on what is left. Kept in step with HudTheme's rail by eye rather
+  // than read from it: the rail is built by the HUD, which the tutorial has no
+  // handle on, and being a little conservative here costs nothing. It was 380
+  // while the rail was two columns wide; the rail is one column now.
+  private const float TowersColumn = 220f;
 
   private static readonly string[] Steps =
   {

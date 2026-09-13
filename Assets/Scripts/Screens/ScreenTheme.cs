@@ -74,11 +74,30 @@ public static class ScreenTheme
       rect.anchorMin = new Vector2(0f, 1f);
       rect.anchorMax = new Vector2(0f, 1f);
       rect.pivot = new Vector2(0f, 1f);
-      rect.anchoredPosition = new Vector2(28f, -28f);
-      rect.sizeDelta = new Vector2(190f, 74f);
+      rect.anchoredPosition = new Vector2(HeaderInset, -HeaderInset);
+      rect.sizeDelta = new Vector2(BackButtonWidth, HeaderButtonHeight);
       CornerButton(back);
     }
   }
+
+  // The header band shared by the environment and level screens: a corner
+  // button at each end and the title chip centred between them.
+  //
+  // These are constants rather than three screens' worth of literals because
+  // the title chip is SIZED FROM THEM (see HeaderSideReserve). The chip used
+  // to clamp at a flat 1000 units wide, which is wider than the gap between
+  // the two corner buttons on a 1280-unit canvas - "SELECT ENVIRONMENT" ran
+  // straight under BACK, and every fix that only moved the title would have
+  // come undone the next time either button was resized.
+  public const float HeaderInset = 24f;
+  public const float HeaderButtonHeight = 72f;
+  public const float BackButtonWidth = 172f;
+  public const float HomeButtonWidth = 80f;
+
+  // Clear space the title chip leaves at EACH end of the header. Taken from
+  // the wider of the two corner buttons so one number covers both ends, plus
+  // the chip's own 26-unit glow and a gap.
+  public const float HeaderSideReserve = HeaderInset + BackButtonWidth + 26f + 28f;
 
   // Settings is neither a modal card nor a list screen: three toggles stacked
   // in the middle with a close button in the corner.
@@ -268,8 +287,21 @@ public static class ScreenTheme
 
     label.textWrappingMode = TextWrappingModes.NoWrap;
     label.ForceMeshUpdate();
-    float width = Mathf.Clamp(label.preferredWidth + 96f, 340f, 1000f);
+
+    // The canvas is match-HEIGHT (1280x720 reference), so its WIDTH is whatever
+    // the device's aspect ratio makes it - 960 units on a 4:3 tablet, 1600 on a
+    // 20:9 phone. A header sized against 1280 is therefore correct on exactly
+    // one device; this measures the rect it is actually going into.
+    float available = LayoutWidth(rect) - HeaderSideReserve * 2f;
+    float width = Mathf.Clamp(label.preferredWidth + 96f, 300f, Mathf.Max(300f, available));
     const float height = 88f;
+
+    // Shrink-to-fit rather than overflow: on the narrowest aspect ratio a long
+    // biome name ("Volcanic Ashlands") is wider than the space between the two
+    // corner buttons, and NoWrap text simply draws straight out of the plate.
+    label.enableAutoSizing = true;
+    label.fontSizeMin = 22f;
+    label.fontSizeMax = label.fontSize;
 
     var chip = (RectTransform)chipGo.transform;
     chip.anchorMin = new Vector2(0.5f, 1f);
@@ -398,6 +430,54 @@ public static class ScreenTheme
   private static bool IsBackground(Transform t)
   {
     return t.name.ToLowerInvariant().Contains("background");
+  }
+
+  // The usable width, in canvas units, for anything laid out under `from`.
+  //
+  // This is THE number every adaptive layout in the UI is built on. The canvas
+  // is match-HEIGHT against a 1280x720 reference, so it is always 720 units
+  // tall and its WIDTH is whatever the device's aspect ratio makes it: 960
+  // units on a 4:3 tablet, 1280 at 16:9, ~1600 on a 20:9 phone. Anything sized
+  // against a literal 1280 is correct on exactly one shape of device and either
+  // overflows or leaves a gap on every other.
+  //
+  // Derived from the canvas rect's ASPECT rather than read off its width, and
+  // that is the whole point of this method: at the moment a screen's Start()
+  // runs, the canvas exists but has not been through a layout pass, so its rect
+  // still reports the raw pixel size rather than the scaled unit size. Reading
+  // .width there returns 1920 on a 1080p phone instead of 1280, which is how
+  // the title chip came out wide enough to run under the BACK button and the
+  // level tiles came out too big for a 4:3 screen. The ratio is the same in
+  // either unit, so multiplying it by the reference height gives the right
+  // answer whether or not the rect has settled.
+  public static float LayoutWidth(Transform from)
+  {
+    if (from == null) return 1280f;
+
+    Canvas canvas = from.GetComponentInParent<Canvas>();
+    if (canvas == null) return 1280f;
+
+    var canvasRect = (RectTransform)(canvas.rootCanvas != null ? canvas.rootCanvas : canvas).transform;
+    if (canvasRect.rect.height <= 1f || canvasRect.rect.width <= 1f) return 1280f;
+
+    float referenceHeight = 720f;
+    var scaler = canvasRect.GetComponent<CanvasScaler>();
+    if (scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize
+        && scaler.referenceResolution.y > 1f)
+    {
+      referenceHeight = scaler.referenceResolution.y;
+    }
+
+    float width = referenceHeight * (canvasRect.rect.width / canvasRect.rect.height);
+
+    // Take the notch out. Screen.safeArea is device state, not layout state, so
+    // unlike the rect above it is correct from the first frame.
+    Rect safe = Screen.safeArea;
+    if (Screen.width > 0 && safe.width > 1f && safe.width < Screen.width)
+    {
+      width *= safe.width / Screen.width;
+    }
+    return width;
   }
 
   private static Transform FindDeep(Transform root, string name)

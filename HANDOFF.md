@@ -1,6 +1,6 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-12. Working tree clean at `b80d262` on `main`, pushed.
+Last updated 2026-09-13. Working tree clean on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -131,6 +131,37 @@ Roughly in order. Each is committed.
     padlock; environments now unlock sequentially. The THEREN Trial font is
     gone, and the settings screen that was quietly rendering it now uses Groovy.
     See Priority 6 below.
+
+19. **Adaptive UI pass (from the second UI playtest)** — every layout that was
+    sized against the 1280x720 reference is now sized against the canvas the
+    device actually produces. The canvas is match-HEIGHT, so it is always 720
+    units tall and its WIDTH is the aspect ratio: 960 on a 4:3 tablet, 1280 at
+    16:9, ~1600 on a 20:9 phone. What changed:
+    - `ScreenTheme.LayoutWidth` is the one place that answers "how wide is this
+      screen". It derives the width from the canvas rect's ASPECT rather than
+      reading its width — see Priority 7 below, this is a trap worth knowing.
+    - The environment/level header is one set of constants
+      (`ScreenTheme.HeaderInset/BackButtonWidth/HeaderSideReserve`) and the
+      title chip is clamped to the gap between the two corner buttons, so
+      "SELECT ENVIRONMENT" no longer runs under BACK.
+    - Level tiles read 1-5 / 6-10 left to right (they filled columns before),
+      locked tiles now show their NUMBER with the padlock demoted to a corner
+      badge, and `LevelCard.SetTileSize` shrinks the tile so one row of five
+      fits a 4:3 screen.
+    - The towers panel is a single-column rail hard against the right edge with
+      an icon-only chevron toggle above it, a PERMANENT scrollbar, and Start
+      Wave directly underneath at the rail's width. That gave the bottom-left
+      corner back to the two info panels.
+    - `TowerInfoPanel` is new and owns the chrome for BOTH the placement bar
+      and the selected-tower panel, which had drifted into two different sizes
+      in two different positions. Same corner, same width, same rows: name +
+      coin value, description, stats, actions.
+    - `MenuLayout`: Play dropped to the bottom, the art raised, corner inset
+      tightened to 16.
+    - `UiPreview` now renders at the GAME's 1280x720 reference (it was building
+      every shot on a 1920x1080 canvas, i.e. a screen 50% wider in units than
+      any device ships) and adds `hud-4x3`, `screen-levels-4x3`,
+      `screen-levels-20x9` and `screen-environments-4x3`.
 
 ## 4. How to verify work — read this before changing anything
 
@@ -583,6 +614,20 @@ write path (`MarkLevelCompleted`) is exercised, the transition is not.
 **THEREN Trial** font is **deleted** (done — see below); analytics + crash
 reporting; real app icon and store art; replace the synthesized SFX. See
 `DISTRIBUTION.md`.
+
+
+**A canvas rect does not report canvas UNITS until it has been through a layout
+pass.** During any `Start()` — and during `HudTheme.Apply` — the canvas exists
+but has not been driven yet, so `canvasRect.rect.width` returns the raw pixel
+size (1920 on a 1080p phone) rather than the scaled 1280. Measuring it there
+cost two rounds of this: the towers rail came out hundreds of units too tall and
+ran off the bottom of the screen, and the title chip came out wide enough to
+render under the BACK button. Two defences, both in use: prefer ANCHORS, which
+the layout system resolves later and which need no measurement at all (the rail
+is stretch-anchored between the toggle and Start Wave for exactly this reason);
+and where a number is genuinely needed, use `ScreenTheme.LayoutWidth`, which
+takes the rect's ASPECT — identical in either unit — and multiplies it by the
+scaler's reference height. Never add a fresh `rect.width` read in a Start().
 
 ## 6. Things that will bite you
 

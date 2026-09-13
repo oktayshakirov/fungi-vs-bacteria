@@ -38,8 +38,13 @@ public class LevelSelectionScreen : MonoBehaviour
   }
 
   // The cards were laid out in one long horizontal strip, so only about eight
-  // fit before scrolling. Two fixed rows flowing horizontally fit a whole
-  // environment's levels on screen at once.
+  // fit before scrolling. Two fixed rows fit a whole environment's levels on
+  // screen at once.
+  //
+  // The rows read LEFT TO RIGHT (1 2 3 4 5 / 6 7 8 9 10). They used to fill a
+  // column before moving right, which put level 2 UNDER level 1 - a level list
+  // is read as a sequence, and a grid that numbers down its columns makes the
+  // player parse the layout before they can find the next level.
   private void UseGridLayout()
   {
     if (cardsContainer == null) return;
@@ -55,14 +60,25 @@ public class LevelSelectionScreen : MonoBehaviour
     var grid = cardsContainer.GetComponent<GridLayoutGroup>();
     if (grid == null) grid = cardsContainer.gameObject.AddComponent<GridLayoutGroup>();
     if (grid == null) return;
+
+    // Sized to the canvas rather than to the 1280-unit reference. The canvas is
+    // match-height, so a 4:3 tablet is only 960 units wide - five 170-wide
+    // tiles plus their gaps come to 1010 and simply ran off both edges there.
+    const int columns = 5;
+    const float gap = 32f;
+    const float sidePadding = 44f;
+    float available = ScreenTheme.LayoutWidth(cardsContainer)
+                      - sidePadding * 2f - gap * (columns - 1);
+    LevelCard.SetTileSize(available / columns);
+
     grid.cellSize = new Vector2(LevelCard.TileSize, LevelCard.CellHeight);
-    grid.spacing = new Vector2(40f, 16f);
-    grid.padding = new RectOffset(30, 30, 16, 16);
+    grid.spacing = new Vector2(gap, 14f);
+    grid.padding = new RectOffset((int)sidePadding, (int)sidePadding, 12, 12);
     grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
-    grid.startAxis = GridLayoutGroup.Axis.Vertical;   // fill a column, then move right
+    grid.startAxis = GridLayoutGroup.Axis.Horizontal;   // fill a row, then move down
     grid.childAlignment = TextAnchor.MiddleCenter;
-    grid.constraint = GridLayoutGroup.Constraint.FixedRowCount;
-    grid.constraintCount = 2;
+    grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+    grid.constraintCount = columns;
 
     // The content rect was sized for the old single-row strip, which left the
     // grid hanging off the left edge of the viewport. Centre it and let the
@@ -88,8 +104,9 @@ public class LevelSelectionScreen : MonoBehaviour
       view.anchorMin = Vector2.zero;
       view.anchorMax = Vector2.one;
       view.pivot = new Vector2(0.5f, 0.5f);
-      view.offsetMin = new Vector2(0f, 40f);
-      view.offsetMax = new Vector2(0f, -170f);   // clear of the title
+      view.offsetMin = new Vector2(0f, 24f);
+      // Clear of the header band (the title chip's plate plus its glow).
+      view.offsetMax = new Vector2(0f, -(ScreenTheme.HeaderInset + 88f + 26f));
     }
   }
 
@@ -180,8 +197,8 @@ public class LevelSelectionScreen : MonoBehaviour
     rect.anchorMin = new Vector2(1f, 1f);
     rect.anchorMax = new Vector2(1f, 1f);
     rect.pivot = new Vector2(1f, 1f);
-    rect.anchoredPosition = new Vector2(-28f, -28f);
-    rect.sizeDelta = new Vector2(84f, 74f);
+    rect.anchoredPosition = new Vector2(-ScreenTheme.HeaderInset, -ScreenTheme.HeaderInset);
+    rect.sizeDelta = new Vector2(ScreenTheme.HomeButtonWidth, ScreenTheme.HeaderButtonHeight);
 
     go.AddComponent<Image>();
     var home = go.AddComponent<Button>();
