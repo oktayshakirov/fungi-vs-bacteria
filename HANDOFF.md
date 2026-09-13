@@ -148,8 +148,13 @@ Roughly in order. Each is committed.
       locked tiles now show their NUMBER with the padlock demoted to a corner
       badge, and `LevelCard.SetTileSize` shrinks the tile so one row of five
       fits a 4:3 screen.
-    - The towers panel is a single-column rail with an icon-only chevron toggle
-      to its LEFT, a PERMANENT scrollbar, and Start Wave directly underneath at
+    - The towers panel is a single-column rail with a collapse control that has
+      two shapes: a bare chevron tucked against its LEFT edge while open, and a
+      labelled "TOWERS" pill sitting in the rail's own top slot while closed
+      (`hud-towers-collapsed` shoots the second one). A bare chevron left
+      floating over empty board had nothing to belong to and nothing saying
+      what it did.
+      The rail itself has a PERMANENT scrollbar, and Start Wave directly underneath at
       the rail's width. That gave the bottom-left corner back to the two info
       panels. The rail and Start Wave are the one part of the HUD hoisted OUT
       of the SafeArea: in landscape the notch is on the other side, so the
@@ -631,6 +636,17 @@ write path (`MarkLevelCompleted`) is exercised, the transition is not.
 reporting; real app icon and store art; replace the synthesized SFX. See
 `DISTRIBUTION.md`.
 
+
+**A Scrollbar handle's sizeDelta is ADDED to the length Unity computes for it.**
+`Scrollbar.UpdateVisuals` expresses the handle's position and length as anchor
+fractions of the track, so any sizeDelta left on the handle is extra on top -
+`UiSkin.BuildScrollbar` carried an authored 40, and the towers rail's handle
+duly rendered 40 units longer than its share and hung out past both ends of the
+panel. The handle is anchor-only now. Worth knowing because the batch preview
+CANNOT show you this: ScrollRect sizes its scrollbar from LateUpdate, which
+never runs in batch mode, so the handle in a shot is whatever rect it was
+created with. `UiPreview.BuildHud` now drives `bar.size`/`bar.value` by hand to
+make the shot honest.
 
 **A canvas rect does not report canvas UNITS until it has been through a layout
 pass.** During any `Start()` — and during `HudTheme.Apply` — the canvas exists

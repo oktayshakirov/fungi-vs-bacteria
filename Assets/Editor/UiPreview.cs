@@ -41,6 +41,7 @@ public static class UiPreview
     Shoot(cam, 2400, 1080, "hud-20x9");
     Shoot(cam, 1920, 1080, "hud-16x9");
     Shoot(cam, 1440, 1080, "hud-4x3");
+    ShootTowersCollapsed(cam, "hud-towers-collapsed");
 
     // The real modal prefabs, themed by the real ScreenTheme
     ShootScreen(cam, "Assets/Prefabs/Screens/PauseGameScreen.prefab", "ResumeGame", "screen-pause");
@@ -280,6 +281,52 @@ public static class UiPreview
     cam.targetTexture = null;
     Object.DestroyImmediate(rt);
     Object.DestroyImmediate(canvasGo);
+  }
+
+  // The HUD with the towers rail put away. The collapsed state is a DIFFERENT
+  // shape, not just a hidden panel - the toggle becomes a labelled pill in the
+  // rail's own slot - so it needs its own shot; an earlier version left a bare
+  // chevron floating over empty board and nothing here would have shown it.
+  private static void ShootTowersCollapsed(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+
+    // Driven through the real button rather than by reaching into HudTheme:
+    // the collapsed shape lives in that onClick closure, so invoking it is the
+    // only way to see what the player actually gets.
+    Transform toggle = FindDeep(canvasGo.transform, "TowersToggle");
+    var button = toggle != null ? toggle.GetComponent<Button>() : null;
+    if (button != null) button.onClick.Invoke();
+    else Debug.LogWarning("UI PREVIEW: no TowersToggle to collapse");
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+  }
+
+  private static Transform FindDeep(Transform root, string name)
+  {
+    if (root.name == name) return root;
+    for (int i = 0; i < root.childCount; i++)
+    {
+      Transform found = FindDeep(root.GetChild(i), name);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   // Instantiates a real screen prefab and themes it. Initialize() is skipped —
@@ -728,6 +775,23 @@ public static class UiPreview
     // The real runtime buttons, built by their own code
     GameSpeedButton.Create(safeArea, statsPanel, 0);
     CameraViewButton.Create(safeArea, statsPanel, 1);
+
+    // ScrollRect tells its Scrollbar how big the handle should be from
+    // LateUpdate, which never runs in batch mode - so the handle keeps the rect
+    // it was created with and can render straight out of a track that was
+    // resized afterwards. In a shot that reads as a bar overflowing its panel,
+    // i.e. exactly the bug this preview is supposed to be able to disprove.
+    // Setting `size` and `value` drives Scrollbar.UpdateVisuals directly, which
+    // re-anchors the handle inside the track the way the running game does.
+    foreach (ScrollRect scroll in canvasGo.GetComponentsInChildren<ScrollRect>(true))
+    {
+      Scrollbar bar = scroll.verticalScrollbar;
+      if (bar == null || scroll.content == null || scroll.viewport == null) continue;
+
+      float content = scroll.content.rect.height;
+      bar.size = content > 0f ? Mathf.Clamp01(scroll.viewport.rect.height / content) : 1f;
+      bar.value = 1f;   // the list starts at the top
+    }
 
     Canvas.ForceUpdateCanvases();
     LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);

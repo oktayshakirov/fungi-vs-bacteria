@@ -255,10 +255,17 @@ public static class UiSkin
 
     var handleGo = new GameObject("Handle", typeof(RectTransform));
     handleGo.transform.SetParent(go.transform, false);
+    // Purely anchor-driven: Scrollbar.UpdateVisuals expresses the handle's
+    // position and length as ANCHOR fractions of the track, so any sizeDelta on
+    // top of that is added to whatever it computes. The authored 40 here was
+    // exactly that - the handle rendered 40 units longer than its share and
+    // could hang out past both ends of the track, which is what made the towers
+    // rail's bar look taller than the panel holding it.
     var handleRect = (RectTransform)handleGo.transform;
     handleRect.anchorMin = Vector2.zero;
     handleRect.anchorMax = new Vector2(1f, 0f);
-    handleRect.sizeDelta = new Vector2(0f, 40f);
+    handleRect.sizeDelta = Vector2.zero;
+    handleRect.anchoredPosition = Vector2.zero;
 
     var handleImage = handleGo.AddComponent<Image>();
     handleImage.sprite = UiSprites.Panel(4);

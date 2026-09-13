@@ -211,8 +211,11 @@ public static class HudTheme
   private const float ToggleSize = 46f;
   private const float ToggleGap = 8f;
 
-  // Width reserved down the right of the rail for the scrollbar.
+  // Width reserved down the right of the rail for the scrollbar, and the bar's
+  // own metrics inside that gutter.
   private const int ScrollbarGutter = 14;
+  private const float ScrollbarWidth = 7f;
+  private const float ScrollbarInset = 10f;
 
   // Start Wave, under the rail, at the rail's own width.
   private const float StartWaveHeight = 66f;
@@ -366,8 +369,12 @@ public static class HudTheme
     // reason: it is a handle here, not just an indicator.
     Scrollbar bar = UiSkin.BuildScrollbar(scrollGo.transform);
     var barRect = (RectTransform)bar.transform;
-    barRect.sizeDelta = new Vector2(12f, 0f);
-    barRect.anchoredPosition = new Vector2(-6f, 0f);
+    // Inset on all three sides it touches. At full height against the frame's
+    // ROUNDED plate, a hard-edged bar reads as taller than the panel it is in -
+    // its square ends stick out past the curve at both corners, which is what
+    // made it look like it did not belong to the rail.
+    barRect.sizeDelta = new Vector2(ScrollbarWidth, -ScrollbarInset * 2f);
+    barRect.anchoredPosition = new Vector2(-ScrollbarInset, 0f);
     scroll.verticalScrollbar = bar;
     scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
@@ -381,18 +388,25 @@ public static class HudTheme
     return rail;
   }
 
-  // A single icon button beside the rail that swaps the towers list for bare
-  // board space - "how do I see the board" was one of the explicit asks, and a
-  // fixed-height scroll panel otherwise always claims the same chunk of screen
-  // even when the player just wants to watch a wave play out.
+  // The control that swaps the towers list for bare board space - "how do I see
+  // the board" was one of the explicit asks, and a fixed-height scroll panel
+  // otherwise always claims the same chunk of screen even when the player just
+  // wants to watch a wave play out.
   //
-  // It started as a full-width "HIDE TOWERS" strip across the top of the frame,
-  // which spent a whole row of the rail on a label the player reads once, and
-  // then sat ABOVE the rail, which cost the list that row anyway. To the LEFT
-  // of the rail it costs the list nothing: the board it overlaps is board the
-  // rail was already next to. It sits outside the frame so it survives the
-  // frame being switched off, and the chevron points the way the rail moves -
-  // right to push it away, left to bring it back.
+  // It is ONE button in two shapes, and the shape is the whole design:
+  //
+  //   open      a bare 46px chevron tucked against the rail's left edge,
+  //             pointing right - "push this away". Minimal, because the list
+  //             beside it is already saying what it is.
+  //   collapsed a full-width labelled pill sitting exactly where the rail's
+  //             top row was, reading "TOWERS" with the chevron pointing left -
+  //             "bring it back".
+  //
+  // The collapsed shape is the part that earns its place. The first version
+  // left the bare chevron floating in the middle of empty board with nothing
+  // to belong to and nothing saying what it would do; taking over the rail's
+  // own slot makes it read as the list, closed - the standard way a drawer
+  // announces itself - and the label removes the guess.
   private static void BuildCollapseToggle(Transform parent, RectTransform frame,
     float top, float railWidth)
   {
@@ -402,8 +416,6 @@ public static class HudTheme
     rect.anchorMin = new Vector2(1f, 1f);
     rect.anchorMax = new Vector2(1f, 1f);
     rect.pivot = new Vector2(1f, 1f);
-    rect.anchoredPosition = new Vector2(-(RailInset + railWidth + ToggleGap), -top);
-    rect.sizeDelta = new Vector2(ToggleSize, ToggleSize);
     go.transform.SetAsLastSibling();
 
     go.AddComponent<Image>();
@@ -413,18 +425,72 @@ public static class HudTheme
     // A sprite, never a glyph: the TMP atlases in this project are static and
     // ASCII-only, so an arrow character silently renders as a blank box. The
     // sprite is drawn pointing down, so +90 points it right and 270 left.
-    Image chevron = UiSkin.Icon(go.transform, UiSprites.Chevron(), UiSkin.TextPrimary, 24f);
+    Image chevron = UiSkin.Icon(go.transform, UiSprites.Chevron(), UiSkin.TextPrimary, 22f);
     chevron.raycastTarget = false;
-    chevron.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);   // push it away
+    var chevronRect = chevron.rectTransform;
+
+    var labelGo = new GameObject("Label", typeof(RectTransform));
+    labelGo.transform.SetParent(go.transform, false);
+    var label = labelGo.AddComponent<TextMeshProUGUI>();
+    // ButtonLabel, not Caption: this is a button, and it sits directly under
+    // PAUSE and above START WAVE, which both carry the display font. In the
+    // body font it read as a tooltip that had come loose from something.
+    UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
+    label.text = "TOWERS";
+    label.enableAutoSizing = true;
+    label.fontSizeMin = 14f;
+    label.fontSizeMax = 26f;
+    label.alignment = TextAlignmentOptions.Midline;
+    label.textWrappingMode = TextWrappingModes.NoWrap;
+    label.raycastTarget = false;
+    var labelRect = label.rectTransform;
+    labelRect.anchorMin = new Vector2(0f, 0f);
+    labelRect.anchorMax = new Vector2(1f, 1f);
+    labelRect.offsetMin = new Vector2(ToggleSize, 0f);   // clear of the chevron
+    labelRect.offsetMax = new Vector2(-10f, 0f);
 
     bool collapsed = false;
+    ApplyToggleShape(rect, chevronRect, labelGo, collapsed, top, railWidth);
+
     button.onClick.AddListener(() =>
     {
       collapsed = !collapsed;
       frame.gameObject.SetActive(!collapsed);
-      chevron.rectTransform.localEulerAngles = new Vector3(0f, 0f, collapsed ? 270f : 90f);
+      ApplyToggleShape(rect, chevronRect, labelGo, collapsed, top, railWidth);
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     });
+  }
+
+  private static void ApplyToggleShape(RectTransform rect, RectTransform chevron,
+    GameObject label, bool collapsed, float top, float railWidth)
+  {
+    label.SetActive(collapsed);
+
+    if (collapsed)
+    {
+      // The rail's own slot: same right edge, same top, same width.
+      rect.anchoredPosition = new Vector2(-RailInset, -top);
+      rect.sizeDelta = new Vector2(railWidth, ToggleSize);
+
+      chevron.anchorMin = new Vector2(0f, 0.5f);
+      chevron.anchorMax = new Vector2(0f, 0.5f);
+      chevron.pivot = new Vector2(0f, 0.5f);
+      // Clear of the pill's own corner radius, which a tighter inset lets the
+      // chevron's point stick out through.
+      chevron.anchoredPosition = new Vector2(18f, 0f);
+      chevron.localEulerAngles = new Vector3(0f, 0f, 270f);   // bring it back
+      return;
+    }
+
+    // Tucked against the rail's left edge, icon only.
+    rect.anchoredPosition = new Vector2(-(RailInset + railWidth + ToggleGap), -top);
+    rect.sizeDelta = new Vector2(ToggleSize, ToggleSize);
+
+    chevron.anchorMin = new Vector2(0.5f, 0.5f);
+    chevron.anchorMax = new Vector2(0.5f, 0.5f);
+    chevron.pivot = new Vector2(0.5f, 0.5f);
+    chevron.anchoredPosition = Vector2.zero;
+    chevron.localEulerAngles = new Vector3(0f, 0f, 90f);      // push it away
   }
 
   // Start Wave, directly under the towers rail and exactly as wide as it. It
