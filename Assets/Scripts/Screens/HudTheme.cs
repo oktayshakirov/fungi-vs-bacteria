@@ -49,6 +49,7 @@ public static class HudTheme
   private struct Rail
   {
     public bool valid;
+    public Transform host;   // what the rail was parented to; Start Wave joins it
     public float width;
     public float right;    // x of the rail's right edge, from the right edge
     public float bottom;   // y of the rail's bottom edge, from the bottom edge
@@ -197,15 +198,18 @@ public static class HudTheme
   // "go". One column, hard against the right edge, hands that width back to
   // the board and puts both controls in one vertical run.
 
-  // How far the rail sits off the right edge. Deliberately tighter than
-  // EdgeMargin: the rail is already inside the SafeArea, so this is measured
-  // from the notch inset rather than from the bezel, and every unit spent here
-  // is a unit of board.
-  private const float RailInset = 8f;
+  // How far the rail sits off the right edge of the SCREEN - not off the safe
+  // area. The rail is hoisted out of the SafeArea (see StyleTowersPanel) so it
+  // can use the strip the landscape safe-area inset was reserving down the
+  // right, which on a notched phone is 40-odd units of empty board that nothing
+  // else was ever going to occupy. That inset exists for the notch, which in
+  // landscape is on the OTHER side; what is left on this side is the rounded
+  // corner, which this margin clears on its own.
+  private const float RailInset = 18f;
 
-  // The icon-only collapse toggle above the rail.
+  // The icon-only collapse toggle, to the LEFT of the rail.
   private const float ToggleSize = 46f;
-  private const float ToggleGap = 6f;
+  private const float ToggleGap = 8f;
 
   // Width reserved down the right of the rail for the scrollbar.
   private const int ScrollbarGutter = 14;
@@ -213,7 +217,11 @@ public static class HudTheme
   // Start Wave, under the rail, at the rail's own width.
   private const float StartWaveHeight = 66f;
   private const float StartWaveGap = 10f;
-  private const float RailBottomMargin = 12f;
+
+  // Bigger than it would need to be inside the safe area: the rail is hoisted
+  // out of it, so this is the only thing keeping Start Wave off the bottom edge
+  // and clear of a home indicator.
+  private const float RailBottomMargin = 24f;
 
   // Wraps the scene's TowersPanel (an authored, screen-anchored slot) in a
   // scrollable frame instead of restyling it in place.
@@ -266,13 +274,23 @@ public static class HudTheme
     float width = grid.padding.left + grid.padding.right + grid.cellSize.x;
 
     float top = -towersPanel.anchoredPosition.y;          // gap below the pause row
-    float frameTop = top + ToggleSize + ToggleGap;
+    float frameTop = top;
     float frameBottom = StartWaveHeight + StartWaveGap + RailBottomMargin;
+
+    // Hoisted OUT of the SafeArea, onto the canvas root. Same exception
+    // ScreenTheme.Dim makes for full-bleed backgrounds, and for a related
+    // reason: the safe area is a rule about where CONTENT can be read, and in
+    // landscape it reserves a strip down the right that the notch is not even
+    // on. RailInset clears the rounded corner by itself. Everything else in the
+    // HUD stays inside the safe area.
+    SafeArea safeArea = parent.GetComponentInParent<SafeArea>();
+    Transform railHost = safeArea != null && safeArea.transform.parent != null
+      ? safeArea.transform.parent
+      : parent;
 
     var frameGo = new GameObject("TowersFrame", typeof(RectTransform));
     var frame = (RectTransform)frameGo.transform;
-    frame.SetParent(parent, false);
-    frame.SetSiblingIndex(towersPanel.GetSiblingIndex());
+    frame.SetParent(railHost, false);
 
     // Stretched top-to-bottom between the toggle and Start Wave, NOT given a
     // measured pixel height. Measuring the canvas here is what the first
@@ -349,30 +367,34 @@ public static class HudTheme
     Scrollbar bar = UiSkin.BuildScrollbar(scrollGo.transform);
     var barRect = (RectTransform)bar.transform;
     barRect.sizeDelta = new Vector2(12f, 0f);
-    barRect.anchoredPosition = new Vector2(-3f, 0f);
+    barRect.anchoredPosition = new Vector2(-6f, 0f);
     scroll.verticalScrollbar = bar;
     scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
-    BuildCollapseToggle(parent, frame, top);
+    BuildCollapseToggle(railHost, frame, top, width);
 
     rail.valid = true;
+    rail.host = railHost;
     rail.width = width;
     rail.right = RailInset;
     rail.bottom = RailBottomMargin;
     return rail;
   }
 
-  // A single icon button above the rail that swaps the towers list for bare
+  // A single icon button beside the rail that swaps the towers list for bare
   // board space - "how do I see the board" was one of the explicit asks, and a
   // fixed-height scroll panel otherwise always claims the same chunk of screen
   // even when the player just wants to watch a wave play out.
   //
-  // It was a full-width "HIDE TOWERS" strip across the top of the frame, which
-  // spent a whole row of the rail on a label the player reads once. A chevron
-  // is enough: it sits OUTSIDE the frame so it survives the frame being
-  // switched off, and it points down when the list is open (tap to put it
-  // away) and up when it is closed.
-  private static void BuildCollapseToggle(Transform parent, RectTransform frame, float top)
+  // It started as a full-width "HIDE TOWERS" strip across the top of the frame,
+  // which spent a whole row of the rail on a label the player reads once, and
+  // then sat ABOVE the rail, which cost the list that row anyway. To the LEFT
+  // of the rail it costs the list nothing: the board it overlaps is board the
+  // rail was already next to. It sits outside the frame so it survives the
+  // frame being switched off, and the chevron points the way the rail moves -
+  // right to push it away, left to bring it back.
+  private static void BuildCollapseToggle(Transform parent, RectTransform frame,
+    float top, float railWidth)
   {
     var go = new GameObject("TowersToggle", typeof(RectTransform));
     go.transform.SetParent(parent, false);
@@ -380,7 +402,7 @@ public static class HudTheme
     rect.anchorMin = new Vector2(1f, 1f);
     rect.anchorMax = new Vector2(1f, 1f);
     rect.pivot = new Vector2(1f, 1f);
-    rect.anchoredPosition = new Vector2(-RailInset, -top);
+    rect.anchoredPosition = new Vector2(-(RailInset + railWidth + ToggleGap), -top);
     rect.sizeDelta = new Vector2(ToggleSize, ToggleSize);
     go.transform.SetAsLastSibling();
 
@@ -389,18 +411,18 @@ public static class HudTheme
     UiSkin.StyleButton(button, UiSkin.Neutral, UiSkin.RadiusChip);
 
     // A sprite, never a glyph: the TMP atlases in this project are static and
-    // ASCII-only, so an arrow character silently renders as a blank box.
+    // ASCII-only, so an arrow character silently renders as a blank box. The
+    // sprite is drawn pointing down, so +90 points it right and 270 left.
     Image chevron = UiSkin.Icon(go.transform, UiSprites.Chevron(), UiSkin.TextPrimary, 24f);
     chevron.raycastTarget = false;
-    // The sprite is drawn pointing down, so zero rotation is the open state.
-    chevron.rectTransform.localEulerAngles = Vector3.zero;
+    chevron.rectTransform.localEulerAngles = new Vector3(0f, 0f, 90f);   // push it away
 
     bool collapsed = false;
     button.onClick.AddListener(() =>
     {
       collapsed = !collapsed;
       frame.gameObject.SetActive(!collapsed);
-      chevron.rectTransform.localEulerAngles = new Vector3(0f, 0f, collapsed ? 180f : 0f);
+      chevron.rectTransform.localEulerAngles = new Vector3(0f, 0f, collapsed ? 270f : 90f);
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     });
   }
@@ -419,6 +441,10 @@ public static class HudTheme
       rect.anchoredPosition = new Vector2(EdgeMargin, EdgeMargin);
       return;
     }
+
+    // Follows the rail out of the SafeArea so the two line up on the same edge;
+    // a button left inside it would sit visibly short of the rail above it.
+    if (rail.host != null && rect.parent != rail.host) rect.SetParent(rail.host, false);
 
     // Bottom-anchored for the same reason the rail is stretch-anchored: nothing
     // here is allowed to depend on knowing the canvas height.

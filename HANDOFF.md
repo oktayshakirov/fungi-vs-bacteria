@@ -148,16 +148,32 @@ Roughly in order. Each is committed.
       locked tiles now show their NUMBER with the padlock demoted to a corner
       badge, and `LevelCard.SetTileSize` shrinks the tile so one row of five
       fits a 4:3 screen.
-    - The towers panel is a single-column rail hard against the right edge with
-      an icon-only chevron toggle above it, a PERMANENT scrollbar, and Start
-      Wave directly underneath at the rail's width. That gave the bottom-left
-      corner back to the two info panels.
+    - The towers panel is a single-column rail with an icon-only chevron toggle
+      to its LEFT, a PERMANENT scrollbar, and Start Wave directly underneath at
+      the rail's width. That gave the bottom-left corner back to the two info
+      panels. The rail and Start Wave are the one part of the HUD hoisted OUT
+      of the SafeArea: in landscape the notch is on the other side, so the
+      inset was reserving 40-odd units of empty board down the right that
+      nothing else would ever use. `RailInset` clears the rounded corner.
     - `TowerInfoPanel` is new and owns the chrome for BOTH the placement bar
       and the selected-tower panel, which had drifted into two different sizes
       in two different positions. Same corner, same width, same rows: name +
       coin value, description, stats, actions.
-    - `MenuLayout`: Play dropped to the bottom, the art raised, corner inset
-      tightened to 16.
+    - `MenuLayout`: Play dropped to the bottom, the art placed just above it
+      (`LogoOffset`, verified against a render - the rect is 90 units tall and
+      the artwork inside it is several times that, so the rect says nothing
+      about where the art's edges land), corner inset tightened to 16.
+
+20. **The sell/upgrade panel was unreachable, and always had been.** Every tower
+    prefab is authored on layer 0, but `HUDManager.selectableLayerMask` is the
+    "Tower" layer (7) and nothing ever moved them, so the selection raycast
+    could not hit a placed tower - tapping one did nothing. Render-verified but
+    never tapped, exactly as section 0 predicted. `Tower.MakeSelectable()` now
+    sets the layer on the tower and ALL its colliders at Initialize (in code, so
+    a ninth tower cannot be added with the same hole; on the colliders, because
+    several sit on a nested model prefab and raycasts filter on the collider's
+    own object). `TrySelectTower` also walks up with `GetComponentInParent`
+    rather than requiring the collider and the `Tower` component on one object.
     - `UiPreview` now renders at the GAME's 1280x720 reference (it was building
       every shot on a 1920x1080 canvas, i.e. a screen 50% wider in units than
       any device ships) and adds `hud-4x3`, `screen-levels-4x3`,

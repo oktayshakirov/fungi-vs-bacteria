@@ -129,7 +129,11 @@ public class Tower : MonoBehaviour
       }
       fireCountdown = 1f / (FireRate > 0 ? FireRate : 1f);
 
-      if (!preview) TowerBuffs.Register(this);
+      if (!preview)
+      {
+        TowerBuffs.Register(this);
+        MakeSelectable();
+      }
     }
     else
     {
@@ -215,6 +219,32 @@ public class Tower : MonoBehaviour
   public TowerConfig GetTowerConfig()
   {
     return config;
+  }
+
+  // Puts the tower's colliders on the "Tower" layer so a tap can find it.
+  //
+  // HUDManager raycasts placed towers with `selectableLayerMask`, which the
+  // scene sets to that layer and only that layer - but every tower prefab is
+  // authored on Default, and nothing ever moved them. The raycast could
+  // therefore never hit a tower, so the sell/upgrade panel was unreachable for
+  // the entire life of the feature. It was render-verified but never tapped
+  // (see HANDOFF section 0), which is exactly the class of bug a preview
+  // cannot catch.
+  //
+  // Done in code rather than by re-authoring eight prefabs so a ninth tower
+  // cannot be added with the same hole. The layer is applied to the COLLIDERS,
+  // not just the root: Physics.Raycast filters on the layer of the object the
+  // collider is on, which here is a child of the tower.
+  private void MakeSelectable()
+  {
+    int layer = LayerMask.NameToLayer("Tower");
+    if (layer < 0) return;   // the layer was renamed or removed
+
+    gameObject.layer = layer;
+    foreach (Collider collider in GetComponentsInChildren<Collider>(true))
+    {
+      collider.gameObject.layer = layer;
+    }
   }
 
   public void Select()

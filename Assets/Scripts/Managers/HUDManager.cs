@@ -198,7 +198,13 @@ public class HUDManager : MonoBehaviour
   {
     if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, selectableLayerMask))
     {
-      if (hit.collider.TryGetComponent<Tower>(out Tower tower))
+      // GetComponentInParent, not TryGetComponent: a tower's collider is not
+      // always on the same object as its Tower component - several are on a
+      // nested model prefab - and requiring both on one object would silently
+      // make those towers unselectable, which is the same class of bug as the
+      // layer one Tower.MakeSelectable fixes.
+      Tower tower = hit.collider.GetComponentInParent<Tower>();
+      if (tower != null)
       {
         SelectTower(tower);
         return true;

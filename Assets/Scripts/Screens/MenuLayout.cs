@@ -14,12 +14,17 @@ using UnityEngine.UI;
 // are set here.
 public static class MenuLayout
 {
-  // How far ApplyLogo lifts the vs-battle art off the centre line, on top of
-  // the 125 the scene authors. The art and Play used to be shifted DOWN by this
-  // same amount together, which moved the pair without changing the gap between
-  // them; the two now move apart instead - art up, Play down - because the
-  // slack was never above or below the cluster, it was inside it.
-  private const float VerticalRebalance = 37f;
+  // Where ApplyLogo puts the vs-battle art, as an offset from the centre line.
+  //
+  // The scene authors 125 and an earlier pass here raised it to 162, which put
+  // the top of the art off the top of the screen on a real phone - the rect is
+  // 90 units tall but the ARTWORK inside it is several times that, so the rect's
+  // position says very little about where the art's edges land. Below centre is
+  // where it has to sit for the whole cast to be on screen with Play at the
+  // bottom - high enough to clear the button, low enough to keep the top of
+  // the art on screen. Verified against a render, not the editor: the gap
+  // between the two is only ~50 units and the rect gives no hint of it.
+  private const float LogoOffset = 24f;
 
   // One inset for every corner control on the menu (gear, coin chip). Tighter
   // than the 28 the list screens use: those corners hold a labelled BACK plate
@@ -94,10 +99,8 @@ public static class MenuLayout
   public static void ApplyLogo(RectTransform logo)
   {
     if (logo == null) return;
-    // Centre-anchored, so this is an offset from the middle of the screen. The
-    // art is far taller than the 90-unit rect suggests; raising it takes back
-    // the band Play just vacated instead of opening a hole between the two.
-    logo.anchoredPosition = new Vector2(logo.anchoredPosition.x, 125f + VerticalRebalance);
+    // Centre-anchored, so this is an offset from the middle of the screen.
+    logo.anchoredPosition = new Vector2(logo.anchoredPosition.x, LogoOffset);
   }
 
   // Press/disable feedback without touching the button's artwork.
