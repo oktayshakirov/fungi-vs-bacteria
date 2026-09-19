@@ -104,15 +104,15 @@ SDK updates change them.
   Report**). **Use that generated report as the source of truth** for this label:
   it reflects the exact SDK versions in the build.
 
-### Open gap: players cannot change their consent
+### Changing consent later
 
-**Must fix before release.** GDPR, and Google's EU user consent policy that the UMP
-SDK exists to satisfy, require that a player who answered the consent form can
-revisit that choice later. `LevelPlayAds` already has both halves —
-`IsPrivacyOptionsRequired` and `ShowPrivacyOptionsForm()` — but **nothing calls
-them**: there is no button anywhere in the game. It needs a "Privacy options"
-button on the settings screen, shown only when `IsPrivacyOptionsRequired` is true
-(so players outside the EEA/UK never see it).
+GDPR, and Google's EU user consent policy that the UMP SDK exists to satisfy,
+require that a player who answered the consent form can revisit that choice.
+The settings screen has a **Privacy Options** button (bottom-left) that reopens
+the UMP form. It is shown **only where UMP reports it is required** (EEA/UK), so
+it never appears in the editor or outside those regions — to see it on a device,
+use a UMP debug geography or a test device in the EEA. It has been
+render-verified (`screen-settings`), not yet tapped on a device.
 
 ### Target audience — decide this before the content rating
 

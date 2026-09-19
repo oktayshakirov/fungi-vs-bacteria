@@ -113,6 +113,7 @@ public static class ScreenTheme
 
     Dim(root);
     Title(root);
+    SpaceSettingsRows(root);
 
     if (close == null) return;
 
@@ -139,6 +140,28 @@ public static class ScreenTheme
     colors.pressedColor = new Color(0.82f, 0.82f, 0.86f, 1f);
     colors.fadeDuration = 0.08f;
     close.colors = colors;
+  }
+
+  // The three toggle rows, re-spaced a little tighter and a little higher than
+  // the prefab's 80 / -80 / -240. The prefab left the last row's display-font
+  // label ~80 units off the bottom edge, which was fine with nothing else on
+  // the screen - but the bottom-left corner now holds the Privacy Options
+  // button (SettingScreen.BuildPrivacyButton), and at the old spacing its top
+  // edge sat about ten units under the VIBRATION label. Offsets from the
+  // centre line, so they hold on every aspect ratio.
+  private static readonly (string name, float y)[] SettingsRows =
+  {
+    ("MusicToggle", 100f), ("SFXToggle", -40f), ("Vibration", -180f),
+  };
+
+  private static void SpaceSettingsRows(Transform root)
+  {
+    foreach (var row in SettingsRows)
+    {
+      var rect = FindDeep(root, row.name) as RectTransform;
+      if (rect == null) continue;
+      rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, row.y);
+    }
   }
 
   // The backdrop darkens the running game behind the modal.

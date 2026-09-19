@@ -641,6 +641,9 @@ public static class UiPreview
         if (b.name == "Close") close = b;
       }
       ScreenTheme.ApplySettingsScreen(go.transform, close);
+      // Only shown in the EEA/UK, which the editor never is - so it is built
+      // unconditionally here, or the one screen that has it could never show it.
+      SettingScreen.BuildPrivacyButton(go.transform, null);
     }
     else
     {
