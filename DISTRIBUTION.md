@@ -6,8 +6,8 @@
 - **Bundle ID**: `com.shadev.fungivsbacteria` (Android / iOS / Standalone)
 - **Orientation**: landscape only (UI is designed at 1920×1080)
 - **Android**: IL2CPP + ARM64-only (Play Store compliant), min SDK 23
-- **App icon**: default icon wired to `Assets/Sprites/Logos/StartScreen.png` (placeholder —
-  consider a dedicated, simpler icon before store submission; busy art reads poorly at 48px)
+- **App icon**: `Assets/Sprites/Icons/AppIcon.png` (1024x1024, opaque), set as the default
+  icon by `Tools → App Icon → Apply`; Unity scales it into every platform size at build time
 - **Frame rate**: capped at 60 fps on device (set in GameManager)
 - **Builds**: `Tools → Build` menu in the editor, or from the command line:
 
