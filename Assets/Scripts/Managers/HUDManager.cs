@@ -112,6 +112,9 @@ public class HUDManager : MonoBehaviour
     // Stacked under the stats panel, so they can never overlap it
     GameSpeedButton.Create(uiRoot, statsRect, 0);
     CameraViewButton.Create(uiRoot, statsRect, 1);
+    // Continues the same column. Returns null - and builds nothing - when the
+    // player owns no boosters.
+    BoosterBar.Create(uiRoot, statsRect, 2);
 
 
     // Initialize pause screen
@@ -316,9 +319,10 @@ public class HUDManager : MonoBehaviour
   public void ShowTowerActions(Tower tower)
   {
     // The other half of the rule in TowerPlacement.StartPlacement: selecting a
-    // placed tower cancels an armed one, so the two panels that share the
-    // bottom-left slot can never both be up.
+    // placed tower cancels an armed one and an armed booster, so the three
+    // panels that share the bottom-left slot can never be up together.
     placement?.CancelPlacement();
+    BoosterPanel.Hide();
 
     if (towerActions != null && towerActionsPanel != null)
     {

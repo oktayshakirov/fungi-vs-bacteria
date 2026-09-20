@@ -42,6 +42,7 @@ public static class UiPreview
     Shoot(cam, 1920, 1080, "hud-16x9");
     Shoot(cam, 1440, 1080, "hud-4x3");
     ShootTowersCollapsed(cam, "hud-towers-collapsed");
+    ShootBoosters(cam, "hud-boosters");
 
     // The real modal prefabs, themed by the real ScreenTheme
     ShootScreen(cam, "Assets/Prefabs/Screens/PauseGameScreen.prefab", "ResumeGame", "screen-pause");
@@ -327,6 +328,52 @@ public static class UiPreview
       if (found != null) return found;
     }
     return null;
+  }
+
+  // The booster bar, with its panel armed.
+  //
+  // The inventory is a PlayerPrefs value shared with play mode, so it is saved
+  // and put back afterwards - a preview that left four boosters in the editor's
+  // save would quietly change what the next play-mode run is testing.
+  private static void ShootBoosters(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var saved = new System.Collections.Generic.Dictionary<BoosterKind, int>();
+    foreach (BoosterKind kind in BoosterCatalog.All)
+    {
+      saved[kind] = BoosterInventory.Count(kind);
+      BoosterInventory.Add(kind, 2);
+    }
+    BoosterEffects.ResetForLevel();
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+    Transform safeArea = canvasGo.transform.Find("SafeArea");
+    BoosterPanel.Show(BoosterKind.SporeBomb, safeArea);
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    BoosterPanel.Hide();
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+
+    foreach (var entry in saved)
+    {
+      // Set, not Add: the shot added two of each on top of whatever was there.
+      PlayerPrefs.SetInt("Booster_" + entry.Key, entry.Value);
+    }
+    PlayerPrefs.Save();
   }
 
   // Instantiates a real screen prefab and themes it. Initialize() is skipped —
@@ -805,6 +852,9 @@ public static class UiPreview
     // The real runtime buttons, built by their own code
     GameSpeedButton.Create(safeArea, statsPanel, 0);
     CameraViewButton.Create(safeArea, statsPanel, 1);
+    // Builds nothing unless the player owns boosters, which is why the plain
+    // HUD shots show no bar and ShootBoosters stocks the inventory first.
+    BoosterBar.Create(safeArea, statsPanel, 2);
 
     // ScrollRect tells its Scrollbar how big the handle should be from
     // LateUpdate, which never runs in batch mode - so the handle keeps the rect

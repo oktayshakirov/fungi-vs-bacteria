@@ -16,6 +16,10 @@ public class EnemySpawner : MonoBehaviour
   private bool isWaitingForNextWave = false;
 
   public bool IsLastWave => currentWave >= waveConfig.waves.Length;
+
+  // How many waves have been started this level. Boosters that are limited to
+  // one use per wave key off this.
+  public int WavesStarted => currentWave;
   public bool IsWaveInProgress => isSpawning;
 
   private void Awake()

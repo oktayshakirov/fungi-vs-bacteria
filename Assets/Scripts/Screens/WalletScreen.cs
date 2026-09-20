@@ -65,6 +65,7 @@ public class WalletScreen : MonoBehaviour
     // the shelf.
     RectTransform body = ScrollBody(card);
     BalanceRow(body);
+    BoostersSection(body);
     PacksSection(body);
     NoAdsRow(body);
     StreakRow(body);
@@ -152,6 +153,10 @@ public class WalletScreen : MonoBehaviour
     content.sizeDelta = Vector2.zero;
 
     var contentLayout = contentGo.AddComponent<VerticalLayoutGroup>();
+    // A gutter down the right for the scrollbar, which is drawn over the
+    // content rather than beside it - without this the right-hand end of every
+    // row (a price, a buy button) sits underneath the bar.
+    contentLayout.padding = new RectOffset(0, 16, 0, 0);
     contentLayout.spacing = 20f;
     contentLayout.childAlignment = TextAnchor.UpperCenter;
     contentLayout.childControlWidth = true;
@@ -374,6 +379,142 @@ public class WalletScreen : MonoBehaviour
         Ads.Prewarm();
         RefreshWatchButton();
       });
+  }
+
+  // ------------------------------------------------------------- boosters
+
+  // Bought with COINS, not money, which is why this sits above the coin packs:
+  // it is the reason to own coins at all. A player who wants a bomb and cannot
+  // afford one has the packs directly underneath.
+  private readonly System.Collections.Generic.List<Button> boosterButtons =
+    new System.Collections.Generic.List<Button>();
+
+  private void BoostersSection(RectTransform parent)
+  {
+    var headerGo = new GameObject("BoostersHeader", typeof(RectTransform));
+    headerGo.transform.SetParent(parent, false);
+    var header = headerGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(header, UiSkin.Role.Caption, UiSkin.TextMuted);
+    header.text = "BOOSTERS";
+    header.alignment = TextAlignmentOptions.Center;
+    headerGo.AddComponent<LayoutElement>().preferredHeight = 34f;
+
+    foreach (BoosterKind kind in BoosterCatalog.All) BuildBoosterRow(parent, kind);
+  }
+
+  private void BuildBoosterRow(RectTransform parent, BoosterKind kind)
+  {
+    var go = new GameObject("Booster_" + kind, typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+
+    var background = go.AddComponent<Image>();
+    UiSkin.Panel(background, UiSkin.PanelRaised, UiSkin.RadiusButton);
+    background.raycastTarget = false;
+
+    var row = go.AddComponent<HorizontalLayoutGroup>();
+    row.padding = new RectOffset(14, 12, 8, 8);
+    row.spacing = 10f;
+    row.childAlignment = TextAnchor.MiddleLeft;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = false;
+    row.childForceExpandHeight = true;
+    go.AddComponent<LayoutElement>().preferredHeight = 92f;
+
+    Image icon = UiSkin.Icon(go.transform, BoosterCatalog.Icon(kind),
+      BoosterCatalog.Tint(kind), 38f);
+    var iconElement = icon.gameObject.AddComponent<LayoutElement>();
+    iconElement.preferredWidth = 38f;
+    iconElement.flexibleWidth = 0f;
+
+    // Name over description, so the row says what the booster DOES rather than
+    // relying on an icon the player has never seen before.
+    var textGo = new GameObject("Text", typeof(RectTransform));
+    textGo.transform.SetParent(go.transform, false);
+    var stack = textGo.AddComponent<VerticalLayoutGroup>();
+    stack.spacing = 0f;
+    stack.childAlignment = TextAnchor.MiddleLeft;
+    stack.childControlWidth = true;
+    stack.childControlHeight = true;
+    stack.childForceExpandWidth = true;
+    stack.childForceExpandHeight = false;
+    textGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+
+    var nameGo = new GameObject("Name", typeof(RectTransform));
+    nameGo.transform.SetParent(textGo.transform, false);
+    var nameLabel = nameGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(nameLabel, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
+    nameLabel.alignment = TextAlignmentOptions.MidlineLeft;
+    nameLabel.raycastTarget = false;
+    nameGo.AddComponent<LayoutElement>().preferredHeight = 30f;
+
+    var descGo = new GameObject("Desc", typeof(RectTransform));
+    descGo.transform.SetParent(textGo.transform, false);
+    var desc = descGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(desc, UiSkin.Role.Caption, UiSkin.TextMuted);
+    desc.text = BoosterCatalog.Description(kind);
+    desc.alignment = TextAlignmentOptions.TopLeft;
+    desc.raycastTarget = false;
+    descGo.AddComponent<LayoutElement>().preferredHeight = 40f;
+
+    Button single = BuyButton(go.transform, kind, 1);
+    Button bundle = BuyButton(go.transform, kind, BoosterCatalog.BundleSize);
+
+    // The owned count lives in the name line, so the row does not need a fifth
+    // column for a number that is usually zero.
+    void RefreshRow()
+    {
+      int owned = BoosterInventory.Count(kind);
+      nameLabel.text = owned > 0
+        ? $"{BoosterCatalog.Name(kind)}   x{owned}"
+        : BoosterCatalog.Name(kind);
+
+      single.interactable = Wallet.CanAfford(BoosterCatalog.Price(kind));
+      bundle.interactable = Wallet.CanAfford(BoosterCatalog.BundlePrice(kind));
+    }
+
+    boosterRefreshers += RefreshRow;
+    RefreshRow();
+  }
+
+  private System.Action boosterRefreshers;
+
+  private Button BuyButton(Transform parent, BoosterKind kind, int amount)
+  {
+    int price = amount >= BoosterCatalog.BundleSize
+      ? BoosterCatalog.BundlePrice(kind)
+      : BoosterCatalog.Price(kind) * amount;
+
+    var go = new GameObject(amount > 1 ? "BuyBundle" : "Buy", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+
+    Button button = UiSkin.IconButton(go, UiSprites.Coin(), UiSkin.Neutral, out TMP_Text label,
+      UiSkin.RadiusButton, UiSkin.Gold);
+    label.alignment = TextAlignmentOptions.MidlineLeft;
+    label.text = amount > 1 ? $"{price}\nx{amount}" : price.ToString();
+    label.enableAutoSizing = true;
+    label.fontSizeMin = 13f;
+    label.fontSizeMax = 22f;
+
+    var element = go.AddComponent<LayoutElement>();
+    element.preferredWidth = amount > 1 ? 128f : 112f;
+    element.flexibleWidth = 0f;
+
+    button.onClick.AddListener(() =>
+    {
+      if (!BoosterInventory.Buy(kind, amount))
+      {
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+        if (statusLabel != null) statusLabel.text = "Not enough coins.";
+        return;
+      }
+
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      boosterRefreshers?.Invoke();
+    });
+
+    boosterButtons.Add(button);
+    return button;
   }
 
   // ------------------------------------------------------------ purchases
@@ -745,6 +886,10 @@ public class WalletScreen : MonoBehaviour
   private void RefreshBalance(int coins)
   {
     if (balanceLabel != null) balanceLabel.text = coins.ToString();
+    // Affordability moves with the balance, so the booster buttons have to be
+    // re-evaluated here and not only when something is bought - watching an ad
+    // in this same dialog can make a booster affordable.
+    boosterRefreshers?.Invoke();
   }
 
   // The button stays visible when no ad is loaded, just disabled and labelled.

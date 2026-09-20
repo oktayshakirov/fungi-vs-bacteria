@@ -84,6 +84,9 @@ public class TowerPlacement : MonoBehaviour
 
   public void StartPlacement(TowerConfig config)
   {
+    // Arming a tower closes the booster panel: both live in the bottom-left
+    // slot (see BoosterPanel).
+    BoosterPanel.Hide();
     if (currentTowerConfig != null) CancelPlacement();
     armedByDrag = false;
 

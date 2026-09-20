@@ -212,6 +212,38 @@ public static class UiSprites
       return arm <= 0.42f && y >= edge - 0.17f && y <= edge;
     }));
 
+  // A spore bomb: a round body with a stubby fuse. For the booster that clears
+  // the board.
+  public static Sprite Bomb(int size = 64) => Cached("bomb" + size, () => Shape(size, (x, y) =>
+  {
+    float dx = x - 0.48f, dy = y - 0.40f;
+    if (Mathf.Sqrt(dx * dx + dy * dy) <= 0.34f) return true;
+
+    // Fuse: a short diagonal stub off the top right of the body.
+    return InTriangle(x, y, 0.60f, 0.66f, 0.72f, 0.72f, 0.86f, 0.96f);
+  }));
+
+  // A six-armed snowflake, for the freeze booster.
+  public static Sprite Snowflake(int size = 64) => Cached("snowflake" + size, () =>
+    Shape(size, (x, y) =>
+    {
+      float dx = x - 0.5f, dy = y - 0.5f;
+      float r = Mathf.Sqrt(dx * dx + dy * dy);
+      if (r > 0.46f) return false;
+      if (r <= 0.08f) return true;
+
+      // Six arms: fold the angle into a 60-degree wedge and keep what is close
+      // to the wedge's centre line.
+      float angle = Mathf.Atan2(dy, dx);
+      float wedge = Mathf.Repeat(angle, Mathf.PI / 3f) - Mathf.PI / 6f;
+      return Mathf.Abs(Mathf.Sin(wedge) * r) <= 0.045f;
+    }));
+
+  // A lightning bolt, for the fire-rate booster.
+  public static Sprite Bolt(int size = 64) => Cached("bolt" + size, () => Shape(size, (x, y) =>
+    InTriangle(x, y, 0.58f, 0.98f, 0.22f, 0.46f, 0.52f, 0.46f)
+    || InTriangle(x, y, 0.42f, 0.02f, 0.78f, 0.54f, 0.48f, 0.54f)));
+
   // A padlock, for locked levels and environments.
   public static Sprite Lock(int size = 64) => Cached("lock" + size, () => Shape(size, (x, y) =>
   {

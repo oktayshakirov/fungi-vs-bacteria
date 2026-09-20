@@ -161,6 +161,11 @@ public class Enemy : MonoBehaviour
     StopAllCoroutines();
     isRemoved = false;
     slowAmount = 0f;
+    // Pooled instances come back with this still set: a Frost Wave that caught
+    // an enemy just before it died would otherwise hand the next enemy out of
+    // the pool the rest of that freeze, standing still on the path for no
+    // visible reason. The comment above says "full reset" - this is part of it.
+    frozenUntil = 0f;
     hitPunch = 0f;
     // A per-enemy offset, or a whole wave waddles in lockstep and reads as one
     // object. Seeded from the instance id so a pooled enemy is stable rather
@@ -340,6 +345,7 @@ public class Enemy : MonoBehaviour
 
     // Move towards the next path point
     Vector3 targetPosition = waypoints[currentWaypointIndex];
+    if (IsFrozen) return;
     transform.position = Vector3.MoveTowards(transform.position, targetPosition, speed * Time.deltaTime);
 
     // Look in the movement direction, turning smoothly instead of snapping
@@ -499,6 +505,36 @@ public class Enemy : MonoBehaviour
     GameManager.Instance?.OnEnemyRemoved();
     EnemyPool.Release(gameObject);
   }
+
+  // Killed by a Spore Bomb: no gold, no split children, no damage numbers.
+  //
+  // Deliberately NOT TakeDamage(health). That path pays the kill reward, and a
+  // bomb that paid rewards would earn back its own price on a dense wave, which
+  // turns the booster into a coin farm (see BoosterEffects.Detonate). Splitting
+  // is skipped for the same reason a bomb is worth 600 coins: it clears the
+  // board, not "clears the board and leaves you the children".
+  public void Vaporize()
+  {
+    if (isRemoved) return;
+
+    health = 0;
+    DeathEffect.Spawn(transform.position + Vector3.up * currentScale.y * 0.5f,
+      bodyColor, currentScale.y);
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.EnemyDeath);
+    Remove();
+  }
+
+  // Frozen solid: movement stops entirely until the timer runs out. Kept apart
+  // from ApplySlow, which is the Ice tower's percentage slow on its own
+  // coroutine - stacking a 100% slow through that path would fight the
+  // coroutine that resets it and leave enemies stopped forever.
+  public void ApplyFreeze(float seconds)
+  {
+    frozenUntil = Mathf.Max(frozenUntil, Time.time + seconds);
+  }
+
+  public bool IsFrozen => Time.time < frozenUntil;
+  private float frozenUntil;
 
   public void ApplySlow(float amount)
   {

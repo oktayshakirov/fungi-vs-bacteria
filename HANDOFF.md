@@ -207,6 +207,32 @@ Roughly in order. Each is committed.
     units at each end; and the card sized itself from `parent.rect`, which is
     raw pixels before the first layout pass (see section 6).
 
+22. **Boosters (phase 1 of the store plan)** — four consumables bought with
+    COINS and used in a level: Spore Bomb (clears the board, 600), Frost Wave
+    (freezes everything 5s, 250), Overclock (+50% fire rate for 15s, 350) and
+    Mend (+25 base health, 300). Owned counts live in `BoosterInventory`
+    (PlayerPrefs, one key per kind); `BoosterCatalog` is the single table of
+    price/limit/copy/icon; `BoosterEffects` owns the rules and the effects.
+    Limits are per LEVEL for the two that can undo a mistake (bomb, mend) and
+    per WAVE for the two that buy time - the wallet has no cap, so without a
+    limit a rich player just presses the bomb every wave.
+    - **The bomb deliberately pays no gold** (`Enemy.Vaporize`, which also
+      skips splitting). A bomb that paid kill rewards would earn back its own
+      price on a dense late wave and become the cheapest way to farm coins.
+    - The HUD bar is bottom-left, stacked UPWARD from above the info panel, and
+      sizes its buttons to the space left between the camera control and that
+      panel - on a 720-unit canvas four boosters plus everything else on the
+      left edge does not fit at a fixed size.
+    - A booster is armed, not fired, by tapping it: the bar opens the shared
+      `TowerInfoPanel` plate with what it does and a USE button, so a stray tap
+      cannot spend a 600-coin bomb. It is mutually exclusive with the placement
+      and selected-tower panels, the same way those two already were.
+    - Prices, limits and magnitudes are all first guesses, like the ad numbers.
+      **`BalanceSim` does not model boosters at all**, so the balance figures in
+      Priority 1 describe a player who owns none.
+    Render-verified (`hud-boosters`, `screen-wallet`); **no booster has been
+    fired in a running level.**
+
 ## 4. How to verify work — read this before changing anything
 
 There is a real verification loop here. Use it; several bugs were only ever

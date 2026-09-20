@@ -49,8 +49,13 @@ public class Tower : MonoBehaviour
   public bool IsSupport => config != null && config.isSupport;
   public int EffectiveDamage =>
     config == null ? 0 : Mathf.RoundToInt(config.DamageAt(Level) * damageMultiplier);
+  // The last term is the Overclock booster, which is global and temporary: it
+  // multiplies every tower at once, so it lives in BoosterEffects rather than
+  // in each tower's own buff state (which TowerBuffs owns and recalculates).
   public float EffectiveFireRate =>
-    config == null ? 1f : config.FireRateAt(Level) * fireRateMultiplier;
+    config == null
+      ? 1f
+      : config.FireRateAt(Level) * fireRateMultiplier * BoosterEffects.FireRateMultiplier;
 
   // TowerBuffs reads these rather than the config directly, so an upgraded
   // support tower actually projects a stronger aura.

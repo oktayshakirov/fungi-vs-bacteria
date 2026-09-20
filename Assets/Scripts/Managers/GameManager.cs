@@ -54,6 +54,9 @@ public class GameManager : MonoBehaviour
     // Static registry: without this it starts the level holding every tower
     // from the previous one, all of them destroyed.
     TowerBuffs.Clear();
+    // Same reason: both are static, so without this a level inherits the
+    // previous one's per-level booster usage and any running Overclock.
+    BoosterEffects.ResetForLevel();
 
     EnvironmentTheme.Apply(GameSession.SelectedEnvironment);
 
@@ -127,6 +130,17 @@ public class GameManager : MonoBehaviour
   public void AddGold(int amount)
   {
     Wallet.Add(amount);
+    UpdateUI();
+  }
+
+  // The Mend booster. Capped at the health the level STARTED with, so it can
+  // undo damage but never push the player above a clean run - the star rating
+  // is scored on health remaining (LevelProgress.StarsForHealth).
+  public void Repair(int amount)
+  {
+    if (amount <= 0 || gameEnded) return;
+
+    currentHealth = Mathf.Min(levelStartingHealth, currentHealth + amount);
     UpdateUI();
   }
 
