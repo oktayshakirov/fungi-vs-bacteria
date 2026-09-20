@@ -184,6 +184,29 @@ Roughly in order. Each is committed.
       any device ships) and adds `hud-4x3`, `screen-levels-4x3`,
       `screen-levels-20x9` and `screen-environments-4x3`.
 
+21. **In-app purchases (phase 2 of the store plan)** — RevenueCat
+    (`com.revenuecat.purchases-unity` 8.9.0) behind an `Iap` facade shaped like
+    the existing `Ads` one, so screens never touch SDK types. Four consumable
+    coin packs (2.5k/8k/20k/50k) and a non-consumable Remove Ads carrying the
+    `no_ads` entitlement, which gates interstitials in `Ads.OnLevelEnded` and
+    deliberately does NOT gate rewarded ads. `IapGrant` pays out from
+    CustomerInfo on all four paths (purchase, restore, startup fetch, SDK push),
+    deduped by store transaction id in PlayerPrefs, and logs an error rather
+    than silently skipping a product missing from `IapCatalog`. The wallet
+    screen is now the STORE: balance, packs, Remove Ads, then the free sources,
+    then Restore. Keys go in `Assets/Editor/IapSetup.cs` (public SDK keys only)
+    via Tools -> IAP -> Apply Keys; products and the RevenueCat dashboard are
+    the user's to create - see DISTRIBUTION.md. **Nothing here has been through
+    a real purchase**: the editor has no store, so the store screen is
+    render-verified against injected prices (`Iap.SetPreviewPrices`) and the
+    grant/entitlement paths have never run.
+
+    Two bugs fixed on the way, both in the wallet screen and both pre-existing:
+    its scroll content had the default sizeDelta of (100,100) on a
+    stretch-anchored axis, so every row was 100 units too wide and clipped 50
+    units at each end; and the card sized itself from `parent.rect`, which is
+    raw pixels before the first layout pass (see section 6).
+
 ## 4. How to verify work — read this before changing anything
 
 There is a real verification loop here. Use it; several bugs were only ever

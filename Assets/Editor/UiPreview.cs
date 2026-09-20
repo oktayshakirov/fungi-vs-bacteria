@@ -570,6 +570,19 @@ public static class UiPreview
     cam.targetTexture = rt;
 
     GameObject host = HostCanvas(cam);
+
+    // The editor has no store account, so no product ever has a price and the
+    // whole purchase half of this screen would render as its empty state.
+    // These stand in for what the store returns, at the intended price ladder.
+    Iap.SetPreviewPrices(new System.Collections.Generic.Dictionary<string, string>
+    {
+      { IapCatalog.Coins2500, "$0.99" },
+      { IapCatalog.Coins8000, "$2.99" },
+      { IapCatalog.Coins20000, "$6.99" },
+      { IapCatalog.Coins50000, "$14.99" },
+      { IapCatalog.NoAds, "$3.99" },
+    });
+
     WalletScreen.Open(host.transform);
 
     Canvas.ForceUpdateCanvases();
@@ -588,7 +601,21 @@ public static class UiPreview
 
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
 
+    // A second shot with the dialog scrolled to the bottom. The card is taller
+    // than the screen by design and scrolls internally, so a single shot of the
+    // top can never show the lower half - which is where the purchase rows,
+    // the small print and Restore all live.
+    ScrollRect scroll = host.GetComponentInChildren<ScrollRect>(true);
+    if (scroll != null)
+    {
+      scroll.verticalNormalizedPosition = 0f;
+      Canvas.ForceUpdateCanvases();
+      cam.Render();
+      SavePng(rt, width, height, name + "-bottom");
+    }
+
     cam.targetTexture = null;
+    Iap.SetPreviewPrices(null);
     Object.DestroyImmediate(rt);
     Object.DestroyImmediate(host);
   }

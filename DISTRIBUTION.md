@@ -63,6 +63,7 @@ would be a false declaration.
 | Unity LevelPlay (ironSource) | `com.unity.services.levelplay` 8.10.2 | Ad mediation — serves the interstitial and rewarded ads |
 | Google Mobile Ads (AdMob) + UMP | `com.google.ads.mobile` 10.4.2 | AdMob demand through LevelPlay; UMP shows the GDPR consent form |
 | Unity iOS Support | `com.unity.ads.ios-support` 1.0.1 | The iOS App Tracking Transparency (ATT) prompt |
+| RevenueCat | `com.revenuecat.purchases-unity` 8.9.0 | In-app purchases (coin packs, Remove Ads) |
 
 Consent flow at launch (`LevelPlayAds.ConsentThenInit`): **ATT prompt (iOS) →
 UMP consent form (GDPR regions only) → LevelPlay init.** The networks read the
@@ -85,7 +86,9 @@ SDK updates change them.
   fraud prevention.
 - **App activity → app interactions** — collected; advertising, analytics.
 - **App info and performance → crash logs, diagnostics** — collected; analytics.
-- **Encrypted in transit:** yes (both SDKs use HTTPS).
+- **Purchase history** — collected (RevenueCat), for app functionality: it is what
+  makes Remove Ads survive a reinstall. Not shared for advertising.
+- **Encrypted in transit:** yes (all SDKs use HTTPS).
 - **Advertising ID declaration** (separate Play Console question): **yes** — the
   AdMob SDK merges `com.google.android.gms.permission.AD_ID` into the manifest.
 - **Deletion requests:** the app stores nothing server-side; point users to the
@@ -99,6 +102,7 @@ SDK updates change them.
 - **Data linked to you / not linked:** Usage Data (advertising data, product
   interaction), Diagnostics (crash data, performance data), Location (coarse),
   all for Third-Party Advertising and/or Analytics.
+- **Purchases:** Purchase History, for App Functionality (RevenueCat).
 - Each SDK ships a `PrivacyInfo.xcprivacy` privacy manifest, and Xcode merges
   them into the app's privacy report (**Product → Archive → Generate Privacy
   Report**). **Use that generated report as the source of truth** for this label:
@@ -141,6 +145,61 @@ settings screen. At minimum: that the game stores progress only on the device;
 that it shows ads through Unity LevelPlay and Google AdMob, which collect the
 data above for advertising; how consent works (ATT on iOS, the consent form in
 the EEA/UK) and that users can change it; and a contact address.
+
+## In-app purchases
+
+Built on **RevenueCat** (`com.revenuecat.purchases-unity`), which sits in front of
+StoreKit and Google Play Billing. The game never talks to either store directly.
+
+### What is sold
+
+| Product ID | Type | What it gives |
+|---|---|---|
+| `fungivsbacteria.coins.2500` | Consumable | 2,500 coins |
+| `fungivsbacteria.coins.8000` | Consumable | 8,000 coins |
+| `fungivsbacteria.coins.20000` | Consumable | 20,000 coins |
+| `fungivsbacteria.coins.50000` | Consumable | 50,000 coins |
+| `fungivsbacteria.noads` | Non-consumable | Removes interstitials, plus 5,000 coins |
+
+Intended prices are $0.99 / $2.99 / $6.99 / $14.99 and $3.99. The **prices shown in
+the game always come from the store**, never from the code — a hand-formatted price
+is wrong in every other currency and is a review rejection. The only thing the code
+derives from the intended ladder is the "+13%" bonus badge, which is a marketing cue
+rather than an exact rate (`IapCatalog.BonusPercent`).
+
+Remove Ads is granted through a RevenueCat **entitlement** named `no_ads`, not by
+product id, so the product behind it can change without a build. It removes
+interstitials only: rewarded ads stay, because the player opts into those and they
+pay coins.
+
+### You must do this (accounts — cannot be automated)
+
+- [ ] Create all five products in **App Store Connect** and **Google Play Console**
+      with exactly the IDs above (consumable / non-consumable as listed)
+- [ ] Create the RevenueCat project, add both apps, and create the `no_ads`
+      entitlement attached to `fungivsbacteria.noads`
+- [ ] Put all five products in an **offering** so they can be reordered later
+      without a build
+- [ ] Paste the RevenueCat **public SDK keys** into `Assets/Editor/IapSetup.cs`
+      and run **Tools → IAP → Apply Keys**. Never put the *secret* key in this
+      project — it can read and modify purchase data and belongs on a server
+- [ ] iOS: agree to the Paid Applications agreement in App Store Connect, or no
+      product will ever load
+- [ ] Test with a **sandbox / licence tester account** on a real device. Purchases
+      cannot be tested in the editor: with no key and no store the game shows
+      "Coin packs are unavailable right now", which is the correct empty state
+
+### Where to look if something is wrong
+
+- **No prices in the store.** The keys are empty, the products are not approved
+  yet, the IDs do not match, or (iOS) the Paid Applications agreement is unsigned.
+  `Iap` logs which of those it can tell apart.
+- **Paid but got nothing.** `IapGrant` logs an error naming the product when a
+  purchase arrives for an ID that is not in `IapCatalog`, and deliberately does
+  NOT mark it as granted, so a later build that knows the product still pays it.
+- **Coins granted twice.** Should be impossible: grants are keyed on the store
+  transaction id in `PlayerPrefs`, and all four paths (purchase, restore, startup
+  fetch, SDK push) go through the same `IapGrant.ProcessCustomerInfo`.
 
 ## Known gaps (deliberate, post-1.0)
 

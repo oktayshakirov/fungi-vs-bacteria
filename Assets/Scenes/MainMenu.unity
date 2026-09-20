@@ -507,6 +507,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1053140278}
   - component: {fileID: 1053140277}
+  - component: {fileID: 1053140281}
+  - component: {fileID: 1053140280}
+  - component: {fileID: 1053140279}
   m_Layer: 0
   m_Name: Ads
   m_TagString: Untagged
@@ -536,6 +539,7 @@ MonoBehaviour:
   retryDelay: 4
   maxRetries: 5
   maxRetryDelay: 300
+  postAdLoadDelay: 2
   consentUpdateTimeout: 15
   consentFormTimeout: 60
   attTimeout: 30
@@ -556,6 +560,60 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1053140279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053140276}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8093e43a8c230444b8f79b6b058d2d0d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Iap
+  iosApiKey: 
+  androidApiKey: 
+--- !u!114 &1053140280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053140276}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ecc241ba9ca64090ac9236df3551efe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IapListener
+--- !u!114 &1053140281
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1053140276}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98e401cc5a2ed4a7ba02f2e6ef35c6f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: revenuecat.purchases-unity::Purchases
+  useRuntimeSetup: 0
+  revenueCatAPIKeyApple: 
+  revenueCatAPIKeyGoogle: 
+  revenueCatAPIKeyAmazon: 
+  useAmazon: 0
+  autoSyncPurchases: 1
+  appUserID: 
+  productIdentifiers: []
+  listener: {fileID: 0}
+  userDefaultsSuiteName: 
+  purchasesAreCompletedBy: 0
+  storeKitVersion: 2
+  shouldShowInAppMessagesAutomatically: 1
+  entitlementVerificationMode: 1
+  pendingTransactionsForPrepaidPlansEnabled: 0
+  proxyURL: 
 --- !u!1001 &1092559443
 PrefabInstance:
   m_ObjectHideFlags: 0

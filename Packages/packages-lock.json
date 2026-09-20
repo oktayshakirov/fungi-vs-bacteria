@@ -17,6 +17,13 @@
       "dependencies": {},
       "url": "https://package.openupm.com"
     },
+    "com.revenuecat.purchases-unity": {
+      "version": "8.9.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://package.openupm.com"
+    },
     "com.unity.ads.ios-support": {
       "version": "1.0.1",
       "depth": 0,

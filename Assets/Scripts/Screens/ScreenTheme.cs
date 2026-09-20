@@ -503,6 +503,36 @@ public static class ScreenTheme
     return width;
   }
 
+  // The usable HEIGHT, in canvas units. The match-height scaler makes this the
+  // reference height minus whatever the safe area takes off the top and bottom,
+  // so unlike LayoutWidth it does not depend on the aspect ratio - but it has
+  // the same reason to exist: reading a rect before its first layout pass
+  // returns raw pixels.
+  public static float LayoutHeight(Transform from)
+  {
+    if (from == null) return 720f;
+
+    Canvas canvas = from.GetComponentInParent<Canvas>();
+    if (canvas == null) return 720f;
+
+    var canvasRect = (RectTransform)(canvas.rootCanvas != null ? canvas.rootCanvas : canvas).transform;
+
+    float referenceHeight = 720f;
+    var scaler = canvasRect.GetComponent<CanvasScaler>();
+    if (scaler != null && scaler.uiScaleMode == CanvasScaler.ScaleMode.ScaleWithScreenSize
+        && scaler.referenceResolution.y > 1f)
+    {
+      referenceHeight = scaler.referenceResolution.y;
+    }
+
+    Rect safe = Screen.safeArea;
+    if (Screen.height > 0 && safe.height > 1f && safe.height < Screen.height)
+    {
+      referenceHeight *= safe.height / Screen.height;
+    }
+    return referenceHeight;
+  }
+
   private static Transform FindDeep(Transform root, string name)
   {
     if (root.name == name) return root;

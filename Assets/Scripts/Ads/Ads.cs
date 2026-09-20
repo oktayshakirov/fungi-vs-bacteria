@@ -100,6 +100,12 @@ public static class Ads
 
     levelEndsSinceInterstitial++;
 
+    // Bought out of interstitials. Checked here rather than at each call site,
+    // and deliberately NOT in ShowRewarded: rewarded ads are chosen by the
+    // player and pay coins, so removing them would take a faucet away from
+    // someone who has just paid rather than removing a nuisance.
+    if (NoAds.Active) return;
+
     if (total <= GraceLevelEnds) return;
     if (levelEndsSinceInterstitial < LevelEndsBetweenInterstitials) return;
     if (Time.realtimeSinceStartup - lastInterstitialTime < MinSecondsBetweenInterstitials) return;
