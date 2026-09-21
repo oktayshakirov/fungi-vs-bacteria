@@ -16,7 +16,7 @@ public static class StarSprite
   {
     get
     {
-      if (sprite == null) sprite = Generate(64);
+      if (sprite == null) sprite = Generate(160);
       return sprite;
     }
   }
@@ -53,27 +53,42 @@ public static class StarSprite
     float outer = size * 0.48f;
     float inner = outer * 0.42f;
 
-    // 10 alternating vertices, first point up
+    // 10 alternating vertices, first point up. Texture rows run bottom to top,
+    // so "up" is +90 degrees here; the old -90 drew every star in the game
+    // upside down, one point at the bottom and two at the top.
     var pts = new Vector2[10];
     for (int i = 0; i < 10; i++)
     {
       float r = (i % 2 == 0) ? outer : inner;
-      float a = Mathf.Deg2Rad * (-90f + i * 36f);
+      float a = Mathf.Deg2Rad * (90f + i * 36f);
       pts[i] = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
     }
 
+    // 4x4 supersampled coverage. A hard in/out test at 64 px was visibly
+    // stair-stepped once the victory screen scaled it to 130 units.
+    const int ss = 4;
     var pixels = new Color32[size * size];
     for (int y = 0; y < size; y++)
     {
       for (int x = 0; x < size; x++)
       {
-        bool inside = PointInPolygon(new Vector2(x + 0.5f, y + 0.5f), pts);
-        pixels[y * size + x] = inside ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+        int hits = 0;
+        for (int sy = 0; sy < ss; sy++)
+        {
+          for (int sx = 0; sx < ss; sx++)
+          {
+            var p = new Vector2(x + (sx + 0.5f) / ss, y + (sy + 0.5f) / ss);
+            if (PointInPolygon(p, pts)) hits++;
+          }
+        }
+        byte alpha = (byte)Mathf.RoundToInt(255f * hits / (ss * ss));
+        pixels[y * size + x] = new Color32(255, 255, 255, alpha);
       }
     }
     tex.SetPixels32(pixels);
     tex.Apply();
     tex.wrapMode = TextureWrapMode.Clamp;
+    tex.filterMode = FilterMode.Bilinear;
 
     return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
   }

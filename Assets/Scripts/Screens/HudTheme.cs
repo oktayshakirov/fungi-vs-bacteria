@@ -26,7 +26,10 @@ public static class HudTheme
     {
       UiSkin.StyleButton(pauseButton, UiSkin.Neutral, UiSkin.RadiusButton);
       PullInside((RectTransform)pauseButton.transform);
+      InsetFromTop((RectTransform)pauseButton.transform, 62f);
     }
+    if (waveText != null) InsetFromTop(waveText.rectTransform, 0f);
+    if (timerText != null) InsetFromTop(timerText.rectTransform, 0f);
 
     StyleWaveReadout(waveText, timerText, pauseButton != null ? (RectTransform)pauseButton.transform : null);
 
@@ -127,6 +130,21 @@ public static class HudTheme
     if (textElement == null) textElement = text.gameObject.AddComponent<LayoutElement>();
     textElement.flexibleWidth = 1f;
     textElement.preferredHeight = 36f;
+  }
+
+  // The scene authors the pause button and the wave readout at y = 0, flush
+  // against the top edge - the wave plate's backdrop even ran off the top of
+  // the screen - while the stats chips on the left sit a margin down. This
+  // brings the top row onto the same line. The pause button also gets a little
+  // shorter so it still clears the rail below it (which starts 85 down).
+  private const float TopInset = 12f;
+
+  private static void InsetFromTop(RectTransform rect, float height)
+  {
+    if (rect == null || rect.anchorMin.y < 0.99f) return;
+    Vector2 pos = rect.anchoredPosition;
+    rect.anchoredPosition = new Vector2(pos.x, pos.y - TopInset);
+    if (height > 0f) rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
   }
 
   // Minimum clear space to leave between the wave readout and whatever sits

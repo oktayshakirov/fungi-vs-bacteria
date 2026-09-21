@@ -655,6 +655,11 @@ public static class UiPreview
     ScrollRect scroll = host.GetComponentInChildren<ScrollRect>(true);
     if (scroll != null)
     {
+      scroll.verticalNormalizedPosition = 0.5f;
+      Canvas.ForceUpdateCanvases();
+      cam.Render();
+      SavePng(rt, width, height, name + "-mid");
+
       scroll.verticalNormalizedPosition = 0f;
       Canvas.ForceUpdateCanvases();
       cam.Render();
@@ -703,9 +708,19 @@ public static class UiPreview
     // entry point is the only way to see the screen the player actually gets.
     // Initialize also runs ScreenTheme itself, so nothing else is needed here.
     var gameOver = go.GetComponent<GameOverScreen>();
+    var victory = go.GetComponent<VictoryScreen>();
     if (gameOver != null)
     {
       gameOver.Initialize();
+    }
+    else if (victory != null)
+    {
+      // Stars and the payout are built by Initialize; without it the preview
+      // showed a title and two buttons, which is not the screen anyone sees.
+      if (GameSession.SelectedLevel == null)
+        GameSession.SelectedLevel = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+          "Assets/Resources/Levels/Environment1/Level01.asset");
+      victory.Initialize(2, 150);
     }
     else if (settings)
     {
@@ -920,12 +935,15 @@ public static class UiPreview
       label.alignment = TextAlignmentOptions.Center;
       UiSkin.Label(label, UiSkin.Role.Caption);
 
-      // Stand-in for the tower art
+      // The real tower art, so the preview shows what the rail actually draws.
       RectTransform iconRect = Child(rect, "TowerIcon");
       Anchor(iconRect, new Vector2(0.5f, 0.5f), new Vector2(0f, 8f), new Vector2(64f, 64f));
       var icon = iconRect.gameObject.AddComponent<Image>();
-      icon.sprite = UiSprites.Circle();
-      icon.color = new Color(0.62f, 0.45f, 0.85f, card.affordable ? 1f : 0.45f);
+      string file = card.name == "Shock" ? "SchockTower" : card.name + "Tower";
+      Sprite art = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Sprites/Towers/{file}.png");
+      icon.sprite = art != null ? art : UiSprites.Circle();
+      icon.preserveAspect = true;
+      icon.color = new Color(1f, 1f, 1f, card.affordable ? 1f : 0.45f);
 
       RectTransform costRect = Child(rect, "TowerCostText");
       Anchor(costRect, new Vector2(0.5f, 0f), new Vector2(16f, 16f), new Vector2(58f, 28f));

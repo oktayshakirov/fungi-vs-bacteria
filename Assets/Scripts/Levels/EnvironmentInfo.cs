@@ -9,11 +9,14 @@ using UnityEngine;
 // silently wipe every player's progress. So the pretty name lives here as a
 // display layer on top of the key, and the key never changes.
 //
-// Card art is generated from the biome's OWN palette and ground texture rather
-// than a rendered screenshot: it is a few kilobytes instead of a 640x400 PNG,
-// it can never drift out of sync with how the level actually looks, and a flat
-// sky-over-ground band reads as a place at thumbnail size where a 3D render of
-// a tower board just reads as clutter.
+// Card art is a render of the biome's first level - its real road, towers and
+// cast, from the close three-quarter outro pose - written to
+// Resources/EnvPreviews by CameraPreview.RenderEnvironmentCards. Re-run that
+// after changing a biome's look, or the cards drift out of sync with it.
+//
+// The palette-generated sky-over-ground band below is only the fallback for a
+// missing render. It was the card art for a while and read as a placeholder:
+// seven blurry gradients that could have been any game.
 public static class EnvironmentInfo
 {
   private static readonly Dictionary<string, string> Names = new Dictionary<string, string>
@@ -67,9 +70,25 @@ public static class EnvironmentInfo
   private const int CardHeight = 180;
   private static readonly Dictionary<string, Sprite> CardCache = new Dictionary<string, Sprite>();
 
-  // A small landscape of the biome: its sky gradient above, its real ground
-  // texture below, divided by the haze band the level itself uses.
+  private static readonly Dictionary<string, Sprite> RenderCache = new Dictionary<string, Sprite>();
+
+  // The environment-select card: the rendered diorama, or the generated band
+  // when no render exists.
   public static Sprite CardArt(string environmentName)
+  {
+    string key = environmentName ?? "Environment 1";
+    if (RenderCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+    Sprite rendered = Resources.Load<Sprite>("EnvPreviews/" + key);
+    if (rendered == null) return BackdropArt(key);
+    RenderCache[key] = rendered;
+    return rendered;
+  }
+
+  // A small landscape of the biome: its sky gradient above, its real ground
+  // texture below, divided by the haze band the level itself uses. Calm enough
+  // to sit behind the level grid, which a busy render of the board is not.
+  public static Sprite BackdropArt(string environmentName)
   {
     string key = environmentName ?? "Environment 1";
     if (CardCache.TryGetValue(key, out Sprite cached) && cached != null) return cached;

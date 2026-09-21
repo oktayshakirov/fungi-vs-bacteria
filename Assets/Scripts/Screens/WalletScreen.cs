@@ -50,7 +50,7 @@ public class WalletScreen : MonoBehaviour
     RectTransform safeArea = ScreenTheme.EnsureSafeArea(transform);
 
     RectTransform card = Panel(safeArea);
-    Title(card, "STORE");
+    Header(card, "STORE");
 
     // The rows below the title add up to roughly 860 units of content, and the
     // canvas is matched-height, so its vertical extent is EXACTLY the device's
@@ -64,16 +64,16 @@ public class WalletScreen : MonoBehaviour
     // under two rows of free coins means scrolling past the giveaway to reach
     // the shelf.
     RectTransform body = ScrollBody(card);
-    BalanceRow(body);
     BoostersSection(body);
+    SectionHeader(body, "COIN PACKS");
     PacksSection(body);
+    SectionHeader(body, "REMOVE ADS");
     NoAdsRow(body);
+    SectionHeader(body, "FREE COINS");
     StreakRow(body);
     WatchAdRow(body);
     Explainer(body);
     RestoreRow(body);
-
-    CloseButton(safeArea);
 
     RefreshBalance(Wallet.Coins);
     RefreshWatchButton();
@@ -188,46 +188,104 @@ public class WalletScreen : MonoBehaviour
     return content;
   }
 
-  private void Title(RectTransform parent, string text)
+  // Title bar: the balance on the left, the title in the middle and a close
+  // cross on the right, all inside the card. The balance used to be a
+  // full-width row of its own (a coin and three digits in a 92-unit strip that
+  // was otherwise empty) and the close button a "BACK" plate outside the card,
+  // where it read as part of the screen behind the dialog.
+  private void Header(RectTransform parent, string text)
   {
-    var go = new GameObject("Title", typeof(RectTransform));
+    var go = new GameObject("Header", typeof(RectTransform));
     go.transform.SetParent(parent, false);
-    var label = go.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(label, UiSkin.Role.Title);
-    label.text = text;
-    label.alignment = TextAlignmentOptions.Center;
     go.AddComponent<LayoutElement>().preferredHeight = 76f;
+
+    var titleGo = new GameObject("Title", typeof(RectTransform));
+    titleGo.transform.SetParent(go.transform, false);
+    UiSkin.Stretch((RectTransform)titleGo.transform);
+    var title = titleGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(title, UiSkin.Role.Title);
+    title.text = text;
+    title.alignment = TextAlignmentOptions.Midline;
+    title.fontSizeMax = 64f;
+    // Clear of the balance chip and the cross on either side.
+    title.margin = new Vector4(230f, 0f, 90f, 0f);
+
+    // Balance chip
+    var chipGo = new GameObject("Balance", typeof(RectTransform));
+    chipGo.transform.SetParent(go.transform, false);
+    var chip = (RectTransform)chipGo.transform;
+    chip.anchorMin = new Vector2(0f, 0.5f);
+    chip.anchorMax = new Vector2(0f, 0.5f);
+    chip.pivot = new Vector2(0f, 0.5f);
+    chip.anchoredPosition = Vector2.zero;
+    chip.sizeDelta = new Vector2(210f, 58f);
+    UiSkin.Panel(chipGo.AddComponent<Image>(), UiSkin.PanelRaised, UiSkin.RadiusChip);
+
+    Image coin = UiSkin.Icon(chipGo.transform, UiSprites.Coin(), UiSkin.Gold, 38f);
+    var coinRect = (RectTransform)coin.transform;
+    coinRect.anchorMin = new Vector2(0f, 0.5f);
+    coinRect.anchorMax = new Vector2(0f, 0.5f);
+    coinRect.pivot = new Vector2(0f, 0.5f);
+    coinRect.anchoredPosition = new Vector2(12f, 0f);
+
+    var amountGo = new GameObject("Amount", typeof(RectTransform));
+    amountGo.transform.SetParent(chipGo.transform, false);
+    var amountRect = UiSkin.Stretch((RectTransform)amountGo.transform);
+    amountRect.offsetMin = new Vector2(58f, 0f);
+    amountRect.offsetMax = new Vector2(-12f, 0f);
+    balanceLabel = amountGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(balanceLabel, UiSkin.Role.Value, UiSkin.Gold);
+    balanceLabel.fontSizeMax = 34f;
+    balanceLabel.alignment = TextAlignmentOptions.MidlineLeft;
+    balanceLabel.raycastTarget = false;
+
+    // Close cross
+    var closeGo = new GameObject("Close", typeof(RectTransform));
+    closeGo.transform.SetParent(go.transform, false);
+    var closeRect = (RectTransform)closeGo.transform;
+    closeRect.anchorMin = new Vector2(1f, 0.5f);
+    closeRect.anchorMax = new Vector2(1f, 0.5f);
+    closeRect.pivot = new Vector2(1f, 0.5f);
+    closeRect.anchoredPosition = Vector2.zero;
+    closeRect.sizeDelta = new Vector2(64f, 64f);
+    closeGo.AddComponent<Image>();
+    var close = closeGo.AddComponent<Button>();
+    UiSkin.StyleButton(close, UiSkin.Neutral, UiSkin.RadiusChip);
+    Image cross = UiSkin.Icon(closeGo.transform, UiSprites.Cross(), UiSkin.TextPrimary, 34f);
+    ((RectTransform)cross.transform).anchoredPosition = Vector2.zero;
+    close.onClick.AddListener(Close);
   }
 
-  private void BalanceRow(RectTransform parent)
+  // A section label with a hairline running to the right edge, so the long
+  // dialog reads as four shelves instead of one undifferentiated list.
+  private static void SectionHeader(RectTransform parent, string text)
   {
-    var go = new GameObject("Balance", typeof(RectTransform));
+    var go = new GameObject("Section_" + text, typeof(RectTransform));
     go.transform.SetParent(parent, false);
+    go.AddComponent<LayoutElement>().preferredHeight = 40f;
 
-    UiSkin.Panel(go.AddComponent<Image>(), UiSkin.PanelRaised, UiSkin.RadiusChip);
-
-    var layout = go.AddComponent<HorizontalLayoutGroup>();
-    layout.padding = new RectOffset(24, 24, 12, 12);
-    layout.spacing = 16f;
-    layout.childAlignment = TextAnchor.MiddleCenter;
-    layout.childControlWidth = true;
-    layout.childControlHeight = true;
-    layout.childForceExpandWidth = false;
-    layout.childForceExpandHeight = true;
-
-    Image coin = UiSkin.Icon(go.transform, UiSprites.Coin(), UiSkin.Gold, 64f);
-    var coinElement = coin.gameObject.AddComponent<LayoutElement>();
-    coinElement.preferredWidth = 64f;
-    coinElement.flexibleWidth = 0f;
-
-    var labelGo = new GameObject("Amount", typeof(RectTransform));
+    var labelGo = new GameObject("Label", typeof(RectTransform));
     labelGo.transform.SetParent(go.transform, false);
-    balanceLabel = labelGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(balanceLabel, UiSkin.Role.Title, UiSkin.Gold);
-    balanceLabel.alignment = TextAlignmentOptions.MidlineLeft;
-    labelGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+    var label = labelGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextMuted);
+    label.fontSizeMax = 24f;
+    label.text = text;
+    label.alignment = TextAlignmentOptions.BottomLeft;
+    label.raycastTarget = false;
+    var labelRect = UiSkin.Stretch((RectTransform)labelGo.transform);
+    labelRect.offsetMin = new Vector2(6f, 4f);
 
-    go.AddComponent<LayoutElement>().preferredHeight = 92f;
+    var lineGo = new GameObject("Rule", typeof(RectTransform));
+    lineGo.transform.SetParent(go.transform, false);
+    var line = (RectTransform)lineGo.transform;
+    line.anchorMin = new Vector2(0f, 0f);
+    line.anchorMax = new Vector2(1f, 0f);
+    line.pivot = new Vector2(0.5f, 0f);
+    line.anchoredPosition = Vector2.zero;
+    line.sizeDelta = new Vector2(0f, 2f);
+    var lineImage = lineGo.AddComponent<Image>();
+    lineImage.color = new Color(1f, 1f, 1f, 0.08f);
+    lineImage.raycastTarget = false;
   }
 
   private void WatchAdRow(RectTransform parent)
@@ -391,14 +449,7 @@ public class WalletScreen : MonoBehaviour
 
   private void BoostersSection(RectTransform parent)
   {
-    var headerGo = new GameObject("BoostersHeader", typeof(RectTransform));
-    headerGo.transform.SetParent(parent, false);
-    var header = headerGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(header, UiSkin.Role.Caption, UiSkin.TextMuted);
-    header.text = "BOOSTERS";
-    header.alignment = TextAlignmentOptions.Center;
-    headerGo.AddComponent<LayoutElement>().preferredHeight = 34f;
-
+    SectionHeader(parent, "BOOSTERS");
     foreach (BoosterKind kind in BoosterCatalog.All) BuildBoosterRow(parent, kind);
   }
 
@@ -419,13 +470,26 @@ public class WalletScreen : MonoBehaviour
     row.childControlHeight = true;
     row.childForceExpandWidth = false;
     row.childForceExpandHeight = true;
-    go.AddComponent<LayoutElement>().preferredHeight = 92f;
+    go.AddComponent<LayoutElement>().preferredHeight = 96f;
 
-    Image icon = UiSkin.Icon(go.transform, BoosterCatalog.Icon(kind),
-      BoosterCatalog.Tint(kind), 38f);
-    var iconElement = icon.gameObject.AddComponent<LayoutElement>();
-    iconElement.preferredWidth = 38f;
-    iconElement.flexibleWidth = 0f;
+    // The glyph on a dark disc ringed in its own colour, so a 38-unit red dot
+    // reads as an item icon rather than a stray bullet point.
+    var discGo = new GameObject("IconDisc", typeof(RectTransform));
+    discGo.transform.SetParent(go.transform, false);
+    var discElement = discGo.AddComponent<LayoutElement>();
+    discElement.preferredWidth = 66f;
+    discElement.flexibleWidth = 0f;
+    var discHolder = new GameObject("Disc", typeof(RectTransform));
+    discHolder.transform.SetParent(discGo.transform, false);
+    var discRect = (RectTransform)discHolder.transform;
+    discRect.anchorMin = discRect.anchorMax = new Vector2(0.5f, 0.5f);
+    discRect.sizeDelta = new Vector2(66f, 66f);
+    var disc = discHolder.AddComponent<Image>();
+    disc.sprite = UiSprites.Circle(128);
+    Color tint = BoosterCatalog.Tint(kind);
+    disc.color = new Color(tint.r * 0.28f, tint.g * 0.28f, tint.b * 0.28f, 1f);
+    disc.raycastTarget = false;
+    UiSkin.Icon(discHolder.transform, BoosterCatalog.Icon(kind), tint, 40f);
 
     // Name over description, so the row says what the booster DOES rather than
     // relying on an icon the player has never seen before.
@@ -455,7 +519,8 @@ public class WalletScreen : MonoBehaviour
     desc.text = BoosterCatalog.Description(kind);
     desc.alignment = TextAlignmentOptions.TopLeft;
     desc.raycastTarget = false;
-    descGo.AddComponent<LayoutElement>().preferredHeight = 40f;
+    desc.fontSizeMax = 21f;
+    descGo.AddComponent<LayoutElement>().preferredHeight = 44f;
 
     Button single = BuyButton(go.transform, kind, 1);
     Button bundle = BuyButton(go.transform, kind, BoosterCatalog.BundleSize);
@@ -479,26 +544,70 @@ public class WalletScreen : MonoBehaviour
 
   private System.Action boosterRefreshers;
 
+  // A two-line price plate: how many on top, the coin price underneath. The
+  // bundle's line carries its saving, which was the whole point of offering it
+  // and was nowhere on screen - it used to render as "1530" over "x3" squeezed
+  // into a single auto-sized label.
   private Button BuyButton(Transform parent, BoosterKind kind, int amount)
   {
-    int price = amount >= BoosterCatalog.BundleSize
-      ? BoosterCatalog.BundlePrice(kind)
-      : BoosterCatalog.Price(kind) * amount;
+    bool bundle = amount >= BoosterCatalog.BundleSize;
+    int price = bundle ? BoosterCatalog.BundlePrice(kind) : BoosterCatalog.Price(kind) * amount;
+    int full = BoosterCatalog.Price(kind) * amount;
+    int saving = full > 0 ? Mathf.RoundToInt((1f - price / (float)full) * 100f) : 0;
 
-    var go = new GameObject(amount > 1 ? "BuyBundle" : "Buy", typeof(RectTransform));
+    var go = new GameObject(bundle ? "BuyBundle" : "Buy", typeof(RectTransform));
     go.transform.SetParent(parent, false);
-
-    Button button = UiSkin.IconButton(go, UiSprites.Coin(), UiSkin.Neutral, out TMP_Text label,
-      UiSkin.RadiusButton, UiSkin.Gold);
-    label.alignment = TextAlignmentOptions.MidlineLeft;
-    label.text = amount > 1 ? $"{price}\nx{amount}" : price.ToString();
-    label.enableAutoSizing = true;
-    label.fontSizeMin = 13f;
-    label.fontSizeMax = 22f;
+    go.AddComponent<Image>();
+    var button = go.AddComponent<Button>();
+    UiSkin.StyleButton(button, bundle ? new Color(0.30f, 0.36f, 0.20f) : UiSkin.Neutral,
+      UiSkin.RadiusButton);
 
     var element = go.AddComponent<LayoutElement>();
-    element.preferredWidth = amount > 1 ? 128f : 112f;
+    element.preferredWidth = 136f;
     element.flexibleWidth = 0f;
+
+    var capGo = new GameObject("Amount", typeof(RectTransform));
+    capGo.transform.SetParent(go.transform, false);
+    var capRect = (RectTransform)capGo.transform;
+    capRect.anchorMin = new Vector2(0f, 0.55f);
+    capRect.anchorMax = new Vector2(1f, 1f);
+    capRect.offsetMin = new Vector2(6f, 0f);
+    capRect.offsetMax = new Vector2(-6f, -4f);
+    var cap = capGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(cap, UiSkin.Role.ButtonLabel, bundle ? UiSkin.Primary : UiSkin.TextMuted);
+    cap.fontSizeMax = 20f;
+    cap.text = bundle && saving > 0 ? $"x{amount}  -{saving}%" : $"x{amount}";
+    cap.alignment = TextAlignmentOptions.Midline;
+    cap.raycastTarget = false;
+
+    var priceGo = new GameObject("Price", typeof(RectTransform));
+    priceGo.transform.SetParent(go.transform, false);
+    var priceRect = (RectTransform)priceGo.transform;
+    priceRect.anchorMin = new Vector2(0f, 0f);
+    priceRect.anchorMax = new Vector2(1f, 0.58f);
+    priceRect.offsetMin = new Vector2(8f, 6f);
+    priceRect.offsetMax = new Vector2(-8f, 0f);
+    var row = priceGo.AddComponent<HorizontalLayoutGroup>();
+    row.spacing = 6f;
+    row.childAlignment = TextAnchor.MiddleCenter;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = false;
+    row.childForceExpandHeight = false;
+
+    Image coin = UiSkin.Icon(priceGo.transform, UiSprites.Coin(), UiSkin.Gold, 22f);
+    var coinElement = coin.gameObject.AddComponent<LayoutElement>();
+    coinElement.preferredWidth = 22f;
+    coinElement.preferredHeight = 22f;
+
+    var valueGo = new GameObject("Value", typeof(RectTransform));
+    valueGo.transform.SetParent(priceGo.transform, false);
+    var value = valueGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(value, UiSkin.Role.Value, UiSkin.Gold);
+    value.enableAutoSizing = false;
+    value.fontSize = 26f;
+    value.text = price.ToString("N0");
+    value.raycastTarget = false;
 
     button.onClick.AddListener(() =>
     {
@@ -510,6 +619,7 @@ public class WalletScreen : MonoBehaviour
       }
 
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      Haptics.Play(Haptics.Style.Success);
       boosterRefreshers?.Invoke();
     });
 
@@ -594,14 +704,30 @@ public class WalletScreen : MonoBehaviour
     int bonus = IapCatalog.BonusPercent(productId);
     if (bonus > 0)
     {
-      var badgeGo = new GameObject("Bonus", typeof(RectTransform));
-      badgeGo.transform.SetParent(go.transform, false);
+      // A lime pill, so the bonus reads as a deal sticker rather than a stray
+      // caption floating between the amount and the price.
+      var slotGo = new GameObject("Bonus", typeof(RectTransform));
+      slotGo.transform.SetParent(go.transform, false);
+      slotGo.AddComponent<LayoutElement>().preferredWidth = 110f;
+
+      var pillGo = new GameObject("Pill", typeof(RectTransform));
+      pillGo.transform.SetParent(slotGo.transform, false);
+      var pillRect = (RectTransform)pillGo.transform;
+      pillRect.anchorMin = pillRect.anchorMax = new Vector2(0.5f, 0.5f);
+      pillRect.sizeDelta = new Vector2(104f, 40f);
+      var pill = pillGo.AddComponent<Image>();
+      UiSkin.Panel(pill, UiSkin.Primary, UiSkin.RadiusChip);
+      pill.raycastTarget = false;
+
+      var badgeGo = new GameObject("Label", typeof(RectTransform));
+      badgeGo.transform.SetParent(pillGo.transform, false);
+      UiSkin.Stretch((RectTransform)badgeGo.transform);
       var badge = badgeGo.AddComponent<TextMeshProUGUI>();
-      UiSkin.Label(badge, UiSkin.Role.Caption, UiSkin.Primary);
+      UiSkin.Label(badge, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
+      badge.fontSizeMax = 22f;
       badge.text = $"+{bonus}%";
       badge.alignment = TextAlignmentOptions.Midline;
       badge.raycastTarget = false;
-      badgeGo.AddComponent<LayoutElement>().preferredWidth = 74f;
     }
 
     var priceGo = new GameObject("Price", typeof(RectTransform));
@@ -806,7 +932,10 @@ public class WalletScreen : MonoBehaviour
     // not answered yet, has no network, or the build has no RevenueCat key -
     // all of which look the same to the player, so they get one honest line
     // instead of four dead buttons.
-    packsStatus.text = shown > 0 ? "BUY COINS" : "Coin packs are unavailable right now.";
+    // The section has its own header now, so the line only speaks when there
+    // is nothing to show.
+    packsStatus.text = shown > 0 ? "" : "Coin packs are unavailable right now.";
+    packsStatus.gameObject.SetActive(shown == 0);
     packsStatus.transform.SetAsFirstSibling();
 
     RefreshNoAdsRow();
@@ -837,56 +966,28 @@ public class WalletScreen : MonoBehaviour
   }
 
 
+  // The small print. Caption-sized and sized by its own text, where it used to
+  // be body-sized in a fixed 210-unit box that left a dead gap above it.
   private void Explainer(RectTransform parent)
   {
     var go = new GameObject("Explainer", typeof(RectTransform));
     go.transform.SetParent(parent, false);
 
     var label = go.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(label, UiSkin.Role.Body, UiSkin.TextMuted);
+    UiSkin.Label(label, UiSkin.Role.Caption, UiSkin.TextMuted);
+    label.enableAutoSizing = false;
+    label.fontSize = 20f;
     label.alignment = TextAlignmentOptions.TopLeft;
+    label.margin = new Vector4(6f, 0f, 6f, 0f);
     label.text =
-      $"Coins are your only currency - the same balance buys towers in a level, " +
-      $"revives you, and is what ads pay out.\n\n" +
-
-      $"- Continue a lost run with +{Boosters.ContinueHealth} health, from {Boosters.FirstContinueCost} coins.\n" +
-      $"- {RewardedGate.WatchesLeftToday} ad rewards left today.\n" +
-      $"- Earn coins by clearing levels and by raising your star rating.\n" +
+      $"Coins buy towers in a level, boosters here, and a continue after a loss " +
+      $"(from {Boosters.FirstContinueCost}). Clear levels and raise your stars to earn more. " +
+      $"{RewardedGate.WatchesLeftToday} ad rewards left today.\n" +
       // Said plainly, because the alternative is a player tapping Restore after
       // a reinstall, getting nothing back, and concluding the game ate their
       // purchase. Consumables are not restorable on either store.
-      $"- Coins are saved on this device. Restore brings back a Remove Ads bought with " +
-      $"money - not coins, and not a Remove Ads bought with coins.";
-
-    go.AddComponent<LayoutElement>().preferredHeight = 210f;
-  }
-
-  private void CloseButton(RectTransform parent)
-  {
-    var go = new GameObject("Close", typeof(RectTransform));
-    go.transform.SetParent(parent, false);
-
-    var rect = (RectTransform)go.transform;
-    rect.anchorMin = new Vector2(1f, 1f);
-    rect.anchorMax = new Vector2(1f, 1f);
-    rect.pivot = new Vector2(1f, 1f);
-    rect.anchoredPosition = new Vector2(-28f, -28f);
-    rect.sizeDelta = new Vector2(150f, 76f);
-
-    go.AddComponent<Image>();
-    var button = go.AddComponent<Button>();
-    UiSkin.StyleButton(button, UiSkin.Neutral, UiSkin.RadiusChip);
-
-    var labelGo = new GameObject("Label", typeof(RectTransform));
-    labelGo.transform.SetParent(go.transform, false);
-    var label = labelGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(label, UiSkin.Role.ButtonLabel);
-    label.text = "BACK";
-    label.alignment = TextAlignmentOptions.Center;
-    label.raycastTarget = false;
-    UiSkin.Stretch((RectTransform)labelGo.transform);
-
-    button.onClick.AddListener(Close);
+      $"Coins are saved on this device. Restore brings back Remove Ads bought " +
+      $"with money, not coins.";
   }
 
   private void OnWatchClicked()
@@ -966,7 +1067,7 @@ public class WalletScreen : MonoBehaviour
 
   private void RefreshBalance(int coins)
   {
-    if (balanceLabel != null) balanceLabel.text = coins.ToString();
+    if (balanceLabel != null) balanceLabel.text = coins.ToString("N0");
     // Affordability moves with the balance, so the booster buttons have to be
     // re-evaluated here and not only when something is bought - watching an ad
     // in this same dialog can make a booster affordable.

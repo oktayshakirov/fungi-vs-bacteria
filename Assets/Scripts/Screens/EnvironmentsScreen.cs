@@ -72,7 +72,7 @@ public class EnvironmentsScreen : MonoBehaviour
       // fraction of a card short.
       if (scroll.content != null)
       {
-        scroll.content.anchoredPosition = new Vector2(0f, scroll.content.anchoredPosition.y);
+        scroll.content.anchoredPosition = new Vector2(StartOffset(scroll), scroll.content.anchoredPosition.y);
       }
       // The bar tracks the content and is not updated by moving the rect. It
       // also rendered as an unstyled strip across the bottom of the screen, so
@@ -93,6 +93,22 @@ public class EnvironmentsScreen : MonoBehaviour
     ScreenFade.In(transform);
   }
 
+
+  private int furthestUnlocked;
+
+  // Opens on the furthest biome the player has reached, not always on the
+  // first: someone on the tundra had to drag past three finished biomes every
+  // time they came back. That card lands in the second slot where possible,
+  // so the one before it stays in view for context.
+  private float StartOffset(ScrollRect scroll)
+  {
+    var row = scroll.content.GetComponent<HorizontalLayoutGroup>();
+    float spacing = row != null ? row.spacing : 0f;
+    float step = EnvironmentCard.CardWidth + spacing;
+    float viewWidth = ((RectTransform)scroll.viewport ?? (RectTransform)scroll.transform).rect.width;
+    float maxScroll = Mathf.Max(0f, scroll.content.rect.width - viewWidth);
+    return -Mathf.Clamp((furthestUnlocked - 1) * step, 0f, maxScroll);
+  }
 
   // The same header plate the levels screen uses, so the two steps of one flow
   // do not look like two different games.
@@ -234,6 +250,8 @@ public class EnvironmentsScreen : MonoBehaviour
 
       int completed = Mathf.Clamp(
         LevelProgress.GetHighestCompletedLevel(envData.environmentName), 0, levels.Count);
+
+      if (!isLocked) furthestUnlocked = cardsContainer.childCount;
 
       GameObject cardGO = Instantiate(environmentCardPrefab, cardsContainer);
       EnvironmentCard card = cardGO.GetComponent<EnvironmentCard>();

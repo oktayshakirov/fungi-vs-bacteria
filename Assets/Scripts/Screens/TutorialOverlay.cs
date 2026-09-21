@@ -152,7 +152,7 @@ public class TutorialOverlay : MonoBehaviour
     var labelGo = new GameObject("Label", typeof(RectTransform));
     labelGo.transform.SetParent(go.transform, false);
     var label = labelGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(label, UiSkin.Role.ButtonLabel);
+    UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextDark);   // dark on lime, like every other primary button
     label.text = "GOT IT";
     label.alignment = TextAlignmentOptions.Midline;
     label.raycastTarget = false;

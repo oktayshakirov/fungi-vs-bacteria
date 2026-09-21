@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-// A biome thumbnail: the environment's own sky-over-ground art, with its name
+// A biome thumbnail: a render of the environment's first level, with its name
 // on a banner tinted to that biome's accent colour.
 //
 // Everything here is placed on explicit anchors and opted out of the prefab's
@@ -14,8 +14,12 @@ public class EnvironmentCard : MonoBehaviour
   [SerializeField] private TextMeshProUGUI environmentTitle;
   [SerializeField] private Image lockIcon;
 
-  public const float CardWidth = 380f;
-  public const float CardHeight = 300f;
+  // Sized so the next card always peeks in from the right edge on every aspect
+  // ratio (3 + a sliver at 16:9, 4 + a sliver at 20:9, 2 + a sliver at 4:3).
+  // At 380 wide exactly three filled a 16:9 screen edge to edge, so nothing
+  // said there were seven.
+  public const float CardWidth = 340f;
+  public const float CardHeight = 272f;
   private const float BannerHeight = 62f;
   private const float Inset = 9f;
 

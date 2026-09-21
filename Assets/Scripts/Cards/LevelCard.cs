@@ -127,7 +127,10 @@ public class LevelCard : MonoBehaviour
     }
 
     ShowLock(isLocked, face);
-    ShowStars(isLocked ? -1 : stars);
+    // The level you are about to play has no rating yet; three grey stars under
+    // it read as "you scored nothing" rather than "not played". Its halo says
+    // enough.
+    ShowStars(isLocked || (isNext && stars <= 0) ? -1 : stars);
 
     if (button != null)
     {

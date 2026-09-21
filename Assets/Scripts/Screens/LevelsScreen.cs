@@ -130,7 +130,7 @@ public class LevelSelectionScreen : MonoBehaviour
       var image = child.GetComponent<Image>();
       if (image == null) continue;
 
-      image.sprite = EnvironmentInfo.CardArt(GameSession.SelectedEnvironment);
+      image.sprite = EnvironmentInfo.BackdropArt(GameSession.SelectedEnvironment);
       image.type = Image.Type.Simple;
       image.preserveAspect = false;
       // Darkened well below full brightness so the tiles stay the most
@@ -237,13 +237,16 @@ public class LevelSelectionScreen : MonoBehaviour
       return;
     }
 
-    // The first unlocked level with no stars yet is where the player left off;
-    // it gets the bright ring so the eye lands on it straight away.
+    // The first unlocked level not yet completed is where the player left off;
+    // it gets the bright ring so the eye lands on it straight away. Keyed on
+    // completion rather than on stars: a level cleared before stars were
+    // recorded has zero stars, and ringed it instead of the one after it.
     int nextLevel = -1;
     foreach (LevelConfig level in levels)
     {
       bool unlocked = LevelProgress.IsLevelUnlocked(level.environmentName, level.levelNumber);
-      if (unlocked && LevelProgress.GetStars(level.environmentName, level.levelNumber) <= 0)
+      bool completed = level.levelNumber <= LevelProgress.GetHighestCompletedLevel(level.environmentName);
+      if (unlocked && !completed)
       {
         nextLevel = level.levelNumber;
         break;

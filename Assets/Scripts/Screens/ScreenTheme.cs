@@ -46,6 +46,7 @@ public static class ScreenTheme
 
     Transform logo = FindDeep(root, "Logo");
     if (logo != null) MenuLayout.ApplyLogo((RectTransform)logo);
+    MenuLayout.ApplyTitle(root);
   }
 
 

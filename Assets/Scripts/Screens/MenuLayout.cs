@@ -103,6 +103,44 @@ public static class MenuLayout
     logo.anchoredPosition = new Vector2(logo.anchoredPosition.x, LogoOffset);
   }
 
+  // The game's name across the top, between the coin chip and the gear. The
+  // menu showed the vs-battle art and a PLAY button and nothing else: nowhere
+  // did it say what the game was called, which is the first thing a store
+  // screenshot or a first launch needs to say. Coloured per side - mushroom red
+  // for the fungi, the bacteria's violet - so it echoes the two casts below it.
+  public static void ApplyTitle(Transform root)
+  {
+    if (root == null) return;
+    Transform host = root.Find("SafeArea") ?? root;
+    Transform existing = host.Find("GameTitle");
+    GameObject go = existing != null ? existing.gameObject : new GameObject("GameTitle", typeof(RectTransform));
+    go.transform.SetParent(host, false);
+
+    var rect = (RectTransform)go.transform;
+    rect.anchorMin = new Vector2(0.5f, 1f);
+    rect.anchorMax = new Vector2(0.5f, 1f);
+    rect.pivot = new Vector2(0.5f, 1f);
+    rect.anchoredPosition = new Vector2(0f, -CornerInset);
+    // Clear of the coin chip (left) and the gear (right) on the narrowest
+    // canvas, a 4:3 tablet at 960 units wide.
+    rect.sizeDelta = new Vector2(560f, 76f);
+
+    var label = go.GetComponent<TextMeshProUGUI>();
+    if (label == null) label = go.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.Title, UiSkin.TextPrimary);
+    label.fontSizeMin = 30f;
+    label.fontSizeMax = 64f;
+    label.characterSpacing = 2f;
+    label.textWrappingMode = TextWrappingModes.NoWrap;
+    label.alignment = TextAlignmentOptions.Midline;
+    label.richText = true;
+    label.text = "<color=#FF5A4E>FUNGI</color> <color=#FFC94A><size=70%>VS</size></color> <color=#C58BFF>BACTERIA</color>";
+    label.outlineWidth = 0.22f;
+    label.outlineColor = new Color32(10, 14, 24, 230);
+    label.raycastTarget = false;
+    go.transform.SetAsLastSibling();
+  }
+
   // Press/disable feedback without touching the button's artwork.
   private static void Press(Button button)
   {

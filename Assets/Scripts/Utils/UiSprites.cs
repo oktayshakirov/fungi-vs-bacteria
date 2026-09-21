@@ -244,6 +244,17 @@ public static class UiSprites
     InTriangle(x, y, 0.58f, 0.98f, 0.22f, 0.46f, 0.52f, 0.46f)
     || InTriangle(x, y, 0.42f, 0.02f, 0.78f, 0.54f, 0.48f, 0.54f)));
 
+  // A close cross: two rounded diagonal bars. For dialog close buttons, where a
+  // "BACK" plate floating outside the card read as belonging to the screen
+  // behind it.
+  public static Sprite Cross(int size = 64) => Cached("cross" + size, () => Shape(size, (x, y) =>
+  {
+    float a = Mathf.Abs((x - 0.5f) - (y - 0.5f)) * 0.7071f;
+    float b = Mathf.Abs((x - 0.5f) + (y - 0.5f)) * 0.7071f;
+    float along = Mathf.Max(Mathf.Abs(x - 0.5f), Mathf.Abs(y - 0.5f));
+    return along <= 0.36f && (a <= 0.075f || b <= 0.075f);
+  }));
+
   // A padlock, for locked levels and environments.
   public static Sprite Lock(int size = 64) => Cached("lock" + size, () => Shape(size, (x, y) =>
   {
