@@ -169,7 +169,7 @@ rather than an exact rate (`IapCatalog.BonusPercent`).
 
 Remove Ads is granted through a RevenueCat **entitlement** named `no_ads`, not by
 product id, so the product behind it can change without a build. It can ALSO be
-bought for **12,500 coins** in the store (`NoAds.CoinPrice`), with no store
+bought for **15,000 coins** in the store (`NoAds.CoinPrice`), with no store
 involvement at all. The two routes are stored separately and either one turns the
 ads off — a coin unlock is never touched by an entitlement refresh — and only the
 paid route carries the 5,000-coin thank-you gift and is brought back by Restore. It removes

@@ -25,12 +25,12 @@ public static class NoAds
   private const string CoinsKey = "Iap_NoAdsCoins";
 
   // Sized against both routes to the same thing. Earned for free it is about
-  // four days of the daily rewarded-ad cap (10 x 300) plus the streak - a real
-  // goal, not a formality. Bought, it is most of the 20,000-coin pack ($6.99),
+  // five days of the daily rewarded-ad cap (10 x 300) - a real goal, not a
+  // formality. Bought, it is most of the 20,000-coin pack ($6.99),
   // so for someone spending money the $3.99 direct purchase stays the better
   // deal, which is the incentive that should hold: coins are the grinder's
   // route, money is the payer's.
-  public const int CoinPrice = 12500;
+  public const int CoinPrice = 15000;
 
   public static event Action OnChanged;
 

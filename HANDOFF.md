@@ -233,13 +233,13 @@ Roughly in order. Each is committed.
     Render-verified (`hud-boosters`, `screen-wallet`); **no booster has been
     fired in a running level.**
 
-    Remove Ads can also be bought for 12,500 COINS (`NoAds.CoinPrice`), beside
+    Remove Ads can also be bought for 15,000 COINS (`NoAds.CoinPrice`), beside
     the money button. `NoAds` stores the two routes separately (`Entitled` from
     RevenueCat, `BoughtWithCoins` local) and `Active` is either - they must not
     share a flag, because every CustomerInfo re-applies the entitlement and a
     coin unlocker has none, so a shared flag switched the ads back on at the
     next refresh. The 5,000-coin gift and the Restore message key on `Entitled`
-    only; keyed on `Active`, paying 12,500 coins refunded 5,000 of them.
+    only; keyed on `Active`, paying 15,000 coins refunded 5,000 of them.
 
 ## 4. How to verify work — read this before changing anything
 
