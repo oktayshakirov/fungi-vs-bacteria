@@ -107,6 +107,34 @@ public static class GroundTextureFactory
     return ash;
   }
 
+  private static Texture2D marsh;
+
+  // Toxic Marsh: boggy moss over dark peat, with acid-green pools that have a
+  // bright rim and a darker centre. The biome used to share DARK with the night
+  // levels, which read as a flat navy slab with nothing toxic about it. Kept in
+  // the mid-dark range so the pale road and the towers still sit on top of it.
+  public static Texture2D Marsh()
+  {
+    if (marsh == null) marsh = Build((u, v) =>
+    {
+      Color peat = new Color(0.13f, 0.12f, 0.17f);
+      Color moss = new Color(0.20f, 0.27f, 0.17f);
+      Color slime = new Color(0.46f, 0.78f, 0.18f);
+      Color pool = new Color(0.20f, 0.42f, 0.10f);
+
+      float bog = Fbm(u, v, 4, 4);
+      float fleck = Fbm(u + 3.3f, v + 7.1f, 22, 2) * 0.22f;
+      Color c = Color.Lerp(peat, moss, Mathf.Clamp01(bog * 1.1f - 0.1f + fleck));
+
+      float pools = Fbm(u + 5.2f, v + 1.7f, 5, 3);
+      float inside = SmoothStep(0.66f, 0.72f, pools);
+      float rim = inside * (1f - SmoothStep(0.72f, 0.79f, pools));
+      c = Color.Lerp(c, pool, inside * 0.6f);
+      return Color.Lerp(c, slime, rim * 0.5f);
+    });
+    return marsh;
+  }
+
   private static Texture2D BuildDark()
   {
     // Night, but still readable: at the old values the play area rendered as

@@ -81,21 +81,11 @@ public static class EnvironmentTheme
   {
     PathVisualizer pv = Object.FindFirstObjectByType<PathVisualizer>();
     if (pv == null) return;
-    var line = pv.GetComponent<LineRenderer>();
-    if (line == null) return;
-
-    // The path material uses a near-black texture; under the Unlit shader that
-    // multiplies the tint down to black. Clear the texture so the path renders
-    // as its actual colour (critical on the dark environment).
-    Material mat = line.material;
-    mat.mainTexture = null;
-    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", null);
-    mat.color = p.pathColor;
-    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", p.pathColor);
-
-    // LineRenderer also multiplies by its vertex colours
-    line.startColor = Color.white;
-    line.endColor = Color.white;
+    // The rim is the road darkened toward the soil, so it separates the road
+    // from the ground on every biome without introducing a new hue.
+    Color edge = Color.Lerp(p.pathColor, p.soilColor, 0.55f) * 0.62f;
+    edge.a = 1f;
+    pv.SetColors(p.pathColor, edge);
   }
 
   // Public so the environment-select cards can draw a biome from the same
@@ -125,7 +115,9 @@ public static class EnvironmentTheme
           ground = "SAND",
           groundTint = Color.white,
           soilColor = C(0.40f, 0.26f, 0.16f),
-          pathColor = C(0.55f, 0.40f, 0.26f),
+          // Pale packed sand: the old mid-brown was the same value as the
+          // sand ground and the road disappeared into it.
+          pathColor = C(0.95f, 0.84f, 0.64f),
           rockColor = C(0.60f, 0.52f, 0.46f),
           plantColor = C(0.52f, 0.60f, 0.30f),
           structureColor = C(0.66f, 0.50f, 0.36f),
@@ -155,7 +147,7 @@ public static class EnvironmentTheme
           hazeColor = C(0.40f, 0.28f, 0.58f), hazeStrength = 0.30f,
           cloudColor = C(0.30f, 0.24f, 0.44f), cloudStrength = 0.2f, cloudScale = 2.2f,
           starStrength = 1.1f,
-          ground = "DARK",
+          ground = "MARSH",
           groundTint = Color.white,
           soilColor = C(0.20f, 0.14f, 0.26f),
           groundTiling = 2f,
@@ -194,7 +186,8 @@ public static class EnvironmentTheme
           groundTint = Color.white,
           groundTiling = 4f,
           soilColor = C(0.44f, 0.48f, 0.56f),
-          pathColor = C(0.55f, 0.62f, 0.72f),
+          // Glacier blue, a step darker than the snow so the road holds its edge
+          pathColor = C(0.47f, 0.62f, 0.80f),
           rockColor = C(0.58f, 0.63f, 0.70f),
           plantColor = C(0.24f, 0.42f, 0.40f),   // dark firs against the snow
           structureColor = C(0.66f, 0.74f, 0.84f),
@@ -454,6 +447,7 @@ public static class EnvironmentTheme
       case "SAND": return GroundTextureFactory.Sand();
       case "TOXIC": return GroundTextureFactory.Toxic();
       case "DARK": return GroundTextureFactory.Dark();
+      case "MARSH": return GroundTextureFactory.Marsh();
       default: return Resources.Load<Texture2D>(key);
     }
   }

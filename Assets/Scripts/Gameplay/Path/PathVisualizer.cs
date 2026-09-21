@@ -5,10 +5,18 @@ using UnityEngine;
 public class PathVisualizer : MonoBehaviour
 {
   [SerializeField] private Material pathMaterial;
-  [SerializeField] private float heightOffset = 0.01f;
+  [SerializeField] private float heightOffset = 0.03f;
 
   private LineRenderer lineRenderer;
   private float currentPathWidth = 1f;
+
+  // A darker, slightly wider band drawn under the road. Without it a 1-unit
+  // line on a 5-unit cell read as a string lying on the grass, and on biomes
+  // whose ground is close to the path colour (the wetland's sand) it vanished.
+  private LineRenderer edgeRenderer;
+  private Material edgeMaterial;
+  private const float EdgeExtra = 0.7f;      // world units wider than the road
+  private const float EdgeDrop = 0.012f;     // sits just under the road surface
 
   private void Awake()
   {
@@ -58,6 +66,49 @@ public class PathVisualizer : MonoBehaviour
 
     lineRenderer.sortingOrder = 1;
     lineRenderer.allowOcclusionWhenDynamic = false;
+    lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+    EnsureEdge();
+  }
+
+  private void EnsureEdge()
+  {
+    if (edgeRenderer != null) return;
+    Transform existing = transform.Find("PathEdge");
+    GameObject go = existing != null ? existing.gameObject : new GameObject("PathEdge");
+    go.transform.SetParent(transform, false);
+    edgeRenderer = go.GetComponent<LineRenderer>();
+    if (edgeRenderer == null) edgeRenderer = go.AddComponent<LineRenderer>();
+
+    edgeMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+    edgeMaterial.color = new Color(0.2f, 0.14f, 0.08f);
+    edgeRenderer.sharedMaterial = edgeMaterial;
+    edgeRenderer.useWorldSpace = true;
+    edgeRenderer.numCornerVertices = lineRenderer.numCornerVertices;
+    edgeRenderer.numCapVertices = lineRenderer.numCapVertices;
+    edgeRenderer.alignment = LineAlignment.TransformZ;
+    edgeRenderer.positionCount = 0;
+    edgeRenderer.sortingOrder = 0;
+    edgeRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+    edgeRenderer.startColor = Color.white;
+    edgeRenderer.endColor = Color.white;
+  }
+
+  // The road and its rim. Called by EnvironmentTheme once per level.
+  public void SetColors(Color road, Color edge)
+  {
+    if (lineRenderer == null) InitializeLineRenderer();
+    Material mat = lineRenderer.material;
+    mat.mainTexture = null;
+    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", null);
+    mat.color = road;
+    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", road);
+    lineRenderer.startColor = Color.white;
+    lineRenderer.endColor = Color.white;
+
+    EnsureEdge();
+    edgeMaterial.color = edge;
+    if (edgeMaterial.HasProperty("_BaseColor")) edgeMaterial.SetColor("_BaseColor", edge);
   }
 
   public void UpdatePath(Vector3[] points, float pathWidth)
@@ -81,6 +132,10 @@ public class PathVisualizer : MonoBehaviour
       }
       SetupLineRenderer();
     }
+
+    if (pathWidth > 0f) currentPathWidth = pathWidth;
+    lineRenderer.startWidth = currentPathWidth;
+    lineRenderer.endWidth = currentPathWidth;
 
     Vector3[] smoothedPoints = GenerateSmoothPath(points);
     if (smoothedPoints == null)
@@ -106,6 +161,18 @@ public class PathVisualizer : MonoBehaviour
       }
 
       lineRenderer.SetPositions(smoothedPoints);
+
+      EnsureEdge();
+      var edgePoints = new Vector3[smoothedPoints.Length];
+      for (int i = 0; i < smoothedPoints.Length; i++)
+      {
+        edgePoints[i] = smoothedPoints[i] - Vector3.up * EdgeDrop;
+      }
+      edgeRenderer.transform.rotation = transform.rotation;
+      edgeRenderer.startWidth = currentPathWidth + EdgeExtra;
+      edgeRenderer.endWidth = currentPathWidth + EdgeExtra;
+      edgeRenderer.positionCount = edgePoints.Length;
+      edgeRenderer.SetPositions(edgePoints);
       Debug.Log("Successfully set positions in LineRenderer");
     }
     catch (System.Exception e)

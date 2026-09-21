@@ -100,7 +100,9 @@ public class PathManager : MonoBehaviour
 
     if (pathVisualizer != null)
     {
-      float pathWidth = 1f;
+      // A road, not a line: a bit over half a cell, so the unbuildable path
+      // cells read as the path and enemies (about 2 units wide) fit on it.
+      float pathWidth = GridManager.Instance.cellSize * 0.56f;
       pathVisualizer.UpdatePath(pathPoints, pathWidth);
       Debug.Log($"Path visualized with {pathPoints.Length} points.");
     }

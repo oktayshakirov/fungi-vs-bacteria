@@ -141,6 +141,103 @@ public static class CameraPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
+  // The real board of one level per biome, built the way the game builds it:
+  // the level's own path through PathManager + PathVisualizer (the actual line
+  // the player sees), the decorator, the theme, towers beside the path and the
+  // cast standing on it. Render() only ever shows Environment 1-3 with no path,
+  // which is how a map can look finished in preview and unfinished in play.
+  public static void RenderBoards()
+  {
+    var ctx = BoardContext.Open();
+    if (ctx == null) { if (Application.isBatchMode) EditorApplication.Exit(1); return; }
+
+    string only = System.Environment.GetEnvironmentVariable("BOARD_ENVS");
+    string file = System.Environment.GetEnvironmentVariable("BOARD_LEVEL") ?? "Level05";
+    for (int n = 1; n <= 7; n++)
+    {
+      if (!string.IsNullOrEmpty(only) && !only.Contains(n.ToString())) continue;
+      List<GameObject> props = ctx.Build(n, file, withCast: true);
+      if (props == null) continue;
+      Capture(ctx.rig, ctx.cam, Devices[3], 0, $"board-env{n}", false);
+      if (n == 1) Capture(ctx.rig, ctx.cam, Devices[0], 0, $"board-env{n}", false);
+      foreach (GameObject go in props) Object.DestroyImmediate(go);
+    }
+
+    Debug.Log($"BOARDS OK: wrote images to {OutputDir}");
+    if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
+  // MainGame opened in edit mode with the singletons the path code reads wired
+  // by hand (-executeMethod never runs Awake), so a level can be built the way
+  // the game builds it.
+  private class BoardContext
+  {
+    public CameraRig rig;
+    public Camera cam;
+    GridManager grid;
+    PathManager pathManager;
+    LevelDecorator decor;
+
+    const System.Reflection.BindingFlags Any =
+      System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static |
+      System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+
+    static readonly string[] TowerPaths =
+    {
+      "Assets/Prefabs/Towers/ArcherTower/ArcherTower.prefab",
+      "Assets/Prefabs/Towers/IceTower/IceTower.prefab",
+      "Assets/Prefabs/Towers/InfernoTower/InfernoTower.prefab",
+      "Assets/Prefabs/Towers/SniperTower/SniperTower.prefab",
+    };
+
+    public static BoardContext Open()
+    {
+      EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
+      var c = new BoardContext
+      {
+        rig = Object.FindFirstObjectByType<CameraRig>(),
+        grid = Object.FindFirstObjectByType<GridManager>(),
+        pathManager = Object.FindFirstObjectByType<PathManager>(),
+      };
+      if (c.rig == null || c.grid == null || c.pathManager == null)
+      {
+        Debug.LogError("BOARDS FAIL: MainGame is missing the rig, grid or path manager");
+        return null;
+      }
+      c.cam = c.rig.GetComponent<Camera>();
+      Directory.CreateDirectory(OutputDir);
+
+      typeof(GridManager).GetProperty("Instance", Any).SetValue(null, c.grid);
+      typeof(PathManager).GetProperty("Instance", Any).SetValue(null, c.pathManager);
+      var visualizer = c.pathManager.GetComponent<PathVisualizer>();
+      if (visualizer != null) typeof(PathVisualizer).GetMethod("Awake", Any).Invoke(visualizer, null);
+
+      c.decor = Object.FindFirstObjectByType<LevelDecorator>();
+      if (c.decor == null) c.decor = new GameObject("PreviewDecor").AddComponent<LevelDecorator>();
+      return c;
+    }
+
+    // Returns the towers/enemies it placed, for the caller to destroy.
+    public List<GameObject> Build(int env, string levelFile, bool withCast)
+    {
+      var level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+        $"Assets/Resources/Levels/Environment{env}/{levelFile}.asset");
+      if (level == null) return null;
+
+      GameSession.SelectedLevel = level;
+      GameSession.SelectedEnvironment = level.environmentName;
+      typeof(GridManager).GetMethod("InitializeGrid", Any).Invoke(grid, null);
+      EnvironmentTheme.Apply(level.environmentName);
+      Physics.SyncTransforms();
+      typeof(PathManager).GetMethod("GeneratePath", Any).Invoke(pathManager, null);
+      decor.BuildAt(pathManager.GetPathPoints());
+
+      var created = PlaceRealTowers(level, TowerPaths);
+      if (withCast) created.AddRange(PlaceRealEnemies(grid, level));
+      return created;
+    }
+  }
+
   // Renders each environment into Assets/Resources/EnvPreviews as a Sprite, so
   // the environment-selection cards show the actual in-game look instead of a
   // placeholder. EnvironmentsScreen falls back to these when no sprite has been
@@ -150,40 +247,26 @@ public static class CameraPreview
     const string dir = "Assets/Resources/EnvPreviews";
     Directory.CreateDirectory(dir);
 
-    EditorSceneManager.OpenScene("Assets/Scenes/MainGame.unity", OpenSceneMode.Single);
-    CameraRig rig = Object.FindFirstObjectByType<CameraRig>();
-    if (rig == null)
-    {
-      Debug.LogError("ENV CARDS FAIL: no CameraRig");
-      if (Application.isBatchMode) EditorApplication.Exit(1);
-      return;
-    }
-    Camera cam = rig.GetComponent<Camera>();
+    var ctx = BoardContext.Open();
+    if (ctx == null) { if (Application.isBatchMode) EditorApplication.Exit(1); return; }
 
-    List<GameObject> towers = PlaceRealTowers();
-    GridManager grid = Object.FindFirstObjectByType<GridManager>();
-    Vector3[] pathPts = PreviewPathPoints(grid);
-
-    var decorGo = new GameObject("PreviewDecor");
-    var decor = decorGo.AddComponent<LevelDecorator>();
-
-    // 16:10-ish thumbnail, large enough to stay sharp on a tablet card
-    var card = new Device { name = "card", width = 640, height = 400 };
+    // Matches the art window on EnvironmentCard (about 1.7:1), at twice its
+    // canvas size so it stays sharp on a 1.5x phone.
+    var card = new Device { name = "card", width = 640, height = 376 };
     var written = new List<string>();
 
     for (int i = 1; i <= 7; i++)
     {
-      string env = $"Environment {i}";
-      EnvironmentTheme.Apply(env);
-      decor.BuildAt(pathPts);
-
-      string path = $"{dir}/{env}.png";
-      CaptureTo(rig, cam, card, path);
+      // The biome's first level, with its real road, towers and cast, from the
+      // closer three-quarter outro pose - a diorama of the place rather than
+      // the whole board, which at thumbnail size is mostly clutter.
+      List<GameObject> props = ctx.Build(i, "Level01", withCast: true);
+      if (props == null) continue;
+      string path = $"{dir}/Environment {i}.png";
+      CaptureTo(ctx.rig, ctx.cam, card, path, pose: 2);
       written.Add(path);
+      foreach (GameObject go in props) Object.DestroyImmediate(go);
     }
-
-    Object.DestroyImmediate(decorGo);
-    foreach (GameObject t in towers) Object.DestroyImmediate(t);
 
     AssetDatabase.Refresh();
     foreach (string path in written)
@@ -200,10 +283,10 @@ public static class CameraPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
-  private static void CaptureTo(CameraRig rig, Camera cam, Device device, string path)
+  private static void CaptureTo(CameraRig rig, Camera cam, Device device, string path, int pose = 0)
   {
     float aspect = (float)device.width / device.height;
-    rig.EditorPreview(0, aspect);
+    rig.EditorPreview(pose, aspect);
     rig.enabled = false;
 
     var rt = new RenderTexture(device.width, device.height, 24, RenderTextureFormat.ARGB32)
@@ -241,10 +324,10 @@ public static class CameraPreview
   // directional light, flat ground, and a head-on angle. The real board is a
   // themed island seen from a steep three-quarter view with the environment's
   // own lighting, and "reads clearly" in one is not evidence for the other.
-  private static List<GameObject> PlaceRealEnemies(GridManager grid)
+  private static List<GameObject> PlaceRealEnemies(GridManager grid, LevelConfig level = null)
   {
     var created = new List<GameObject>();
-    Vector3[] pts = PreviewPathPoints(grid);
+    Vector3[] pts = PreviewPathPoints(grid, level);
     if (pts == null || pts.Length < 3) return created;
 
     // Ordered so each variety type stands next to the base body it reuses.
@@ -317,9 +400,9 @@ public static class CameraPreview
     return created;
   }
 
-  private static Vector3[] PreviewPathPoints(GridManager grid)
+  private static Vector3[] PreviewPathPoints(GridManager grid, LevelConfig level = null)
   {
-    LevelConfig level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+    if (level == null) level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
       "Assets/Resources/Levels/Environment1/Level01.asset");
     if (grid == null || level == null || level.pathConfig == null) return null;
 
@@ -392,15 +475,15 @@ public static class CameraPreview
 
   // Places real tower prefabs at the same Y a placement would use (grass level),
   // so both the visual theme and whether towers sit on the ground can be judged.
-  private static List<GameObject> PlaceRealTowers()
+  private static List<GameObject> PlaceRealTowers(LevelConfig level = null, string[] towerPaths = null)
   {
     var created = new List<GameObject>();
     GridManager grid = Object.FindFirstObjectByType<GridManager>();
-    LevelConfig level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+    if (level == null) level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
       "Assets/Resources/Levels/Environment1/Level01.asset");
     if (grid == null || level == null || level.pathConfig == null) return created;
 
-    string[] towerPaths =
+    if (towerPaths == null) towerPaths = new[]
     {
       "Assets/Prefabs/Towers/ArcherTower/ArcherTower.prefab",
       "Assets/Prefabs/Towers/SniperTower/SniperTower.prefab",

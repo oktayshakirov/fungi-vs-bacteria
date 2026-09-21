@@ -50,6 +50,9 @@ namespace TowerDefense.UI
       if (config.towerIcon != null)
       {
         towerIcon.sprite = config.towerIcon;
+        // The icons are square cut-outs now (TowerIconRender); the old ones were
+        // odd-sized photos, and a stretched sprite squashes the tower.
+        towerIcon.preserveAspect = true;
       }
 
       Style();

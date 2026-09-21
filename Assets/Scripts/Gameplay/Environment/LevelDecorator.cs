@@ -55,6 +55,10 @@ public class LevelDecorator : MonoBehaviour
     // and the scene bloom adds a coloured halo.
     glowMat = Neon(p.accentGlow);
 
+    landmarks = pathPoints != null && pathPoints.Length >= 2
+      ? new[] { pathPoints[0], pathPoints[pathPoints.Length - 1] }
+      : new Vector3[0];
+
     BuildIslandCliff(p);
     BuildDistantClouds(p);
     BuildDistantIslands(p);
@@ -64,8 +68,8 @@ public class LevelDecorator : MonoBehaviour
     ScatterNeonOrbs(p);
     if (pathPoints != null && pathPoints.Length >= 2)
     {
-      BuildPortal(pathPoints[0]);
-      BuildBase(pathPoints[pathPoints.Length - 1]);
+      // The nest faces along the path it feeds.
+      BuildPortal(pathPoints[0], pathPoints[0] - pathPoints[1]);
     }
 
     // ~200 scenery renderers is ~200 draw calls, which dwarfs the rest of the
@@ -74,6 +78,16 @@ public class LevelDecorator : MonoBehaviour
     //
     // Must run last — combined objects can no longer be moved or reparented.
     StaticBatchingUtility.Combine(gameObject);
+
+    // The house is built AFTER the merge, because it moves: it flinches when
+    // an enemy reaches it (BaseFlinch). Six renderers, a few draw calls.
+    if (pathPoints != null && pathPoints.Length >= 2)
+    {
+      int last = pathPoints.Length - 1;
+      // Faces back up the path, toward what is coming.
+      GameObject house = BuildBase(pathPoints[last], pathPoints[last - 1] - pathPoints[last]);
+      if (house != null && Application.isPlaying) house.AddComponent<BaseFlinch>();
+    }
   }
 
   private void IslandExtent(out float halfW, out float halfD)
@@ -215,6 +229,7 @@ public class LevelDecorator : MonoBehaviour
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
       if (Mathf.Abs(x) < halfW - 0.5f && Mathf.Abs(z) < halfD - 0.5f) continue;
+      if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       SpawnProp(new Vector3(x, 0f, z), Mathf.InverseLerp(-outerD, outerD, z), rng);
       placed++;
@@ -226,6 +241,7 @@ public class LevelDecorator : MonoBehaviour
     {
       float x = Mathf.Lerp(-outerW, outerW, (i + 0.5f) / 9f) + (float)(rng.NextDouble() * 2 - 1) * 3f;
       float z = outerD - (float)rng.NextDouble() * 3.5f;
+      if (NearLandmark(new Vector3(x, 0f, z))) continue;
       SpawnTree(new Vector3(x, 0f, z), rng);
     }
 
@@ -239,6 +255,7 @@ public class LevelDecorator : MonoBehaviour
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
       if (Mathf.Abs(x) < halfW + 1f && Mathf.Abs(z) < halfD + 1f) continue;
+      if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       GameObject mound = Piece("Mound", MeshFactory.Mound(rng.Next(Variants)), moundMat, new Vector3(x, 0.02f, z));
       // Flattened hard toward the camera: a swell of turf in the foreground
@@ -265,6 +282,7 @@ public class LevelDecorator : MonoBehaviour
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
       if (Mathf.Abs(x) < halfW - 0.5f && Mathf.Abs(z) < halfD - 0.5f) continue;
+      if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       GameObject patch = Piece("Grass", MeshFactory.GrassPatch(rng.Next(Variants)), grassMat, new Vector3(x, 0f, z));
       float s = 1.1f + (float)rng.NextDouble() * 1.1f;
@@ -292,38 +310,55 @@ public class LevelDecorator : MonoBehaviour
     return true;
   }
 
-  // Scattered neon glowing shards in varied vibrant colours (like the combat
-  // hit-effects) for extra vibrancy in the border ring.
+  // Clusters of glowing shards in the biome's own accent, around the border.
+  //
+  // These used to be twelve lone shards in a fixed magenta / cyan / amber mix
+  // on every biome, including right along the front edge. At play distance they
+  // read as pastel paper cones scattered over the board, the same three colours
+  // on the meadow as on the lava. Grouping them makes each one read as a
+  // crystal outcrop, the accent ties it to the place, and keeping the nearest
+  // band clear stops them sitting over the first row of cells.
   private void ScatterNeonOrbs(EnvironmentTheme.Palette p)
   {
     if (!Ring(out float halfW, out float halfD, out float outerW, out float outerD)) return;
 
+    Color accent = p.accentGlow;
+    Color.RGBToHSV(accent, out float h, out float sat, out float val);
     Color[] neons =
     {
-      p.accentGlow,
-      new Color(1f, 0.25f, 0.85f),  // magenta
-      new Color(0.25f, 0.85f, 1f),  // cyan
-      new Color(1f, 0.85f, 0.2f),   // amber
+      accent,
+      Color.HSVToRGB(Mathf.Repeat(h + 0.06f, 1f), sat * 0.8f, Mathf.Min(1f, val * 1.05f)),
+      Color.HSVToRGB(Mathf.Repeat(h - 0.05f, 1f), Mathf.Min(1f, sat * 1.1f), val * 0.9f),
     };
     var orbMats = new Material[neons.Length];
     for (int i = 0; i < neons.Length; i++) orbMats[i] = Neon(neons[i]);
 
     System.Random rng = Rng(3);
-    int placed = 0, attempts = 0;
-    while (placed < 12 && attempts < 200)
+    int clusters = 0, attempts = 0;
+    while (clusters < 5 && attempts < 300)
     {
       attempts++;
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
-      if (Mathf.Abs(x) < halfW - 0.5f && Mathf.Abs(z) < halfD - 0.5f) continue;
+      if (Mathf.Abs(x) < halfW + 0.5f && Mathf.Abs(z) < halfD + 0.5f) continue;
+      float depth = Mathf.InverseLerp(-outerD, outerD, z);
+      if (depth < 0.22f) continue;
+      if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
-      GameObject orb = Piece("NeonShard", MeshFactory.Crystal(rng.Next(Variants)),
-        orbMats[rng.Next(orbMats.Length)], new Vector3(x, 0f, z));
-      float s = 1.4f + (float)rng.NextDouble() * 1.4f;
-      orb.transform.localScale = new Vector3(s, s * 1.8f, s);
-      orb.transform.rotation = Quaternion.Euler(
-        (float)(rng.NextDouble() * 16 - 8), (float)rng.NextDouble() * 360f, (float)(rng.NextDouble() * 16 - 8));
-      placed++;
+      Material mat = orbMats[rng.Next(orbMats.Length)];
+      int shards = 2 + rng.Next(2);
+      for (int k = 0; k < shards; k++)
+      {
+        Vector3 offset = k == 0 ? Vector3.zero : new Vector3(
+          (float)(rng.NextDouble() * 2 - 1) * 1.1f, 0f, (float)(rng.NextDouble() * 2 - 1) * 1.1f);
+        GameObject orb = Piece("NeonShard", MeshFactory.Crystal(rng.Next(Variants)), mat,
+          new Vector3(x, 0f, z) + offset);
+        float sc = (k == 0 ? 1.5f : 0.8f + (float)rng.NextDouble() * 0.5f) * Mathf.Lerp(0.75f, 1f, depth);
+        orb.transform.localScale = new Vector3(sc, sc * 1.9f, sc);
+        orb.transform.rotation = Quaternion.Euler(
+          (float)(rng.NextDouble() * 30 - 15), (float)rng.NextDouble() * 360f, (float)(rng.NextDouble() * 30 - 15));
+      }
+      clusters++;
     }
   }
 
@@ -403,80 +438,113 @@ public class LevelDecorator : MonoBehaviour
       (float)(rng.NextDouble() * 24 - 12), (float)rng.NextDouble() * 360f, (float)(rng.NextDouble() * 24 - 12));
   }
 
-  // A dark ring the enemies emerge from, at the path start
-  private void BuildPortal(Vector3 pos)
+  // The bacteria's nest at the path start: a lumpy crater with a glowing pool
+  // and cilia round the rim. Authored in Blender (Tools/Blender/structures.py)
+  // because the old ring of primitives - a black disc and white shards - read as
+  // a hole in the texture at play distance.
+  private void BuildPortal(Vector3 pos, Vector3 facing)
   {
-    var root = new GameObject("SpawnPortal");
-    root.transform.SetParent(transform, false);
-    root.transform.position = pos + Vector3.up * 0.1f;
-    spawned.Add(root);
-
-    var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-    Strip(ring);
-    ring.transform.SetParent(root.transform, false);
-    ring.transform.localScale = new Vector3(3.4f, 0.15f, 3.4f);
-    ring.GetComponent<MeshRenderer>().sharedMaterial = glowMat;
-
-    var inner = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-    Strip(inner);
-    inner.transform.SetParent(root.transform, false);
-    inner.transform.localScale = new Vector3(2.6f, 0.2f, 2.6f);
-    inner.transform.localPosition = Vector3.up * 0.05f;
-    inner.GetComponent<MeshRenderer>().sharedMaterial = Lit(new Color(0.05f, 0.05f, 0.08f));
-
-    // A ring of shards around the mouth, so the spawn point reads as built
-    var rng = new System.Random(77);
-    for (int i = 0; i < 7; i++)
+    EnvironmentTheme.Palette p = EnvironmentTheme.Current;
+    // Deep, and only softly emissive: at full Neon strength the bloom washed the
+    // pool out to pastel pink.
+    var ooze = new Color(0.78f, 0.10f, 0.42f);
+    Landmark("SpawnPortal", "Structures/BacteriaNest", pos, facing, part =>
     {
-      float ang = (i / 7f) * Mathf.PI * 2f;
-      GameObject shard = Piece("PortalShard", MeshFactory.Crystal(i % Variants), glowMat,
-        root.transform.position, root.transform);
-      shard.transform.localPosition = new Vector3(Mathf.Cos(ang) * 2.1f, 0f, Mathf.Sin(ang) * 2.1f);
-      float h = 1.2f + (float)rng.NextDouble() * 1.1f;
-      shard.transform.localScale = new Vector3(h * 0.45f, h, h * 0.45f);
-      shard.transform.localRotation = Quaternion.Euler(22f * Mathf.Cos(ang), 0f, -22f * Mathf.Sin(ang));
-    }
+      switch (part)
+      {
+        case "Rim": return Lit(Color.Lerp(p.soilColor, new Color(0.36f, 0.10f, 0.24f), 0.6f));
+        case "Pool": return Neon(ooze, 0.55f);
+        case "Spikes": return Lit(new Color(0.72f, 0.22f, 0.44f));
+        case "Bubbles": return Neon(Color.Lerp(ooze, new Color(1f, 0.55f, 0.8f), 0.5f), 0.7f);
+        default: return structureMat;
+      }
+    });
   }
 
-  // A stacked structure that the enemies march toward (the base that takes damage)
-  private void BuildBase(Vector3 pos)
+  // The fungi's base at the path end: a mushroom house with lit windows, the
+  // thing the player is defending. It was a lilac dome on a cylinder, which
+  // nobody could have named.
+  private GameObject BuildBase(Vector3 pos, Vector3 facing)
   {
-    var root = new GameObject("BaseStructure");
+    EnvironmentTheme.Palette p = EnvironmentTheme.Current;
+    return Landmark("BaseStructure", "Structures/MotherMushroom", pos, facing, part =>
+    {
+      switch (part)
+      {
+        case "Cap": return Lit(Color.Lerp(new Color(0.86f, 0.20f, 0.19f), p.accentGlow, 0.12f));
+        case "Spots": return Lit(new Color(0.98f, 0.95f, 0.88f));
+        case "Stem": return Lit(new Color(0.94f, 0.87f, 0.74f));
+        case "Door": return Lit(p.woodColor * 1.15f);
+        case "Windows": return Neon(new Color(1f, 0.78f, 0.34f), 0.9f);
+        case "Plinth": return Lit(p.rockColor);
+        default: return structureMat;
+      }
+    });
+  }
+
+  // Instances each named part of an authored model as its own renderer, so the
+  // parts take biome colours and still go through the same static batching as
+  // the rest of the scenery. The model's door (and the nest's front) is its -Z,
+  // turned to face `facing`.
+  private GameObject Landmark(string name, string resource, Vector3 pos, Vector3 facing,
+    System.Func<string, Material> materialFor)
+  {
+    var model = Resources.Load<GameObject>(resource);
+    if (model == null)
+    {
+      Debug.LogWarning($"LevelDecorator: missing {resource}");
+      return null;
+    }
+
+    var root = new GameObject(name);
     root.transform.SetParent(transform, false);
     root.transform.position = pos;
+    // Turned halfway between the path and the camera (which looks down +Z), so
+    // the front - the house's door and windows - is never hidden round the back.
+    facing.y = 0f;
+    if (facing.sqrMagnitude > 0.0001f) facing.Normalize();
+    Vector3 front = facing + Vector3.back * 1.2f;
+    front.y = 0f;
+    // The model's front is its local +Z after import (measured in a render).
+    if (front.sqrMagnitude > 0.0001f) root.transform.rotation = Quaternion.LookRotation(front.normalized);
     spawned.Add(root);
 
-    var plinth = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-    Strip(plinth);
-    plinth.transform.SetParent(root.transform, false);
-    plinth.transform.localScale = new Vector3(4.2f, 0.6f, 4.2f);
-    plinth.transform.localPosition = Vector3.up * 0.6f;
-    plinth.GetComponent<MeshRenderer>().sharedMaterial = structureMat;
-
-    var dome = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-    Strip(dome);
-    dome.transform.SetParent(root.transform, false);
-    dome.transform.localScale = new Vector3(3.4f, 3.0f, 3.4f);
-    dome.transform.localPosition = Vector3.up * 1.6f;
-    dome.GetComponent<MeshRenderer>().sharedMaterial = structureMat;
-
-    var core = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-    Strip(core);
-    core.transform.SetParent(root.transform, false);
-    core.transform.localScale = Vector3.one * 1.6f;
-    core.transform.localPosition = Vector3.up * 3.3f;
-    core.GetComponent<MeshRenderer>().sharedMaterial = glowMat;
-
-    // Buttress shards leaning against the plinth
-    for (int i = 0; i < 6; i++)
+    // Unity's OBJ importer merges the parts into one mesh; each part survives
+    // as a submesh whose imported material is named after it.
+    foreach (MeshFilter filter in model.GetComponentsInChildren<MeshFilter>(true))
     {
-      float ang = (i / 6f) * Mathf.PI * 2f + 0.4f;
-      GameObject buttress = Piece("Buttress", MeshFactory.Crystal(i % Variants), structureMat,
+      var source = filter.GetComponent<MeshRenderer>();
+      Material[] imported = source != null ? source.sharedMaterials : new Material[0];
+      var mats = new Material[filter.sharedMesh.subMeshCount];
+      for (int i = 0; i < mats.Length; i++)
+      {
+        string part = i < imported.Length && imported[i] != null ? imported[i].name : "";
+        mats[i] = materialFor(part);
+      }
+
+      GameObject piece = Piece(filter.name, filter.sharedMesh, mats[0],
         root.transform.position, root.transform);
-      buttress.transform.localPosition = new Vector3(Mathf.Cos(ang) * 2.3f, 0f, Mathf.Sin(ang) * 2.3f);
-      buttress.transform.localScale = new Vector3(0.9f, 2.4f, 0.9f);
-      buttress.transform.localRotation = Quaternion.Euler(18f * Mathf.Sin(ang), 0f, -18f * Mathf.Cos(ang));
+      piece.GetComponent<MeshRenderer>().sharedMaterials = mats;
+      piece.transform.localPosition = filter.transform.localPosition;
+      piece.transform.localRotation = filter.transform.localRotation;
+      piece.transform.localScale = filter.transform.localScale;
     }
+    return root;
+  }
+
+  // Props kept this far from the nest and the base, so a boulder or a bush is
+  // never scattered on top of either (one sat half over the nest's mouth).
+  private const float LandmarkClearance = 4.2f;
+  private Vector3[] landmarks = new Vector3[0];
+
+  private bool NearLandmark(Vector3 pos)
+  {
+    foreach (Vector3 l in landmarks)
+    {
+      float dx = pos.x - l.x, dz = pos.z - l.z;
+      if (dx * dx + dz * dz < LandmarkClearance * LandmarkClearance) return true;
+    }
+    return false;
   }
 
   // Builds a renderer for a generated mesh. Children (parent != null) are freed
@@ -576,12 +644,12 @@ public class LevelDecorator : MonoBehaviour
 
   // A vibrant emissive material: the albedo carries the hue and a modest
   // emission (kept ~1) gives a coloured bloom halo without blowing out to white.
-  private static Material Neon(Color color)
+  private static Material Neon(Color color, float emission = 1.1f)
   {
     var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.4f);
     mat.EnableKeyword("_EMISSION");
-    if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", color * 1.1f);
+    if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", color * emission);
     mat.enableInstancing = true;
     return mat;
   }

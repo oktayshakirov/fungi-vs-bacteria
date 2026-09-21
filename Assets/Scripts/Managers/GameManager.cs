@@ -13,6 +13,9 @@ public class GameManager : MonoBehaviour
   public int currentGold => Wallet.Coins;
   public int currentHealth;
 
+  // Fired on every hit to the base, for board-side feedback (BaseFlinch).
+  public static event System.Action<int> OnBaseDamaged;
+
   private EnemySpawner spawner;
   private int aliveEnemies;
   private bool gameEnded;
@@ -150,6 +153,7 @@ public class GameManager : MonoBehaviour
     UpdateUI();
 
     // Feedback: the base was hit
+    OnBaseDamaged?.Invoke(damage);
     CameraRig.Instance?.Shake(0.35f);
     AudioManager.Instance?.Vibrate();
 
