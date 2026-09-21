@@ -35,7 +35,7 @@ public class GameOverScreen : MonoBehaviour
         mainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
         // Losing screen: the retry button is the call to action, in danger red
-        ScreenTheme.Apply(transform, restartButton, UiSkin.Danger);
+        ScreenTheme.Apply(transform, restartButton, UiSkin.Danger, UiSkin.Danger);
 
         BuildContinueOffer();
 
@@ -61,6 +61,7 @@ public class GameOverScreen : MonoBehaviour
 
     private void PrepareForShow()
     {
+        ScreenTheme.Subtitle(transform, ScreenTheme.RunSummary(withWave: true));
         statusText = "";
         awaitingAd = false;
 

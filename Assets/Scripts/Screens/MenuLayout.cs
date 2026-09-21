@@ -72,6 +72,51 @@ public static class MenuLayout
     label.characterSpacing = 4f;
     label.outlineWidth = 0.18f;
     label.outlineColor = new Color32(18, 40, 8, 200);
+
+    ApplyNextUp(play, label);
+  }
+
+  // "NEXT: VERDANT MEADOW - LEVEL 3" across the bottom of the Play button, so a
+  // returning player sees where they are without opening two screens. PLAY
+  // moves up to make room; with nothing left to play the caption says so.
+  private static void ApplyNextUp(Button play, TMP_Text label)
+  {
+    string text;
+    if (LevelProgress.TryGetNextUp(out string env, out int level))
+    {
+      text = $"NEXT: {EnvironmentInfo.DisplayName(env)} - LEVEL {level}";
+    }
+    else
+    {
+      text = "EVERY BIOME CLEARED!";
+    }
+
+    Transform existing = play.transform.Find("NextUp");
+    GameObject go = existing != null ? existing.gameObject : new GameObject("NextUp", typeof(RectTransform));
+    go.transform.SetParent(play.transform, false);
+    var rect = (RectTransform)go.transform;
+    rect.anchorMin = new Vector2(0f, 0f);
+    rect.anchorMax = new Vector2(1f, 0f);
+    rect.pivot = new Vector2(0.5f, 0f);
+    rect.anchoredPosition = new Vector2(0f, 16f);
+    rect.sizeDelta = new Vector2(-60f, 34f);
+
+    var caption = go.GetComponent<TextMeshProUGUI>();
+    if (caption == null) caption = go.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(caption, UiSkin.Role.ButtonLabel, new Color(0.10f, 0.20f, 0.04f));
+    caption.fontSizeMin = 14f;
+    caption.fontSizeMax = 24f;
+    caption.text = text;
+    caption.alignment = TextAlignmentOptions.Midline;
+    caption.raycastTarget = false;
+
+    var labelRect = label.rectTransform;
+    labelRect.anchorMin = Vector2.zero;
+    labelRect.anchorMax = Vector2.one;
+    labelRect.offsetMin = new Vector2(0f, 36f);
+    labelRect.offsetMax = new Vector2(0f, -4f);
+    label.fontSizeMax = 76f;
+    label.alignment = TextAlignmentOptions.Midline;
   }
 
   public static void ApplySettings(Button settings)

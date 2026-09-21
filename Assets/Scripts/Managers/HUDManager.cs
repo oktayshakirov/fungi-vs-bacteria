@@ -272,8 +272,14 @@ public class HUDManager : MonoBehaviour
     }
   }
 
+  // Last values shown, for the pause and game-over screens' context line.
+  public int CurrentWave { get; private set; }
+  public int TotalWaves { get; private set; }
+
   public void UpdateWaveText(int currentWave, int totalWaves)
   {
+    CurrentWave = currentWave;
+    TotalWaves = totalWaves;
     if (waveText != null)
     {
       waveText.text = $"Wave {currentWave}/{totalWaves}";

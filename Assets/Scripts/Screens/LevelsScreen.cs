@@ -27,6 +27,7 @@ public class LevelSelectionScreen : MonoBehaviour
     BuildHomeButton();
     UseGridLayout();
     PopulateLevelCards();
+    BuildStarTotal();
     HideScrollbars();
 
     if (backButton != null)
@@ -158,6 +159,51 @@ public class LevelSelectionScreen : MonoBehaviour
       group.interactable = false;
       group.blocksRaycasts = false;
     }
+  }
+
+  // "12 / 30" stars for the biome, on a chip under the title: the one number
+  // that says how much of this biome is left to master, and a reason to replay.
+  private void BuildStarTotal()
+  {
+    var levels = LevelRepository.GetLevelsForEnvironment(GameSession.SelectedEnvironment);
+    if (levels == null || levels.Count == 0) return;
+
+    int earned = 0;
+    foreach (LevelConfig level in levels)
+    {
+      earned += Mathf.Clamp(LevelProgress.GetStars(level.environmentName, level.levelNumber), 0, 3);
+    }
+
+    Transform host = transform.Find("SafeArea") ?? transform;
+    var go = new GameObject("StarTotal", typeof(RectTransform));
+    go.transform.SetParent(host, false);
+    var rect = (RectTransform)go.transform;
+    rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+    rect.pivot = new Vector2(0.5f, 1f);
+    rect.anchoredPosition = new Vector2(0f, -(ScreenTheme.HeaderInset + 88f + 22f));
+    rect.sizeDelta = new Vector2(170f, 42f);
+    go.AddComponent<LayoutElement>().ignoreLayout = true;
+    var bg = go.AddComponent<Image>();
+    UiSkin.Panel(bg, new Color(0.05f, 0.06f, 0.10f, 0.82f), UiSkin.RadiusChip);
+    bg.raycastTarget = false;
+
+    Image star = UiSkin.Icon(go.transform, StarSprite.Star, UiSkin.Gold, 28f);
+    var starRect = (RectTransform)star.transform;
+    starRect.anchorMin = starRect.anchorMax = new Vector2(0f, 0.5f);
+    starRect.pivot = new Vector2(0f, 0.5f);
+    starRect.anchoredPosition = new Vector2(14f, 1f);
+
+    var labelGo = new GameObject("Label", typeof(RectTransform));
+    labelGo.transform.SetParent(go.transform, false);
+    var labelRect = UiSkin.Stretch((RectTransform)labelGo.transform);
+    labelRect.offsetMin = new Vector2(48f, 0f);
+    labelRect.offsetMax = new Vector2(-12f, 0f);
+    var label = labelGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.Value, UiSkin.TextPrimary);
+    label.fontSizeMax = 26f;
+    label.text = $"{earned} / {levels.Count * 3}";
+    label.alignment = TextAlignmentOptions.Midline;
+    label.raycastTarget = false;
   }
 
   // The prefab's title is the literal placeholder "Levels"; the biome name is

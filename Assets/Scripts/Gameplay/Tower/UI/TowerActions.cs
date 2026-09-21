@@ -55,12 +55,16 @@ namespace TowerDefense.UI
         ? $"{config.towerName}   Lv {tower.Level}"
         : config.towerName;
 
-      // The sell value goes in the HEADER, where the placement panel puts the
-      // build cost: same row, same coin, same place on screen, so the number
-      // that answers "what is this tower worth to me right now" never moves.
-      // The button below is then just the verb.
-      if (sellValueText != null) sellValueText.text = tower.SellValue.ToString();
-      sellButtonText.text = "SELL";
+      // The refund is ON the Sell button. It used to sit alone in the header,
+      // where the placement panel shows a build cost - but beside "Lv 2" a bare
+      // "472" did not say whether it was a price, a refund or a stat.
+      if (sellValueText != null)
+      {
+        sellValueText.gameObject.SetActive(false);
+        Transform coin = sellValueText.transform.parent.Find("Icon");
+        if (coin != null) coin.gameObject.SetActive(false);
+      }
+      sellButtonText.text = $"SELL  +{tower.SellValue}";
       descriptionText.text = string.IsNullOrWhiteSpace(config.description)
         ? string.Empty
         : config.description;

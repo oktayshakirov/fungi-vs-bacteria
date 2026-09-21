@@ -220,6 +220,17 @@ public static class UiPreview
       catch (System.Exception e) { Debug.LogWarning($"UI PREVIEW: {behaviour.GetType().Name}.Start -> {e.InnerException?.Message ?? e.Message}"); }
     }
 
+    // The loading screen's content is set per show by SceneController; show it
+    // the way it looks going into a level.
+    var loading = go.GetComponentInChildren<LoadingScreen>(true);
+    if (loading != null)
+    {
+      GameSession.SelectedLevel = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+        "Assets/Resources/Levels/Environment1/Level03.asset");
+      loading.Prepare(true);
+      loading.UpdateProgress(0.55f);
+    }
+
     foreach (BackgroundFill fill in go.GetComponentsInChildren<BackgroundFill>(true))
     {
       fill.enabled = false;
@@ -386,6 +397,43 @@ public static class UiPreview
     {
       if (canvas != null) Object.DestroyImmediate(canvas.gameObject);
     }
+    BoardBackdrop();
+  }
+
+  private static Texture2D boardTexture;
+
+  // A real board render behind every shot, where there used to be the camera's
+  // flat green clear colour. The HUD and the modals are always seen over the
+  // board, and judging a scrim, a translucent panel or a white label against
+  // flat green said nothing about how it reads over grass, enemies and a path.
+  // Uses CameraPreview.RenderBoards' output; falls back to the clear colour if
+  // that has never been run.
+  private static void BoardBackdrop()
+  {
+    Camera cam = Object.FindFirstObjectByType<Camera>();
+    const string path = "Builds/CameraPreview/android-20x9-board-env1.png";
+    if (cam == null || !File.Exists(path)) return;
+    if (boardTexture == null)
+    {
+      boardTexture = new Texture2D(2, 2);
+      boardTexture.LoadImage(File.ReadAllBytes(path));
+    }
+
+    var go = new GameObject("PreviewBoard", typeof(RectTransform));
+    var canvas = go.AddComponent<Canvas>();
+    canvas.renderMode = RenderMode.ScreenSpaceCamera;
+    canvas.worldCamera = cam;
+    canvas.planeDistance = 60f;
+    canvas.sortingOrder = -100;
+
+    var imageGo = new GameObject("Board", typeof(RectTransform));
+    imageGo.transform.SetParent(go.transform, false);
+    var image = imageGo.AddComponent<RawImage>();
+    image.texture = boardTexture;
+    image.raycastTarget = false;
+    var fitter = imageGo.AddComponent<AspectRatioFitter>();
+    fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+    fitter.aspectRatio = (float)boardTexture.width / boardTexture.height;
   }
 
   // The HUD with a tower armed for placement, which is when the tower info bar
@@ -937,7 +985,9 @@ public static class UiPreview
 
       // The real tower art, so the preview shows what the rail actually draws.
       RectTransform iconRect = Child(rect, "TowerIcon");
-      Anchor(iconRect, new Vector2(0.5f, 0.5f), new Vector2(0f, 8f), new Vector2(64f, 64f));
+      // As TowerButton sizes it: 140 x 88, behind the labels.
+      Anchor(iconRect, new Vector2(0.5f, 0.5f), new Vector2(0f, -2f), new Vector2(140f, 88f));
+      iconRect.SetAsFirstSibling();
       var icon = iconRect.gameObject.AddComponent<Image>();
       string file = card.name == "Shock" ? "SchockTower" : card.name + "Tower";
       Sprite art = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Sprites/Towers/{file}.png");

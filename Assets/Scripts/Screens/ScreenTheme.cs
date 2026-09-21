@@ -12,13 +12,14 @@ public static class ScreenTheme
 {
   // `primary` gets the call-to-action colour; every other button on the screen
   // is styled as a neutral secondary.
-  public static void Apply(Transform root, Button primary, Color? primaryColor = null)
+  public static void Apply(Transform root, Button primary, Color? primaryColor = null,
+    Color? titleAccent = null)
   {
     if (root == null) return;
 
     Dim(root);
     Card(root);
-    Title(root);
+    Title(root, titleAccent ?? UiSkin.Accent);
 
     foreach (Button button in root.GetComponentsInChildren<Button>(true))
     {
@@ -60,7 +61,8 @@ public static class ScreenTheme
   {
     if (root == null) return;
 
-    Title(root);
+    // Plain: these screens put their own accent plate on it (TitleChip).
+    PlainTitle(root);
 
     if (dimBackground)
     {
@@ -113,7 +115,7 @@ public static class ScreenTheme
     if (root == null) return;
 
     Dim(root);
-    Title(root);
+    Title(root, UiSkin.Accent);
     SpaceSettingsRows(root);
 
     if (close == null) return;
@@ -143,17 +145,19 @@ public static class ScreenTheme
     close.colors = colors;
   }
 
-  // The three toggle rows, re-spaced a little tighter and a little higher than
-  // the prefab's 80 / -80 / -240. The prefab left the last row's display-font
-  // label ~80 units off the bottom edge, which was fine with nothing else on
-  // the screen - but the bottom-left corner now holds the Privacy Options
-  // button (SettingScreen.BuildPrivacyButton), and at the old spacing its top
-  // edge sat about ten units under the VIBRATION label. Offsets from the
-  // centre line, so they hold on every aspect ratio.
+  // The three settings rows: an edged plate each, an icon, a left-aligned
+  // label and an on/off switch (ToggleSwitch) in place of the checkbox. They
+  // were three huge display-font words with checkboxes floating far to their
+  // right, which read as a form rather than a game's options. Offsets from the
+  // centre line, so they hold on every aspect ratio; the last row stays clear
+  // of the bottom-left Privacy Options button.
   private static readonly (string name, float y)[] SettingsRows =
   {
-    ("MusicToggle", 100f), ("SFXToggle", -40f), ("Vibration", -180f),
+    ("MusicToggle", 96f), ("SFXToggle", -30f), ("Vibration", -156f),
   };
+
+  private const float SettingsRowWidth = 700f;
+  private const float SettingsRowHeight = 104f;
 
   private static void SpaceSettingsRows(Transform root)
   {
@@ -161,7 +165,67 @@ public static class ScreenTheme
     {
       var rect = FindDeep(root, row.name) as RectTransform;
       if (rect == null) continue;
-      rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, row.y);
+      rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+      rect.pivot = new Vector2(0.5f, 0.5f);
+      rect.anchoredPosition = new Vector2(0f, row.y);
+      // The prefab authors these rows 200x20 at localScale 4, so any size set
+      // here is multiplied by four unless the scale is reset first.
+      rect.localScale = Vector3.one;
+      rect.sizeDelta = new Vector2(SettingsRowWidth, SettingsRowHeight);
+
+      var toggle = rect.GetComponent<Toggle>();
+      if (toggle == null || rect.Find("Switch") != null) continue;
+
+      var plate = rect.GetComponent<Image>();
+      if (plate == null) plate = rect.gameObject.AddComponent<Image>();
+      UiSkin.Panel(plate, UiSkin.PanelDark, UiSkin.RadiusPanel);
+      Image border = UiSkin.AddBorder(rect, UiSkin.RadiusPanel, 2.5f);
+      if (border != null) border.color = UiSkin.PanelBorder;
+
+      Sprite glyph = row.name == "MusicToggle" ? UiSprites.Music()
+                   : row.name == "SFXToggle" ? UiSprites.Speaker()
+                   : UiSprites.Vibrate();
+      Image icon = UiSkin.Icon(rect, glyph, UiSkin.Accent, 50f);
+      var iconRect = (RectTransform)icon.transform;
+      iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 0.5f);
+      iconRect.pivot = new Vector2(0f, 0.5f);
+      iconRect.anchoredPosition = new Vector2(28f, 0f);
+
+      TMP_Text label = rect.GetComponentInChildren<TMP_Text>(true);
+      if (label != null)
+      {
+        var labelRect = UiSkin.Stretch(label.rectTransform);
+        labelRect.offsetMin = new Vector2(100f, 0f);
+        labelRect.offsetMax = new Vector2(-150f, 0f);
+        UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
+        label.fontSizeMax = 34f;
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.outlineWidth = 0f;
+        label.raycastTarget = false;
+      }
+
+      Transform box = rect.Find("Background");
+      ToggleSwitch.Build(toggle, rect);
+      if (box != null) box.gameObject.SetActive(false);
+    }
+
+    // The build, bottom-right: the first thing anyone reporting a bug from a
+    // playtest will be asked for.
+    Transform host = root.Find("SafeArea") ?? root;
+    if (host.Find("Version") == null)
+    {
+      var go = new GameObject("Version", typeof(RectTransform));
+      go.transform.SetParent(host, false);
+      var rect = (RectTransform)go.transform;
+      rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
+      rect.pivot = new Vector2(1f, 0f);
+      rect.anchoredPosition = new Vector2(-HeaderInset, HeaderInset);
+      rect.sizeDelta = new Vector2(300f, 36f);
+      var label = go.AddComponent<TextMeshProUGUI>();
+      UiSkin.Label(label, UiSkin.Role.Caption, UiSkin.TextMuted);
+      label.text = $"v{Application.version}";
+      label.alignment = TextAlignmentOptions.BottomRight;
+      label.raycastTarget = false;
     }
   }
 
@@ -370,7 +434,27 @@ public static class ScreenTheme
     return chip;
   }
 
-  private static void Title(Transform root)
+  // The modal's title on the same edged, haloed plate the list screens use,
+  // in a colour that says what kind of moment it is (gold for a win, red for a
+  // loss, blue for a pause). It used to be bare white text floating at the top
+  // of a dimmed screen, which read as unfinished next to the plated headers of
+  // every other screen.
+  private static void Title(Transform root, Color accent)
+  {
+    Transform title = FindDeep(root, "ScreenTitle");
+    if (title == null) return;
+
+    var label = title.GetComponent<TMP_Text>();
+    if (label == null) return;
+
+    UiSkin.Label(label, UiSkin.Role.Title);
+    label.fontSizeMax = 64f;
+    label.fontSize = 64f;
+    if (title.parent != null && title.parent.Find("TitleChip") != null) return;
+    TitleChip(label, accent);
+  }
+
+  private static void PlainTitle(Transform root)
   {
     Transform title = FindDeep(root, "ScreenTitle");
     if (title == null) return;
@@ -383,8 +467,6 @@ public static class ScreenTheme
     label.outlineWidth = 0.2f;
     label.outlineColor = new Color32(10, 12, 20, 220);
 
-    // Pinned to the top so it clears the card and, on the victory screen, the
-    // star row that sits between them
     var rect = label.rectTransform;
     rect.anchorMin = new Vector2(0.5f, 1f);
     rect.anchorMax = new Vector2(0.5f, 1f);
@@ -392,6 +474,57 @@ public static class ScreenTheme
     rect.anchoredPosition = new Vector2(0f, -54f);
     rect.sizeDelta = new Vector2(900f, 120f);
   }
+
+  // One line of context under a modal's title plate ("VERDANT MEADOW - LEVEL 3
+  // - WAVE 4/12"), created on first use and rewritten on every later one.
+  public static TMP_Text Subtitle(Transform root, string text)
+  {
+    Transform title = FindDeep(root, "ScreenTitle");
+    if (title == null) return null;
+
+    Transform existing = title.parent.Find("Subtitle");
+    TMP_Text label;
+    if (existing != null)
+    {
+      label = existing.GetComponent<TMP_Text>();
+    }
+    else
+    {
+      var go = new GameObject("Subtitle", typeof(RectTransform));
+      go.transform.SetParent(title.parent, false);
+      go.AddComponent<LayoutElement>().ignoreLayout = true;
+      var rect = (RectTransform)go.transform;
+      rect.anchorMin = new Vector2(0.5f, 1f);
+      rect.anchorMax = new Vector2(0.5f, 1f);
+      rect.pivot = new Vector2(0.5f, 1f);
+      // Under the plate (34 + 88) and its halo.
+      rect.anchoredPosition = new Vector2(0f, -150f);
+      rect.sizeDelta = new Vector2(900f, 40f);
+      label = go.AddComponent<TextMeshProUGUI>();
+      UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextMuted);
+      label.fontSizeMax = 26f;
+      label.alignment = TextAlignmentOptions.Midline;
+      label.raycastTarget = false;
+    }
+    label.text = text ?? "";
+    label.gameObject.SetActive(!string.IsNullOrEmpty(text));
+    return label;
+  }
+
+  // "VERDANT MEADOW - LEVEL 3", plus the wave when a run is under way.
+  public static string RunSummary(bool withWave)
+  {
+    LevelConfig level = GameSession.SelectedLevel;
+    if (level == null) return "";
+    string text = $"{EnvironmentInfo.DisplayName(level.environmentName)} - LEVEL {level.levelNumber}";
+    HUDManager hud = HUDManager.Instance;
+    if (withWave && hud != null && hud.TotalWaves > 0)
+    {
+      text += $" - WAVE {Mathf.Max(1, hud.CurrentWave)}/{hud.TotalWaves}";
+    }
+    return text;
+  }
+
 
   // Wraps a runtime-built screen's own content in a SafeArea, mirroring
   // DisplaySetup.EnsureSafeArea for screens that never get that edit-time pass.

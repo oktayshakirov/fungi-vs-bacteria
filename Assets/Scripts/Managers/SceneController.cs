@@ -39,6 +39,7 @@ public class SceneController : MonoBehaviour
       DontDestroyOnLoad(activeLoadingScreen);
     }
 
+    loadingScreenComponent?.Prepare(scene == GameScene.MainGame);
     activeLoadingScreen.SetActive(true);
 
     var sceneLoad = SceneManager.LoadSceneAsync(scene.ToString());

@@ -30,6 +30,7 @@ public class PauseGameScreen : MonoBehaviour
   public void Show()
   {
     gameObject.SetActive(true);
+    ScreenTheme.Subtitle(transform, ScreenTheme.RunSummary(withWave: true));
     GameManager.Instance.PauseGame();
   }
 

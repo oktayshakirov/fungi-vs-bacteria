@@ -255,6 +255,46 @@ public static class UiSprites
     return along <= 0.36f && (a <= 0.075f || b <= 0.075f);
   }));
 
+  // Pause: two rounded bars. The HUD's pause control used to be a 330-wide
+  // plate with the word PAUSE on it, wider than the towers rail under it.
+  public static Sprite Pause(int size = 64) => Cached("pause" + size, () => Shape(size, (x, y) =>
+    InRoundedRect(x, y, 0.20f, 0.14f, 0.42f, 0.86f, 0.06f)
+    || InRoundedRect(x, y, 0.58f, 0.14f, 0.80f, 0.86f, 0.06f)));
+
+  // A beamed pair of quavers, for the music setting.
+  public static Sprite Music(int size = 64) => Cached("music" + size, () => Shape(size, (x, y) =>
+  {
+    float ax = x - 0.30f, ay = (y - 0.24f) * 1.25f;
+    float bx = x - 0.72f, by = (y - 0.32f) * 1.25f;
+    if (ax * ax + ay * ay <= 0.016f || bx * bx + by * by <= 0.016f) return true;
+    if (x >= 0.37f && x <= 0.44f && y >= 0.24f && y <= 0.86f) return true;
+    if (x >= 0.79f && x <= 0.86f && y >= 0.32f && y <= 0.92f) return true;
+    // The beam, sloping up to the right.
+    float beamY = 0.80f + (x - 0.37f) * 0.14f;
+    return x >= 0.37f && x <= 0.86f && y >= beamY && y <= beamY + 0.11f;
+  }));
+
+  // A speaker with two sound waves, for sound effects.
+  public static Sprite Speaker(int size = 64) => Cached("speaker" + size, () => Shape(size, (x, y) =>
+  {
+    if (InRoundedRect(x, y, 0.08f, 0.36f, 0.26f, 0.64f, 0.03f)) return true;
+    if (InTriangle(x, y, 0.22f, 0.50f, 0.48f, 0.14f, 0.48f, 0.86f)) return true;
+    if (x < 0.56f) return false;
+    float dx = x - 0.40f, dy = y - 0.5f;
+    float r = Mathf.Sqrt(dx * dx + dy * dy);
+    return (r >= 0.22f && r <= 0.29f) || (r >= 0.37f && r <= 0.44f);
+  }));
+
+  // A phone buzzing between two marks, for vibration.
+  public static Sprite Vibrate(int size = 64) => Cached("vibrate" + size, () => Shape(size, (x, y) =>
+  {
+    bool body = InRoundedRect(x, y, 0.32f, 0.10f, 0.68f, 0.90f, 0.08f);
+    bool screen = InRoundedRect(x, y, 0.38f, 0.22f, 0.62f, 0.80f, 0.03f);
+    if (body && !screen) return true;
+    return (x >= 0.14f && x <= 0.21f && y >= 0.32f && y <= 0.68f)
+        || (x >= 0.79f && x <= 0.86f && y >= 0.32f && y <= 0.68f);
+  }));
+
   // A padlock, for locked levels and environments.
   public static Sprite Lock(int size = 64) => Cached("lock" + size, () => Shape(size, (x, y) =>
   {

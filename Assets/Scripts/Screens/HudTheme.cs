@@ -27,6 +27,7 @@ public static class HudTheme
       UiSkin.StyleButton(pauseButton, UiSkin.Neutral, UiSkin.RadiusButton);
       PullInside((RectTransform)pauseButton.transform);
       InsetFromTop((RectTransform)pauseButton.transform, 62f);
+      CompactPause((RectTransform)pauseButton.transform);
     }
     if (waveText != null) InsetFromTop(waveText.rectTransform, 0f);
     if (timerText != null) InsetFromTop(timerText.rectTransform, 0f);
@@ -147,9 +148,33 @@ public static class HudTheme
     if (height > 0f) rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
   }
 
+  // A square pause glyph at the right edge instead of a 330-wide plate reading
+  // PAUSE - wider than the rail under it and the biggest thing in the HUD for a
+  // control used a few times a level. Right edge kept where PullInside put it,
+  // so the wave readout (placed off this button's left edge) moves up beside it.
+  private const float PauseSize = 62f;
+
+  private static void CompactPause(RectTransform rect)
+  {
+    if (rect == null || rect.Find("PauseGlyph") != null) return;
+    float right = rect.anchoredPosition.x + rect.rect.width * (1f - rect.pivot.x);
+    rect.pivot = new Vector2(1f, rect.pivot.y);
+    rect.sizeDelta = new Vector2(PauseSize + 18f, PauseSize);
+    rect.anchoredPosition = new Vector2(right, rect.anchoredPosition.y);
+
+    TMP_Text label = rect.GetComponentInChildren<TMP_Text>(true);
+    if (label != null) label.gameObject.SetActive(false);
+
+    Image glyph = UiSkin.Icon(rect, UiSprites.Pause(), UiSkin.TextPrimary, 34f);
+    glyph.gameObject.name = "PauseGlyph";
+    var glyphRect = (RectTransform)glyph.transform;
+    glyphRect.anchorMin = glyphRect.anchorMax = new Vector2(0.5f, 0.5f);
+    glyphRect.anchoredPosition = Vector2.zero;
+  }
+
   // Minimum clear space to leave between the wave readout and whatever sits
   // to its right (the pause button in the real HUD).
-  private const float WaveReadoutClearance = 24f;
+  private const float WaveReadoutClearance = 14f;
 
   private static void StyleWaveReadout(TMP_Text waveText, TMP_Text timerText, RectTransform pauseButton)
   {
@@ -168,8 +193,10 @@ public static class HudTheme
         // past waveText's own rect on every side.
         float waveRightEdge = waveText.rectTransform.anchoredPosition.x
                              + waveText.rectTransform.rect.width * 0.5f + 9f;
+        // Always snapped beside the button now, not only pushed off it: with
+        // the compact pause control a readout left at the scene's -450 would
+        // float in the middle of the top edge.
         float overlap = waveRightEdge - (pauseLeftEdge - WaveReadoutClearance);
-        if (overlap > 0f)
         {
           Vector2 pos = waveText.rectTransform.anchoredPosition;
           waveText.rectTransform.anchoredPosition = new Vector2(pos.x - overlap, pos.y);

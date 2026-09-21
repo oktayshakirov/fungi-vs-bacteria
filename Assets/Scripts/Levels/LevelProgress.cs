@@ -57,6 +57,26 @@ public static class LevelProgress
     return GetHighestCompletedLevel(previousEnvironmentName) >= previousLevelCount;
   }
 
+  // Where the player left off: the first biome (in order) not fully cleared,
+  // and the first level in it not yet completed. False when everything is done.
+  public static bool TryGetNextUp(out string environmentName, out int levelNumber)
+  {
+    environmentName = null;
+    levelNumber = 0;
+    for (int n = 1; n <= 7; n++)
+    {
+      string env = $"Environment {n}";
+      int count = LevelRepository.GetLevelsForEnvironment(env).Count;
+      if (count == 0) continue;
+      int done = GetHighestCompletedLevel(env);
+      if (done >= count) continue;
+      environmentName = env;
+      levelNumber = done + 1;
+      return true;
+    }
+    return false;
+  }
+
   private static string StarsKey(string environmentName, int levelNumber)
     => $"Stars_{environmentName}_{levelNumber}";
 

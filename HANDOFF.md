@@ -1,7 +1,7 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-21 (phase 23, the pre-test polish pass). Committed on
-`main`, not pushed.
+Last updated 2026-09-21 (phases 23-24, the pre-test polish passes). Committed
+on `main`, not pushed.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -26,7 +26,14 @@ device-run table below:
 | Victory | Stars and coin payout used to overlap the buttons - check it on a real win |
 | Tower rail | Icons are transparent renders of the models now (were grey-backed photos) |
 | Main menu | New "FUNGI vs BACTERIA" title between the coin chip and the gear |
-| HUD top row | Pause and the wave plate moved 12 down off the top edge; pause is 13 shorter |
+| HUD top row | Pause is now a compact icon button, 12 down off the top edge, with the wave plate snapped beside it |
+| Modals | Pause / Game Over / Victory titles sit on accent plates; pause and game over show "BIOME - LEVEL n - WAVE x/y" |
+| Victory | REPLAY appears under 3 stars; earned stars pop in one by one (only visible in motion) |
+| Settings | Rows are plates with icons and animated on/off switches (`ToggleSwitch`); version bottom-right |
+| Loading | Names the level, sits over the biome art, shows a gameplay tip; the % now reaches 100 |
+| Main menu | PLAY carries "NEXT: BIOME - LEVEL n" |
+| Level screen | Star total chip under the title |
+| Tower panel | Sell refund is on the button ("SELL +472"); the rail's tower icons are bigger and behind the labels |
 
 The last session (phases 19-22) was driven by the user playtesting on a device
 and reporting back in rounds. Everything from phase 19 on was **render-verified**
@@ -340,6 +347,35 @@ Roughly in order. Each is committed.
     - Main menu title ("FUNGI vs BACTERIA", `MenuLayout.ApplyTitle`); HUD top
       row inset off the top edge (`HudTheme.InsetFromTop`); tutorial GOT IT is
       dark-on-lime like every other primary button.
+
+24. **UI pass: menus, modals and HUD** — all render-verified, none played.
+    - `UiPreview` now draws every HUD and modal shot over a real board render
+      (`BoardBackdrop`, reading `CameraPreview.RenderBoards` output) instead
+      of flat green; run `RenderBoards` first on a fresh checkout.
+    - Modals: `ScreenTheme.Apply` takes a `titleAccent` and puts the title on
+      the same `TitleChip` plate the list screens use; `ScreenTheme.Subtitle` +
+      `RunSummary` give the pause and game-over screens a context line (reads
+      `HUDManager.CurrentWave/TotalWaves`). List screens use `PlainTitle`, since
+      they add their own chip - calling the chipping `Title` there would stack
+      two plates.
+    - Victory: REPLAY (cloned from Main Menu) below three stars; the card is
+      centred at 0.33 on this screen only so the stars and payout clear it;
+      stars pop in (`VictoryScreen.PopIn`, unscaled time, light haptic each).
+    - Settings rows: **the prefab authors them at localScale 4**, which is why
+      everything sized inside them came out four times too big on the first
+      try - `SpaceSettingsRows` resets the scale first. Icons (`UiSprites.Music/
+      Speaker/Vibrate`), `ToggleSwitch` replaces the checkbox art (it takes over
+      `targetGraphic` and nulls `toggle.graphic`), version label.
+    - HUD pause: `HudTheme.CompactPause` (62-unit icon button,
+      `UiSprites.Pause`); the wave readout is now always SNAPPED beside the
+      pause button, not only pushed off it.
+    - Loading: `LoadingScreen.Prepare(enteringLevel)` is called by
+      SceneController before every show (the screen is instantiated once and
+      reused). The prefab has TWO stacked Backgrounds; the last one draws.
+      Progress is divided by 0.9 - AsyncOperation stops there until activation.
+    - Main menu PLAY caption from `LevelProgress.TryGetNextUp`; level screen
+      star chip (`LevelsScreen.BuildStarTotal`); tower panel refund on the Sell
+      button; tower rail icon moved behind the labels and trimmed to 88.
 
 ## 4. How to verify work — read this before changing anything
 

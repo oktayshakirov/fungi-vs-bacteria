@@ -53,6 +53,13 @@ namespace TowerDefense.UI
         // The icons are square cut-outs now (TowerIconRender); the old ones were
         // odd-sized photos, and a stretched sprite squashes the tower.
         towerIcon.preserveAspect = true;
+        // Behind the name and the price: the prefab has the icon as its last
+        // child, so a tall cut-out drew over both labels. Trimmed to the band
+        // between them.
+        towerIcon.transform.SetAsFirstSibling();
+        var iconRect = towerIcon.rectTransform;
+        iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.x, 88f);
+        iconRect.anchoredPosition = new Vector2(iconRect.anchoredPosition.x, -2f);
       }
 
       Style();
