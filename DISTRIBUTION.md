@@ -41,12 +41,11 @@
 - [ ] Privacy nutrition label — see **Privacy** below; the app tracks (ATT prompt)
 
 ### Before submitting anywhere
-- [ ] Playtest the difficulty curve (levels 1, 5, 10, 15, 20) and report tuning needs
-- [ ] Replace placeholder art: app icon, environment card sprites (all four environments
-      currently share one sprite)
-- [ ] Decide on the 4th environment card: hide it or generate levels for it
+- [ ] Playtest the difficulty curve across the 7 biomes x 10 levels (at least each
+      biome's levels 1, 5 and 10) and report tuning needs
+- [x] App icon and environment card art (cards are rendered from each biome's level 1)
 - [ ] Test on a real Android device: touch placement, safe area on a notched screen,
-      performance during the biggest wave (level 30)
+      performance during the biggest waves (Environment 7, levels 6-10)
 - [ ] Optional: replace the synthesized `Assets/Audio/Victory.wav` with a real jingle
 
 ## Privacy — what the app actually collects

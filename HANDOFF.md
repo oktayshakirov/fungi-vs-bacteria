@@ -1,6 +1,7 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-21. Working tree clean at `main`, pushed.
+Last updated 2026-09-21 (phase 23, the pre-test polish pass). Committed on
+`main`, not pushed.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -8,6 +9,24 @@ per-phase notes elsewhere. Section 5 is the work queue, section 6 is every trap
 that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
+
+**Latest: phase 23, a visual polish pass before the first device test** (see
+the phase list in section 3 for the full account). Maps, the environment and
+level screens, the store, the victory screen, the tower icons, the main menu
+title and the base/portal landmarks all changed. Every change is
+render-verified; **none of it has been played on a device.** Add these to the
+device-run table below:
+
+| Area | What to check |
+|---|---|
+| Path | The road is now ~2.8 units wide with a dark rim (was a 1-unit line). Does it still read as "unbuildable" at the cell edges, and does drag-placement next to it feel right? |
+| Base + nest | New Blender-authored mushroom house (path end) and bacteria crater (path start). The house flinches when an enemy gets through - never seen in motion |
+| Environment screen | Card art is now a render of each biome's level 1; the strip opens on the furthest unlocked biome and the next card peeks in |
+| Store | Rebuilt layout: balance + close cross in the title bar, section headers, two-line buy buttons with the bundle saving |
+| Victory | Stars and coin payout used to overlap the buttons - check it on a real win |
+| Tower rail | Icons are transparent renders of the models now (were grey-backed photos) |
+| Main menu | New "FUNGI vs BACTERIA" title between the coin chip and the gear |
+| HUD top row | Pause and the wave plate moved 12 down off the top edge; pause is 13 shorter |
 
 The last session (phases 19-22) was driven by the user playtesting on a device
 and reporting back in rounds. Everything from phase 19 on was **render-verified**
@@ -80,7 +99,8 @@ and whether it *runs well* across devices. Both are called out in section 5.
 - Monetisation: LevelPlay ads (see ADS.md), a coin wallet, RevenueCat in-app
   purchases, coin-bought boosters and Remove Ads (money or 15,000 coins).
 - Environment art, props, sky, cliff and clouds are **generated in code**
-  (`MeshFactory`, `GroundTextureFactory`) — the project ships no environment art.
+  (`MeshFactory`, `GroundTextureFactory`) — the only authored environment meshes
+  are the base and spawn portal (`Resources/Structures`, from Blender).
 - UI is skinned from code (`UiSprites` / `UiSkin`) — the project ships no UI art
   beyond the menu's Play button, gear icon and background.
 
@@ -272,6 +292,55 @@ Roughly in order. Each is committed.
     next refresh. The 5,000-coin gift and the Restore message key on `Entitled`
     only; keyed on `Active`, paying 15,000 coins refunded 5,000 of them.
 
+23. **Pre-test polish pass** — one round over everything the player sees,
+    each item found in a render, fixed, and re-rendered.
+    - **Maps.** The path was a 1-unit LineRenderer on 5-unit cells - thinner
+      than the enemies on it, and invisible on the wetland's sand. It is now
+      `cellSize * 0.56` wide with a darker, wider rim line under it
+      (`PathVisualizer` builds a `PathEdge` child; `EnvironmentTheme.ApplyPath`
+      colours both via `SetColors`). The wetland and tundra path colours were
+      changed for contrast. Toxic Marsh got its own `MARSH` ground (bog moss,
+      acid-green pools) instead of sharing the night biome's flat navy `DARK`.
+      The border's neon shards are now 5 clusters in the biome's own accent,
+      kept out of the front band, instead of 12 lone shards in a fixed
+      magenta/cyan/amber mix on every biome.
+    - **Base and spawn portal** are authored meshes now
+      (`Tools/Blender/structures.py` -> `Resources/Structures/*.obj`): a
+      mushroom house (cap, spots, stem, door, lit windows, plinth) and a
+      bacteria crater (rim, glowing pool, cilia, bubbles). Parts are coloured
+      per biome by submesh material name in `LevelDecorator.Landmark`. Props
+      keep `LandmarkClearance` away from both (a boulder used to sit on the
+      portal). The house is built AFTER static batching so `BaseFlinch` can
+      squash it on `GameManager.OnBaseDamaged`.
+    - **Environment screen.** Card art is a render of each biome's level 1
+      (`CameraPreview.RenderEnvironmentCards` -> `Resources/EnvPreviews`), not
+      the palette gradient, which now only backs the LEVEL screen
+      (`EnvironmentInfo.BackdropArt`) where a busy render fought the tiles.
+      Cards are 340 wide so the next one always peeks in (three exactly filled
+      a 16:9 screen, so nothing said there were seven), and the strip opens on
+      the furthest unlocked biome.
+    - **Level screen.** The ringed tile is the first unlocked level not yet
+      COMPLETED (was: first with zero stars, which could ring a beaten level),
+      and it no longer shows three grey stars under it.
+    - **Store.** Balance and a close cross moved into the title bar (the
+      balance had a whole row; BACK floated outside the card). Section headers
+      for Boosters / Coin Packs / Remove Ads / Free Coins. Booster rows got
+      icon discs and two-line buy buttons ("x1 / 600", "x3 -15% / 1,530").
+      Pack bonuses are lime pills. The small print is caption-sized and sized
+      by its text.
+    - **Victory screen was broken on every win:** stars hung over the button
+      card and "+N COINS" was drawn on top of NEXT LEVEL. The preview never
+      called `Initialize`, so no render ever showed it; it does now.
+    - **Every star in the game was upside down** (StarSprite used -90 degrees in
+      a bottom-up texture) and stair-stepped (64 px, no AA). Fixed: +90, 160 px,
+      4x4 supersampled.
+    - **Tower icons** were photos on opaque grey squares, which sat in the dark
+      rail as light boxes. `TowerIconRender.Render` re-renders all eight from
+      the prefabs onto transparency, into the same PNGs (no GUID changes).
+    - Main menu title ("FUNGI vs BACTERIA", `MenuLayout.ApplyTitle`); HUD top
+      row inset off the top edge (`HudTheme.InsetFromTop`); tutorial GOT IT is
+      dark-on-lime like every other primary button.
+
 ## 4. How to verify work — read this before changing anything
 
 There is a real verification loop here. Use it; several bugs were only ever
@@ -300,7 +369,10 @@ but until then a new file is silently not compiled.
 | `LevelGenerator.GenerateBatch` | Regenerates all 70 levels | yes |
 | `Phase1Validator.Validate` | Level asset QA gate | yes |
 | `CameraPreview.Render` | The 3D board per environment, plus a `-enemies` shot of each with the whole cast standing on the path | **no** |
-| `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art | **no** |
+| `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art (real level 1 of each biome). **Re-run after any change to how a biome looks** | **no** |
+| `CameraPreview.RenderBoards` | The REAL board of every biome - level path through PathManager, decorator, towers, cast. Env vars `BOARD_ENVS=35` / `BOARD_LEVEL=Level07` narrow it. Use this, not `Render`, to judge maps | **no** |
+| `TowerIconRender.Render` | Re-renders the eight tower icons from their prefabs, transparent | **no** |
+| `blender --background --python Tools/Blender/structures.py` | Regenerates the base + portal meshes | n/a |
 | `UiPreview.Render` | HUD + every screen, as PNGs — including the main menu, the placement bar (`hud-placing`), the selected-tower panel (`hud-tower-actions`) and the tutorial (`screen-tutorial`) | **no** |
 | `EnemyArtSetup.BuildVariants` | Rebuilds the four variety enemy prefabs by composing existing model parts | yes |
 | `EnemyArtSetup.ReportBaseParts` | Lists every reusable part of the four base models, with vert counts | yes |
@@ -1047,9 +1119,21 @@ These each cost real debugging time. They are not obvious from the code.
   insert in the right place.
 - Tower/enemy sizes come from `UnitScale`, applied in `TowerFactory` and
   `EnemyPool`. Do not edit the eight tower prefabs.
-- Environment card art is generated into `Resources/EnvPreviews`. The inspector's
-  `environmentSprite` is deliberately ignored — all seven entries point at one
-  grey placeholder. To use custom art, drop a PNG in that folder.
+- Environment card art is RENDERED into `Resources/EnvPreviews` by
+  `CameraPreview.RenderEnvironmentCards`; it goes stale whenever a biome's look
+  changes. The inspector's `environmentSprite` is deliberately ignored — all
+  seven entries point at one grey placeholder.
+- **URP does not write coverage alpha into an offscreen RenderTexture here.**
+  The first tower-icon render read back fully transparent. `TowerIconRender`
+  recovers alpha from two renders (over black and over white). Also: an 8x MSAA
+  target rendered NOTHING in batch mode; 2x works (as CameraPreview uses).
+- **Unity's OBJ importer merges `o` objects into one mesh**, so named parts do
+  not survive as children. Give each part its own material in Blender; they
+  arrive as submeshes whose imported material carries the part name
+  (`LevelDecorator.Landmark` maps on that).
+- UiPreview's modal shots must go through the screen's real entry point
+  (`Initialize`) - the victory screen's stars/payout overlapped its buttons for
+  its whole life because the preview only ever themed the bare prefab.
 - The main menu's Play button and gear are **real scene sprites**. `MenuLayout`
   only repositions and tints them; never call `UiSkin.StyleButton` on them, it
   replaces the sprite.
@@ -1105,7 +1189,12 @@ exfiltration, recommending a VM. What it buys is live scene inspection. The
 headless pipeline above needs none of it, so nothing in this repo depends on
 it being connected.
 
-**Nothing in the repo uses this pipeline any more.** It was built to generate
+**Used again since phase 23** for the base and spawn portal
+(`Tools/Blender/structures.py`) - landmarks, not creatures, which is the use
+the paragraph below recommends. Export there is Blender Z-up with the standard
+`forward_axis='NEGATIVE_Z', up_axis='Y'` conversion, one material per part.
+
+**Previously nothing in the repo used this pipeline.** It was built to generate
 the four enemy traits, those were rejected for looking unnatural next to the
 authored models (Priority 2b), and `Tools/Blender/enemy_traits.py` was deleted
 with them. What follows is kept because the pipeline itself worked and the two
