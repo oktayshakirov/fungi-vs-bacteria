@@ -301,7 +301,7 @@ public class WalletScreen : MonoBehaviour
     }
 
     streakButton = BuildStreakButton(go.transform);
-    go.AddComponent<LayoutElement>().preferredHeight = 250f;
+    go.AddComponent<LayoutElement>().preferredHeight = 280f;
   }
 
   private void BuildPip(Transform parent, int reward, bool isDone, bool isToday)
@@ -625,36 +625,107 @@ public class WalletScreen : MonoBehaviour
     });
   }
 
+  // Remove Ads, two ways, side by side: money on the left (the store price),
+  // coins on the right (NoAds.CoinPrice). One row rather than two because they
+  // are one product - the player is choosing how to pay, not what to buy.
+  //
+  // When ads are off by either route the row collapses to a single disabled
+  // "ADS REMOVED" plate, and neither button is offered again: NoAds refuses a
+  // second purchase anyway, but a live button that does nothing reads as a bug.
+  private GameObject noAdsRow;
+  private Button noAdsCoinsButton;
+  private TMP_Text noAdsCoinsLabel;
+  private GameObject noAdsDone;
+
   private void NoAdsRow(RectTransform parent)
   {
-    var go = new GameObject("NoAds", typeof(RectTransform));
-    go.transform.SetParent(parent, false);
+    noAdsRow = new GameObject("NoAds", typeof(RectTransform));
+    noAdsRow.transform.SetParent(parent, false);
+    noAdsRow.AddComponent<LayoutElement>().preferredHeight = 88f;
+
+    var row = noAdsRow.AddComponent<HorizontalLayoutGroup>();
+    row.spacing = 10f;
+    row.childAlignment = TextAnchor.MiddleCenter;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = false;
+    row.childForceExpandHeight = true;
 
     // A plain label button, not an IconButton: the only icon in the set that
     // fits is the padlock, and a padlock on a purchase reads as "locked
     // content you cannot have" rather than "buy your way out of the ads".
-    go.AddComponent<Image>();
-    noAdsButton = go.AddComponent<Button>();
-    UiSkin.StyleButton(noAdsButton, UiSkin.Primary, UiSkin.RadiusButton);
-    go.AddComponent<LayoutElement>().preferredHeight = 88f;
-
-    var labelGo = new GameObject("Label", typeof(RectTransform));
-    labelGo.transform.SetParent(go.transform, false);
-    noAdsLabel = labelGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(noAdsLabel, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
-    noAdsLabel.alignment = TextAlignmentOptions.Midline;
-    noAdsLabel.textWrappingMode = TextWrappingModes.NoWrap;
-    noAdsLabel.enableAutoSizing = true;
-    noAdsLabel.fontSizeMin = 16f;
-    noAdsLabel.fontSizeMax = 30f;
-    noAdsLabel.raycastTarget = false;
-    UiSkin.Stretch(noAdsLabel.rectTransform);
-
+    noAdsButton = LabelButton(noAdsRow.transform, "Money", UiSkin.Primary, UiSkin.TextDark,
+      out noAdsLabel);
+    noAdsButton.GetComponent<LayoutElement>().flexibleWidth = 1f;
     noAdsButton.onClick.AddListener(() =>
     {
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
       Iap.Purchase(IapCatalog.NoAds);
     });
+
+    var coinsGo = new GameObject("Coins", typeof(RectTransform));
+    coinsGo.transform.SetParent(noAdsRow.transform, false);
+    noAdsCoinsButton = UiSkin.IconButton(coinsGo, UiSprites.Coin(), UiSkin.Neutral,
+      out noAdsCoinsLabel, UiSkin.RadiusButton, UiSkin.Gold);
+    UiSkin.Label(noAdsCoinsLabel, UiSkin.Role.ButtonLabel, UiSkin.Gold);
+    noAdsCoinsLabel.alignment = TextAlignmentOptions.Midline;
+    noAdsCoinsLabel.textWrappingMode = TextWrappingModes.NoWrap;
+    noAdsCoinsLabel.enableAutoSizing = true;
+    noAdsCoinsLabel.fontSizeMin = 14f;
+    noAdsCoinsLabel.fontSizeMax = 26f;
+    noAdsCoinsLabel.text = NoAds.CoinPrice.ToString("N0");
+    var coinsElement = coinsGo.AddComponent<LayoutElement>();
+    coinsElement.preferredWidth = 210f;
+    coinsElement.flexibleWidth = 0f;
+    noAdsCoinsButton.onClick.AddListener(OnNoAdsWithCoins);
+
+    // The "already done" state, built once and swapped in; a separate plate
+    // rather than relabelling one of the two buttons, so it spans the row.
+    Button done = LabelButton(parent, "NoAdsDone", UiSkin.Neutral, UiSkin.TextPrimary,
+      out TMP_Text doneLabel);
+    done.interactable = false;
+    doneLabel.text = "ADS REMOVED - THANK YOU";
+    done.GetComponent<LayoutElement>().preferredHeight = 88f;
+    noAdsDone = done.gameObject;
+  }
+
+  private static Button LabelButton(Transform parent, string name, Color tint, Color text,
+    out TMP_Text label)
+  {
+    var go = new GameObject(name, typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+    go.AddComponent<Image>();
+    var button = go.AddComponent<Button>();
+    UiSkin.StyleButton(button, tint, UiSkin.RadiusButton);
+    go.AddComponent<LayoutElement>();
+
+    var labelGo = new GameObject("Label", typeof(RectTransform));
+    labelGo.transform.SetParent(go.transform, false);
+    label = labelGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(label, UiSkin.Role.ButtonLabel, text);
+    label.alignment = TextAlignmentOptions.Midline;
+    label.textWrappingMode = TextWrappingModes.NoWrap;
+    label.enableAutoSizing = true;
+    label.fontSizeMin = 16f;
+    label.fontSizeMax = 30f;
+    label.raycastTarget = false;
+    UiSkin.Stretch(label.rectTransform);
+    label.margin = new Vector4(12f, 0f, 12f, 0f);
+    return button;
+  }
+
+  private void OnNoAdsWithCoins()
+  {
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+
+    if (!NoAds.BuyWithCoins())
+    {
+      if (statusLabel != null) statusLabel.text = "Not enough coins.";
+      return;
+    }
+
+    if (statusLabel != null) statusLabel.text = "Ads removed.";
+    RefreshStore();
   }
 
   // Apple requires a visible way to restore non-consumable purchases, which
@@ -698,7 +769,9 @@ public class WalletScreen : MonoBehaviour
       // The screen can be closed while the store is still answering.
       if (restoreLabel == null) return;
       restoreLabel.text = success
-        ? (NoAds.Active ? "PURCHASES RESTORED" : "NOTHING TO RESTORE")
+        // Entitled, not Active: a player who removed the ads with coins has
+        // nothing the store can restore, and "restored" would claim otherwise.
+        ? (NoAds.Entitled ? "PURCHASES RESTORED" : "NOTHING TO RESTORE")
         : "RESTORE FAILED";
       if (restoreButton != null) restoreButton.interactable = true;
       RefreshStore();
@@ -741,21 +814,28 @@ public class WalletScreen : MonoBehaviour
 
   private void RefreshNoAdsRow()
   {
-    if (noAdsButton == null) return;
+    if (noAdsRow == null) return;
 
-    if (NoAds.Active)
-    {
-      noAdsButton.gameObject.SetActive(true);
-      noAdsButton.interactable = false;
-      noAdsLabel.text = "ADS REMOVED - THANK YOU";
-      return;
-    }
+    bool removed = NoAds.Active;
+    noAdsRow.SetActive(!removed);
+    noAdsDone.SetActive(removed);
+    if (removed) return;
 
+    // The money half needs a store price; without one (no key, no network,
+    // the editor) it hides and the coin half takes the row alone. The coin half
+    // needs nothing but a wallet, so it is always offered - dimmed, not hidden,
+    // when the player is short, so the price reads as a goal.
     string price = Iap.PriceString(IapCatalog.NoAds);
     noAdsButton.gameObject.SetActive(price != null);
-    noAdsButton.interactable = price != null;
     if (price != null) noAdsLabel.text = $"REMOVE ADS   {price}";
+
+    noAdsCoinsButton.interactable = Wallet.CanAfford(NoAds.CoinPrice);
+    noAdsCoinsButton.GetComponent<LayoutElement>().flexibleWidth = price != null ? 0f : 1f;
+    noAdsCoinsLabel.text = price != null
+      ? NoAds.CoinPrice.ToString("N0")
+      : $"REMOVE ADS   {NoAds.CoinPrice:N0}";
   }
+
 
   private void Explainer(RectTransform parent)
   {
@@ -775,7 +855,8 @@ public class WalletScreen : MonoBehaviour
       // Said plainly, because the alternative is a player tapping Restore after
       // a reinstall, getting nothing back, and concluding the game ate their
       // purchase. Consumables are not restorable on either store.
-      $"- Coins are saved on this device. Restore brings back Remove Ads, not coins.";
+      $"- Coins are saved on this device. Restore brings back a Remove Ads bought with " +
+      $"money - not coins, and not a Remove Ads bought with coins.";
 
     go.AddComponent<LayoutElement>().preferredHeight = 210f;
   }
@@ -890,6 +971,7 @@ public class WalletScreen : MonoBehaviour
     // re-evaluated here and not only when something is bought - watching an ad
     // in this same dialog can make a booster affordable.
     boosterRefreshers?.Invoke();
+    RefreshNoAdsRow();
   }
 
   // The button stays visible when no ad is loaded, just disabled and labelled.

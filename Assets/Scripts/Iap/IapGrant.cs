@@ -73,9 +73,14 @@ public static class IapGrant
   // The thank-you coins that come with removing ads. Keyed off its own flag
   // rather than off a transaction, so restoring the purchase on a second device
   // does not hand out the gift again on the first.
+  //
+  // ENTITLED, not Active: Active is also true for a player who removed the ads
+  // with coins, and handing 5,000 coins back to someone who just paid 12,500
+  // for the same thing would make the coin route 40% cheaper than its label.
+  // The gift is a thank-you for paying money.
   private static void GrantNoAdsGift()
   {
-    if (!NoAds.Active) return;
+    if (!NoAds.Entitled) return;
     if (PlayerPrefs.GetInt(NoAdsGiftKey, 0) == 1) return;
 
     PlayerPrefs.SetInt(NoAdsGiftKey, 1);
