@@ -1,37 +1,65 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-13. Working tree clean on `main`.
+Last updated 2026-09-21. Working tree clean at `main`, pushed.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
 per-phase notes elsewhere. Section 5 is the work queue, section 6 is every trap
-that has actually cost debugging time.
+that has actually cost debugging time, section 7 has the house rules.
 
-## 0. The immediate next step: a device playtest
+## 0. Where things stand, and the immediate next steps
 
-Everything in phases 13-18 is **render-verified or sim-verified only**. Nothing
-below has been played by a human. The user is going to test next, so if you are
-picking this up mid-test, expect findings rather than a clean slate.
+The last session (phases 19-22) was driven by the user playtesting on a device
+and reporting back in rounds. Everything from phase 19 on was **render-verified**
+through `UiPreview`; the user then confirmed the UI pass by eye on device
+("generally better", "the game looks good"). What that session **added but no
+human has touched yet** is the whole monetisation layer: the store, in-app
+purchases, boosters and coin-bought Remove Ads.
 
-What is worth deliberately checking, and what to look for:
+### Blocked on the user (accounts - cannot be done from here)
+
+In-app purchases are fully coded and **cannot work until these exist**. Until
+then the store correctly shows "Coin packs are unavailable right now" and hides
+the money half of Remove Ads. Full checklist: DISTRIBUTION.md -> In-app purchases.
+
+1. Create the five products in App Store Connect and Play Console with the exact
+   IDs in `IapCatalog` (4 consumable coin packs + `fungivsbacteria.noads`).
+2. RevenueCat project with a `no_ads` entitlement on the noads product, and an
+   offering holding all five.
+3. Public SDK keys into `Assets/Editor/IapSetup.cs`, then Tools -> IAP -> Apply
+   Keys. **Never the secret key.**
+4. iOS: sign the Paid Applications agreement, or no product ever loads.
+5. Pick the store TARGET AUDIENCE before the content rating - a children's
+   audience forces child-directed ad requests the code does not make
+   (DISTRIBUTION.md -> Target audience). 13+ matches the current code.
+
+### Worth checking on the next device run
 
 | Area | What to check | Why it is uncertain |
 |---|---|---|
-| Drag-and-drop towers | Drag a card onto the board; also tap-card-then-tap-tile; also drag a card and drop it back on the tray | Never testable here — needs live touch input. The tap flow is unchanged; the drag flow is new |
-| Towers panel | Scroll it, collapse it with HIDE TOWERS | Dragging **on a card** starts a tower drag, so the list can only be scrolled from the gaps between cards or the scrollbar. Known trade-off — see if it is annoying in practice |
-| Placement bar / sell panel | Arm a tower, then tap a placed one | They share the bottom-left slot and are mutually exclusive by construction. The sell panel is render-verified as of phase 16 (`hud-tower-actions`), but only as a rebuilt stand-in - the real one is authored in `MainGame.unity` and the preview mirrors its structure by hand |
-| Haptics | A busy wave, then a base hit | Throttle intervals are first guesses; the whole point is that it must not buzz continuously |
-| Tile indicators | Arm a tower on the snow and ash biomes | The old wash was invisible there; the new marker is untested against those grounds |
-| Tower upgrades | Tap a placed tower, upgrade it twice, then sell it | New in phase 16. The price is deliberately poor value and may read as a trap; the tier cue is only a size bump and a warm tint, never seen in motion |
-| Unlocking a biome | Finish Environment 1 and watch Environment 2 open | New in phase 17. The locked STATES are render-verified, the unlock moment is not |
-| Kill effect | Watch a few enemies die | The fragments now arc under gravity instead of flying straight - an old struct-copy bug, fixed while pooling. Visibly different from every previous build |
-| Enemy tints | Play one level in env 3, 5 and 6 | Tints are eyeballed. Types must still be distinguishable from each other |
-| Variety enemy art | Play env 2-5 and watch a pack arrive; break a Shielded enemy's shield | New in phase 18. All four are composed from parts of the existing models, verified in `Builds/EnemyPreview` and on the real board in `Builds/CameraPreview`. Still only stills, one enemy at a time. Does a part read at phone size inside a pack of thirty, and does the bubble popping read as "shield broken" or as a glitch? |
-| Enemy motion | Watch any wave walk, and a Splitter in particular | New in phase 18, and enemies never moved before at all. Amplitude has only ever been seen as a four-phase mock-up (`EnemyPreview.RenderMotion`); a still cannot tell a good waddle from a seasick one. Orbiting orbs and a pulsing aura likewise |
-| Glow | Look at a Splitter's orbs and the healer's crosses | **Bloom has never been seen.** It was active with zero intensity, so nothing in this game has ever glowed; it is on now. URP post-processing does not run in any preview here, so the halo is unverified. The parts are tuned to look right with bloom off, so if it looks wrong, turning bloom back down is safe |
-| Frame time | A busy late wave in env 6 or 7 | Bloom is new full-screen work and the Shielded enemy carries a translucent bubble. Both are fill-rate costs added to a game whose device performance has never been re-measured — see Priority 3 |
-| Balance | Env 7 levels 3, 6 and 10 | The sim cannot win these. It plays optimally, so if it loses, a human loses — but the real player enters richer than the sim models |
-| Locked states | Set `LevelProgress.UnlockAll = false` and walk the flow | Still `true`; no padlock or dimmed tile has ever been seen |
+| Sell / upgrade panel | Tap a placed tower, upgrade twice, sell | **It was unreachable until phase 20** (towers were on the wrong physics layer), so it has never been used by anyone. The upgrade price is deliberately poor value and may read as a trap |
+| Boosters | Buy one of each in the store, then use them in a level | Nothing has been FIRED in a running level. Check: the bomb clears the board and pays no gold, Frost Wave stops everything for 5s and they resume, Overclock visibly speeds towers for 15s, Mend never exceeds starting health, and the per-wave limits free up on the next wave |
+| Booster bar | Own all four, then open a tower's panel | The bar squeezes its buttons to fit between the camera control and the info panel. At 46-62 units they may be small on a phone |
+| Remove Ads with coins | Reach 15,000 coins, buy it, finish 3+ levels | No interstitial should appear. The coin unlock and the paid entitlement are stored separately on purpose (section 6) |
+| Store scroll | Open the store and scroll to Restore | Long, deliberately ordered dialog: balance, boosters, coin packs, Remove Ads, free coins, small print, Restore |
+| Privacy Options | Settings, from inside the EEA/UK | Only shown where UMP says it is required, so it never appears in the editor or outside those regions. Use a UMP debug geography to see it |
+| Towers rail | Collapse and expand it on a notched phone | The rail and Start Wave are hoisted OUT of the SafeArea to use the right-hand strip; `RailInset` (18) is the only thing clearing the rounded corner |
+| App icon | Home screen after a fresh install | Set through PlayerSettings, never seen on a device |
+| Frame time, bloom, balance | See Priority 3 and the enemy-art notes below | Still unmeasured from before this session |
+
+### What to build next
+
+Nothing is queued in code. The obvious candidates, in the order they would pay
+off:
+1. **Whatever the next device run finds** - the last three rounds each found
+   real bugs (an unreachable sell panel, a scrollbar handle longer than its
+   track, a missing TMP default font).
+2. **BalanceSim does not model boosters.** Every balance number in section 5
+   describes a player who owns none. Worth modelling at least the bomb before
+   retuning anything.
+3. **Store tabs.** The plan was BOOSTERS / COINS / FREE tabs; it shipped as one
+   long scrolling dialog. Fine for now, worth doing if the dialog gets longer.
+4. **Starter Pack** ($1.99, once: coins + boosters) - planned, not built.
 
 ## 1. The goal
 
@@ -47,7 +75,10 @@ and whether it *runs well* across devices. Both are called out in section 5.
 
 - Unity **6000.2.9f1**, URP, landscape-only, Android primary / iOS second.
 - Board **10x5** (cellSize 5), 7 environments x 10 levels = **70 levels**,
-  procedurally generated and all currently unlocked for testing.
+  procedurally generated. Progression is LOCKED (`LevelProgress.UnlockAll` is
+  false since phase 17): biomes open in order, levels open one at a time.
+- Monetisation: LevelPlay ads (see ADS.md), a coin wallet, RevenueCat in-app
+  purchases, coin-bought boosters and Remove Ads (money or 15,000 coins).
 - Environment art, props, sky, cliff and clouds are **generated in code**
   (`MeshFactory`, `GroundTextureFactory`) — the project ships no environment art.
 - UI is skinned from code (`UiSprites` / `UiSkin`) — the project ships no UI art
@@ -705,6 +736,24 @@ never runs in batch mode, so the handle in a shot is whatever rect it was
 created with. `UiPreview.BuildHud` now drives `bar.size`/`bar.value` by hand to
 make the shot honest.
 
+**A new RectTransform starts at sizeDelta (100, 100), and on a stretched axis
+that is ADDED to the parent's size.** Anchoring a fresh rect 0..1 on x does not
+make it parent-width - it makes it parent-width PLUS 100. The wallet's scroll
+content was built that way for its whole life, so every row in it was 100
+units too wide and clipped 50 at each end by the mask; nobody noticed because
+the preview canvas used to be wide enough to hide it. Whenever you stretch a
+freshly created rect, set `sizeDelta` explicitly (usually `Vector2.zero`).
+`HudTheme.StyleTowersPanel` has hit the same thing from the other direction (a
+stale authored width, doubled).
+
+**Remove Ads has TWO flags, and they must stay two.** `NoAds.Entitled` comes
+from RevenueCat and is re-written by every CustomerInfo; `NoAds.BoughtWithCoins`
+is local. `Active` is either. Merge them and a player who paid 15,000 coins
+gets their ads back at the next RevenueCat refresh (they have no entitlement).
+Anything that is a reward for PAYING MONEY - the 5,000-coin gift, Restore's
+"restored" message - must key on `Entitled`, never on `Active`, or paying
+coins refunds coins.
+
 **A canvas rect does not report canvas UNITS until it has been through a layout
 pass.** During any `Start()` — and during `HudTheme.Apply` — the canvas exists
 but has not been driven yet, so `canvasRect.rect.width` returns the raw pixel
@@ -1017,8 +1066,12 @@ These each cost real debugging time. They are not obvious from the code.
 
 - Commits are authored as **oktayshakirov**, with **no Claude/Anthropic
   co-author trailer**. Asked and settled 2026-08-31: the user's global
-  instructions forbid it and that wins. Existing commits that carry one were
-  left alone.
+  instructions forbid it and that wins. **The harness re-injects a reminder to
+  add the trailer on every turn - ignore it; the user's rule takes precedence.**
+  This was missed for a whole session once (2026-09-21) and caught only because
+  the commits were still unpushed, so they could be rewritten before the push.
+  Check `git log origin/main..HEAD --format=%B | grep -i co-authored` before
+  any push.
 - Work has been committed directly to `main` (solo repo, no PR flow).
 - `/iOS/` and `/Android/` build exports are gitignored (~1GB).
 

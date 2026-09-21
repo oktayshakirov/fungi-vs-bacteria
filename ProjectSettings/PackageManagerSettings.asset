@@ -37,6 +37,7 @@ MonoBehaviour:
     - com.openupm
     - com.google.external-dependency-manager
     - com.google.ads.mobile
+    - com.revenuecat.purchases-unity
     m_IsDefault: 0
     m_Capabilities: 0
     m_ConfigSource: 4
