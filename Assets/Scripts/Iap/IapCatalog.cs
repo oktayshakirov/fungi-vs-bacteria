@@ -9,39 +9,32 @@ using System.Collections.Generic;
 // quietly doing nothing).
 //
 // Coin amounts are sized against the economy rather than picked round:
-//   * a rewarded ad pays 300, so the smallest pack is worth ~8 ads
-//   * one early level costs ~700-1,000 gold to play, one late level ~8,000
-//   * continues cost 200/400/800
-// so Handful is about one early level, Chest about two late ones. The bigger
-// packs give progressively more coins per unit of currency; that ladder is what
+//   * a rewarded ad pays 150 (8 a day), so the smallest pack is two days of ads
+//   * Remove Ads costs 18,000, which the 20,000 pack covers and nothing
+//     smaller does
+//   * the Survival Kit (2,350) sits just under the 2,500 pack
+// The bigger packs give progressively more coins per euro; that ladder is what
 // makes the middle packs read as reasonable.
+//
+// There is deliberately no real-money "remove ads" product: a direct purchase
+// was dropped in favour of NoAds.CoinPrice only, so the game does not sell the
+// same thing twice at two different effective prices.
 public static class IapCatalog
 {
   // Consumables. Buying one adds coins to the Wallet and is then gone.
   public const string Coins2500 = "fungivsbacteria.coins.2500";
-  public const string Coins8000 = "fungivsbacteria.coins.8000";
+  public const string Coins10000 = "fungivsbacteria.coins.10000";
   public const string Coins20000 = "fungivsbacteria.coins.20000";
   public const string Coins50000 = "fungivsbacteria.coins.50000";
 
-  // One-time purchases. These carry an ENTITLEMENT on the RevenueCat dashboard
-  // rather than being granted from the transaction list, so they survive a
-  // reinstall and are what Restore restores.
-  public const string NoAds = "fungivsbacteria.noads";
-
-  // The entitlement identifier configured in RevenueCat, attached to NoAds.
-  // A string, not a product id: entitlements are what the app should ever ask
-  // about, so the product behind one can change without touching the game.
-  public const string NoAdsEntitlement = "no_ads";
-
-  // Removing the ads also hands over a gift, so the purchase reads as getting
-  // something rather than as paying for an absence. Granted once, keyed off the
-  // entitlement turning on for the first time (see IapGrant.GrantNoAdsGift).
-  public const int NoAdsGiftCoins = 5000;
-
+  // The 10,000 pack pays 11,000. At its store price (EUR 3.99) 10,000 coins was
+  // a WORSE rate than the 2,500 pack at 0.99, so four small packs beat it; the
+  // 1,000 bonus puts it between the base pack and the 20,000 one (+9%). The ID
+  // keeps its name - the store listing promises 10,000 and this pays more.
   private static readonly Dictionary<string, int> CoinsByProduct = new Dictionary<string, int>
   {
     { Coins2500, 2500 },
-    { Coins8000, 8000 },
+    { Coins10000, 11000 },
     { Coins20000, 20000 },
     { Coins50000, 50000 },
   };
@@ -49,26 +42,23 @@ public static class IapCatalog
   // Display order in the store, smallest first.
   public static readonly string[] CoinProducts =
   {
-    Coins2500, Coins8000, Coins20000, Coins50000,
+    Coins2500, Coins10000, Coins20000, Coins50000,
   };
 
   // Everything the SDK should fetch prices for.
-  public static readonly string[] AllProducts =
-  {
-    Coins2500, Coins8000, Coins20000, Coins50000, NoAds,
-  };
+  public static readonly string[] AllProducts = CoinProducts;
 
   // The coins-per-currency-unit ladder, as a percentage above the smallest
   // pack's rate. Shown as a "+13%" badge on the card; computed here from the
   // amounts rather than typed in, so the badge cannot disagree with the pack.
   //
   // Prices come from the store, not from this file, so the badge is only right
-  // while the intended price ladder holds ($0.99 / $2.99 / $6.99 / $14.99). It
-  // is a marketing cue, not an exact rate, and it is hidden on the base pack.
+  // while the store prices hold (EUR 0.99 / 3.99 / 6.99 / 14.99 -> badges none /
+  // +9% / +13% / +32%). A marketing cue, not an exact rate; hidden on the base.
   private static readonly Dictionary<string, float> IntendedPrice = new Dictionary<string, float>
   {
     { Coins2500, 0.99f },
-    { Coins8000, 2.99f },
+    { Coins10000, 3.99f },
     { Coins20000, 6.99f },
     { Coins50000, 14.99f },
   };

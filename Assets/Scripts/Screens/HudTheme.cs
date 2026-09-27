@@ -165,6 +165,14 @@ public static class HudTheme
     TMP_Text label = rect.GetComponentInChildren<TMP_Text>(true);
     if (label != null) label.gameObject.SetActive(false);
 
+    // The scene already authors its own pause glyph as a child image, sized
+    // and positioned for the button's ORIGINAL (larger) dimensions. Left
+    // active, it didn't shrink along with the button above and rendered as a
+    // second, oversized pause icon bleeding out over the wave readout next to
+    // it - two pause buttons where there was only ever meant to be one.
+    Transform oldIcon = rect.Find("PauseIcon");
+    if (oldIcon != null) oldIcon.gameObject.SetActive(false);
+
     Image glyph = UiSkin.Icon(rect, UiSprites.Pause(), UiSkin.TextPrimary, 34f);
     glyph.gameObject.name = "PauseGlyph";
     var glyphRect = (RectTransform)glyph.transform;
@@ -373,9 +381,19 @@ public static class HudTheme
     scrollRect.offsetMin = Vector2.zero;
     scrollRect.offsetMax = Vector2.zero;
 
+    // Inset a few units in from the frame's own edges. RectMask2D clips to a
+    // plain rectangle, but the frame it sits inside is drawn with rounded
+    // corners - a card clipped flush with that rectangle still visually pokes
+    // past the curve at the top and bottom, which is what made the last card
+    // in the list look like it was spilling out of its box.
+    const float viewportInset = 12f;
     var viewportGo = new GameObject("Viewport", typeof(RectTransform));
     viewportGo.transform.SetParent(scrollGo.transform, false);
-    UiSkin.Stretch((RectTransform)viewportGo.transform);
+    var viewportRect = (RectTransform)viewportGo.transform;
+    viewportRect.anchorMin = Vector2.zero;
+    viewportRect.anchorMax = Vector2.one;
+    viewportRect.offsetMin = new Vector2(0f, viewportInset);
+    viewportRect.offsetMax = new Vector2(0f, -viewportInset);
     viewportGo.AddComponent<RectMask2D>();
 
     // TowerUI's buttonContainer field still points at this exact RectTransform

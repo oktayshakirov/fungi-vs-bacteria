@@ -17,15 +17,52 @@ using UnityEngine;
 public static class Wallet
 {
   private const string CoinsKey = "Wallet_Coins";
+  private const string LoanKey = "Wallet_LevelLoan";
 
   // Coins granted the first time a level is cleared, indexed by star rating.
   // Playing has to pay something, or the only way to earn is to watch ads and
-  // the currency reads as a paywall rather than a reward.
-  private static readonly int[] StarPayout = { 0, 10, 20, 35 };
+  // the currency reads as a paywall rather than a reward. Lifetime total across
+  // all 70 levels is 3,500 - a bonus, not a route to Remove Ads.
+  private static readonly int[] StarPayout = { 0, 15, 30, 50 };
 
   public static event Action<int> OnCoinsChanged;
 
   public static int Coins => PlayerPrefs.GetInt(CoinsKey, 0);
+
+  // The part of Coins that EnsureMinimum lent for the current level. It is
+  // tower money only: repaid when the level ends however it ends, and excluded
+  // from anything bought in the store. Persisted, so killing the app mid-level
+  // cannot keep it.
+  public static int Loan => PlayerPrefs.GetInt(LoanKey, 0);
+
+  // What the store may spend: boosters and Remove Ads must never be bought with
+  // a level's loan, or start-a-level-then-quit would print coins.
+  public static int OwnCoins => Mathf.Max(0, Coins - Loan);
+
+  public static bool CanAffordOwn(int amount) => OwnCoins >= amount;
+
+  public static bool TrySpendOwn(int amount)
+  {
+    if (amount <= 0 || OwnCoins < amount) return false;
+    Set(Coins - amount);
+    return true;
+  }
+
+  // Takes back whatever is left of the level's loan, up to the whole loan.
+  // Kill gold therefore pays the loan off first, and only what a level earns
+  // beyond it is kept.
+  public static void RepayLoan()
+  {
+    int loan = Loan;
+    if (loan <= 0) return;
+
+    PlayerPrefs.SetInt(LoanKey, 0);
+    Set(Coins - Mathf.Min(loan, Coins));
+  }
+
+  // A process that died mid-level never reached the level's own repayment.
+  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+  private static void RepayOnLaunch() => RepayLoan();
 
   public static void Add(int amount)
   {
@@ -47,14 +84,14 @@ public static class Wallet
   // currency death-spirals: lose a level with an empty wallet and there is no
   // way to buy the towers needed to win the next one.
   //
-  // Using the level's own startingGold as the floor keeps all 70 levels' tuning
-  // meaningful - it becomes a guaranteed minimum rather than a fixed handout,
-  // and anything earned above it genuinely carries over.
+  // The top-up is a LOAN (see Loan), not a gift. As a gift it was unlimited
+  // free coins: spend to zero, start a late level, quit, repeat.
   public static int EnsureMinimum(int floor)
   {
     int shortfall = floor - Coins;
     if (shortfall <= 0) return 0;
 
+    PlayerPrefs.SetInt(LoanKey, Loan + shortfall);
     Set(floor);
     return shortfall;
   }

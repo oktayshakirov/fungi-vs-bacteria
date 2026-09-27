@@ -5,10 +5,10 @@ using UnityEngine;
 // Turns purchases into coins, exactly once each.
 //
 // Everything arrives here as a CustomerInfo - from the purchase callback, from
-// Restore, from the startup fetch, and from RevenueCat pushing an update - so
-// the same code path covers all four and none of them can double-pay. The
-// dedupe is by STORE TRANSACTION ID, which is stable per purchase, not by
-// product id: a player can buy the same coin pack many times.
+// the startup fetch, and from RevenueCat pushing an update - so the same code
+// path covers all three and none of them can double-pay. The dedupe is by
+// STORE TRANSACTION ID, which is stable per purchase, not by product id: a
+// player can buy the same coin pack many times.
 //
 // The ledger is local (PlayerPrefs), which has one consequence worth being
 // clear about: coins live on the device, so a reinstall loses both the coins
@@ -19,7 +19,6 @@ using UnityEngine;
 public static class IapGrant
 {
   private const string GrantedKey = "Iap_GrantedTransactions";
-  private const string NoAdsGiftKey = "Iap_NoAdsGiftGranted";
 
   // Raised when a purchase actually paid out, with the coins added. The store
   // UI uses it to say what happened; nothing else should need it, since the
@@ -31,8 +30,6 @@ public static class IapGrant
     if (customerInfo == null) return;
 
     GrantConsumables(customerInfo);
-    NoAds.Apply(customerInfo);
-    GrantNoAdsGift();
   }
 
   private static void GrantConsumables(Purchases.CustomerInfo customerInfo)
@@ -68,28 +65,6 @@ public static class IapGrant
     }
 
     if (changed) SaveGranted(granted);
-  }
-
-  // The thank-you coins that come with removing ads. Keyed off its own flag
-  // rather than off a transaction, so restoring the purchase on a second device
-  // does not hand out the gift again on the first.
-  //
-  // ENTITLED, not Active: Active is also true for a player who removed the ads
-  // with coins, and handing 5,000 coins back to someone who just paid 15,000
-  // for the same thing would make the coin route a third cheaper than its label.
-  // The gift is a thank-you for paying money.
-  private static void GrantNoAdsGift()
-  {
-    if (!NoAds.Entitled) return;
-    if (PlayerPrefs.GetInt(NoAdsGiftKey, 0) == 1) return;
-
-    PlayerPrefs.SetInt(NoAdsGiftKey, 1);
-    PlayerPrefs.Save();
-
-    if (IapCatalog.NoAdsGiftCoins <= 0) return;
-    Wallet.Add(IapCatalog.NoAdsGiftCoins);
-    Debug.Log($"[IAP] Granted the no-ads gift of {IapCatalog.NoAdsGiftCoins} coins.");
-    OnCoinsGranted?.Invoke(IapCatalog.NoAds, IapCatalog.NoAdsGiftCoins);
   }
 
   private static HashSet<string> LoadGranted()

@@ -68,3 +68,6 @@ Thumbs.db
 # Xcode/Gradle export produced by BuildTools (regenerated, ~1GB)
 /iOS/
 /Android/
+
+# Unity temp tool output
+/.utmp/

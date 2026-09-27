@@ -54,10 +54,9 @@ cause.)
 
 1. Add AdMob as a network on each of the four LevelPlay placements, using the
    ad unit IDs above.
-2. Set the **reward amount** on both rewarded placements. It is read from
-   LevelPlay at runtime, so the coin payout can be retuned without shipping a
-   build. `fallbackRewardAmount` (300) is only used when the dashboard supplies
-   nothing.
+2. The dashboard **reward amount is ignored**: the payout is
+   `RewardedGate.CoinsPerAd` (150, 8 a day) in code, because a remote amount
+   could silently wreck the coin economy.
 
 ## If Xcode says `IronSource/IronSource.h` file not found
 

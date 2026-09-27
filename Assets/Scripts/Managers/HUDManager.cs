@@ -112,9 +112,13 @@ public class HUDManager : MonoBehaviour
     // Stacked under the stats panel, so they can never overlap it
     GameSpeedButton.Create(uiRoot, statsRect, 0);
     CameraViewButton.Create(uiRoot, statsRect, 1);
-    // Continues the same column. Returns null - and builds nothing - when the
-    // player owns no boosters.
-    BoosterBar.Create(uiRoot, statsRect, 2);
+    // A player who runs dry on coins mid-wave used to have no way to reach the
+    // store without pausing out to the menu.
+    StoreHudButton.Create(uiRoot, statsRect, 2);
+    // The booster bar positions itself independently from the bottom of the
+    // screen (see BoosterBar.Build) - it does not consume a slot in this
+    // stack, and `reference`/`slot` are only passed for symmetry.
+    BoosterBar.Create(uiRoot, statsRect, 3);
 
 
     // Initialize pause screen

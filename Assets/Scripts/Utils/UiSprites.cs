@@ -244,6 +244,14 @@ public static class UiSprites
     InTriangle(x, y, 0.58f, 0.98f, 0.22f, 0.46f, 0.52f, 0.46f)
     || InTriangle(x, y, 0.42f, 0.02f, 0.78f, 0.54f, 0.48f, 0.54f)));
 
+  // A heater shield: straight sides, tapering to a point. For the Shield booster.
+  public static Sprite Shield(int size = 64) => Cached("shield" + size, () => Shape(size, (x, y) =>
+  {
+    if (y > 0.92f || y < 0.06f) return false;
+    float half = y >= 0.48f ? 0.36f : 0.36f * (y - 0.06f) / 0.42f;
+    return Mathf.Abs(x - 0.5f) <= half;
+  }));
+
   // A close cross: two rounded diagonal bars. For dialog close buttons, where a
   // "BACK" plate floating outside the card read as belonging to the screen
   // behind it.
@@ -293,6 +301,21 @@ public static class UiSprites
     if (body && !screen) return true;
     return (x >= 0.14f && x <= 0.21f && y >= 0.32f && y <= 0.68f)
         || (x >= 0.79f && x <= 0.86f && y >= 0.32f && y <= 0.68f);
+  }));
+
+  // A shopping bag: a rounded sack with a carry handle, for the store
+  // buttons. A coin reads as "currency", not "go here to spend it" - a bag is
+  // the one shape that unambiguously means "shop".
+  public static Sprite Bag(int size = 64) => Cached("bag" + size, () => Shape(size, (x, y) =>
+  {
+    if (InRoundedRect(x, y, 0.16f, 0.06f, 0.84f, 0.62f, 0.10f)) return true;
+
+    // The handle: an arc above the body, same construction as the lock's
+    // shackle - the two ends sink slightly into the body's top edge so the
+    // handle reads as attached rather than floating over it.
+    float dx = x - 0.5f, dy = y - 0.60f;
+    float r = Mathf.Sqrt(dx * dx + dy * dy);
+    return dy >= 0f && r <= 0.26f && r >= 0.17f;
   }));
 
   // A padlock, for locked levels and environments.

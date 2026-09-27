@@ -671,11 +671,10 @@ public static class UiPreview
     // These stand in for what the store returns, at the intended price ladder.
     Iap.SetPreviewPrices(new System.Collections.Generic.Dictionary<string, string>
     {
-      { IapCatalog.Coins2500, "$0.99" },
-      { IapCatalog.Coins8000, "$2.99" },
-      { IapCatalog.Coins20000, "$6.99" },
-      { IapCatalog.Coins50000, "$14.99" },
-      { IapCatalog.NoAds, "$3.99" },
+      { IapCatalog.Coins2500, "€0.99" },
+      { IapCatalog.Coins10000, "€3.99" },
+      { IapCatalog.Coins20000, "€6.99" },
+      { IapCatalog.Coins50000, "€14.99" },
     });
 
     WalletScreen.Open(host.transform);

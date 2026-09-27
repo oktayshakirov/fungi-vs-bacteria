@@ -175,12 +175,11 @@ public class GameOverScreen : MonoBehaviour
         Refresh();
 
         Ads.ShowRewarded(
-            amount =>
+            _ =>
             {
-                // The dashboard's reward amount is coins; a continue bought with
-                // an ad also banks them, so the ad is never worse than watching
-                // one from the wallet.
-                Wallet.Add(amount);
+                // The continue IS the reward. Paying coins as well made this an
+                // ad faucet outside RewardedGate's daily cap: lose on purpose,
+                // watch, quit, repeat.
                 Ads.DeferInterstitial();
                 Continue(true);
             },

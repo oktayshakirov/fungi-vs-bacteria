@@ -5,11 +5,11 @@
 // money once both are the same balance.
 public static class Boosters
 {
-  public const int FirstContinueCost = 200;
+  public const int FirstContinueCost = 300;
   public const int ContinueHealth = 50;
 
   // Continues are never blocked outright, they just get more expensive:
-  // 200, 400, 800, ... Price is a better cap than a hard limit because a
+  // 300, 600, 1,200, ... Price is a better cap than a hard limit because a
   // player who is genuinely invested can push on, while nobody can refuse to
   // lose indefinitely.
   public static int ContinuesUsedThisRun { get; private set; }

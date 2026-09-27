@@ -12,7 +12,9 @@ using UnityEngine;
 // not be blocked by, or count towards, the wallet's cooldown and daily cap.
 public static class DailyStreak
 {
-  public static readonly int[] Rewards = { 100, 150, 250, 400, 750 };
+  // Every day beats a plain ad (RewardedGate.CoinsPerAd), since each claim is
+  // also an ad. 2,300 per five days.
+  public static readonly int[] Rewards = { 200, 250, 350, 500, 1000 };
 
   private const string DayIndexKey = "Streak_DayIndex";     // 0-based, next to claim
   private const string LastClaimKey = "Streak_LastClaim";   // yyyy-MM-dd

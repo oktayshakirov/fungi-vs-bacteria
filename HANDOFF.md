@@ -1,7 +1,7 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-21 (phases 23-24, the pre-test polish passes). Committed
-on `main`, not pushed.
+Last updated 2026-09-27 (phase 26, store launch prep: IAP catalog, economy
+retune, new icon). Committed and pushed on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -10,10 +10,115 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 23, a visual polish pass before the first device test** (see
-the phase list in section 3 for the full account). Maps, the environment and
-level screens, the store, the victory screen, the tower icons, the main menu
-title and the base/portal landmarks all changed. Every change is
+**Latest: phase 26 — store launch prep. Compiles and render-checked
+(`screen-wallet`, `hud-boosters`); NOT played on a device.**
+
+- **Store listings exist** on App Store Connect and Google Play. The user has
+  created the four consumable coin packs: `fungivsbacteria.coins.2500` /
+  `.10000` / `.20000` / `.50000` at EUR 0.99 / 3.99 / 6.99 / 14.99. The 8,000
+  pack became 10,000; the game pays 11,000 for it so its rate beats the 0.99
+  pack (see `IapCatalog`).
+- **Real-money Remove Ads removed.** It is coins-only now (18,000). The
+  `fungivsbacteria.noads` product, its `no_ads` entitlement, the 5,000 gift and
+  Restore Purchases are all gone from code and docs.
+- **Economy retuned, and three exploits closed.** Details are in section 6
+  under "The economy". In short: the level top-up is a repaid loan (it was
+  infinite coins), a continue bought with an ad no longer pays coins, and the ad
+  payout is a code constant (150 coins, 8 a day) instead of the LevelPlay
+  dashboard value. New: a **Shield** booster and a **Survival Kit** bundle.
+- **New app icon** (blue mushroom vs red virus). It overwrote
+  `Assets/Sprites/Icons/AppIcon.png` in place, so its GUID and every Player
+  Settings reference are unchanged; `Tools -> App Icon -> Apply` was re-run.
+  The gitignored `iOS/` Xcode export had its icon sizes regenerated too.
+- **iOS deployment target is 15.0** (Apple requires it from spring 2027).
+- **Android signing is set up**: upload keystore outside the repo (path in
+  ProjectSettings, passwords are not stored). EDM4U's custom Gradle templates
+  in `Assets/Plugins/Android/` are now REQUIRED — Player Settings points at
+  them. Do not delete them.
+- **Store copy** (subtitle, short and full description) was written for both
+  stores with no counts, because maps, biomes, towers and enemies will be added
+  later. It was not saved to the repo.
+- **Still blocking purchases:** the RevenueCat public SDK keys in
+  `Assets/Editor/IapSetup.cs` are empty.
+- **Still open:** store coins are also in-level tower gold, so any coin pack
+  makes early levels easier to brute-force. Only splitting the currencies
+  fixes that. Deferred as a design decision for the user.
+
+**Previous: phase 25 — HUD and store fixes from screenshots, NOT played.** The
+user sent screenshots of the running game (not renders) across several rounds
+of feedback and this session made the fixes from them blind — no Unity GUI,
+no device, no `UiPreview` render loop, just reading the screenshot, tracing the
+bug through the source, and fixing it. That is a materially weaker guarantee
+than every other phase in this file, which was at minimum render-verified.
+**Everything below needs a real look before it counts as done.** What changed:
+
+- **`LoadingScreen` NullReferenceException on first level load — FIXED.**
+  `SceneController.LoadScene` called `Prepare()` (which sets `.outlineWidth` on
+  a TMP label) BEFORE `activeLoadingScreen.SetActive(true)`. A freshly
+  instantiated, still-inactive prefab has not run `Awake`/`OnEnable` on its TMP
+  text yet, and TMP throws inside `SetOutlineThickness` if styled that early.
+  Fixed by activating before styling (`SceneController.cs`). This was a hard
+  crash, not a polish item, and blocked ANY level load until fixed.
+- **Towers rail cards visually spilling past the panel's rounded corners —
+  root cause found, fixed twice.** First pass added a `RectMask2D` inset from
+  the frame's rounded edge (`HudTheme.StyleTowersPanel`). That was masking a
+  bigger bug: `HudTheme` clamps each card's cell HEIGHT to 132 to fit more rows
+  in the rail, but `TowerButton`'s prefab positions the coin-icon/price row at
+  a fixed offset from the card's CENTRE, calibrated for the card's original
+  160-unit height. `GridLayoutGroup` resizes a centre-pivoted card
+  symmetrically, so that fixed centre offset put the price row's bottom edge
+  outside the shrunk card's real bottom edge — the actual cause of "coins
+  outside the tower cards" across three rounds of feedback. Fixed by
+  re-anchoring the cost row to the card's BOTTOM edge instead
+  (`TowerButton.StyleCostRow`), which is correct at any cell height. Also
+  unified the "can afford" (was 15x15) and "can't afford" (was 30x30) icon
+  sizes to one 22x22 in a `HorizontalLayoutGroup` next to the price, since they
+  used to be sized independently and swapped size when affordability changed.
+- **Duplicate pause button.** The scene authors its own `PauseIcon` child image
+  on the pause button, sized for the button's ORIGINAL (larger) dimensions.
+  `HudTheme.CompactPause` shrinks the button and adds a NEW `PauseGlyph` icon
+  on top, but never hid the old one — so the stale, oversized icon rendered
+  bleeding out over the wave readout beside it. Now explicitly disabled.
+- **Store rebuilt into three tabs** (BOOSTERS / COINS / FREE) instead of one
+  long scroll — `WalletScreen` now shows one shelf at a time, each still
+  wrapped in the same scroll body for safety on a small phone or a long
+  booster list. Restore Purchases moved from FREE to COINS (it restores a
+  real-money purchase, Remove Ads, so it belongs on the shelf that sells
+  real-money purchases). The coin chip's "+" opens straight to the COINS tab
+  (`WalletScreen.Open(parent, tab: WalletScreen.TabCoins)`); every other entry
+  point defaults to BOOSTERS. Tab button height was fixed by pinning
+  min/preferred/flexible height explicitly on both the row and its buttons —
+  leaving only `preferredHeight` let a `LayoutElement` vs `HorizontalLayoutGroup`
+  priority ambiguity blow the row up to near-card height (see section 6 if this
+  regresses). Watch Ad / streak claim buttons shrunk (96->64, 74->56) so the
+  FREE tab's rows fit without scrolling on most screens.
+- **More store entry points.** A STORE button now exists in three places it
+  didn't before: under the coin chip on the main menu, in the in-level HUD
+  (stacked under the speed/camera buttons), and in the pause screen (under
+  Resume). All three, plus the coin chip, use a new procedural shopping-bag
+  icon (`UiSprites.Bag`) tinted **gold**, matching the "VS" in the menu title —
+  was blue (`UiSkin.Accent`) through the first two rounds, changed on request.
+- **Menu title recoloured.** FUNGI and BACTERIA are now both `UiSkin.Primary`
+  green (were red/violet, matching the character art, then briefly
+  green/blue) with VS in gold — the ask was specifically "make both green".
+  The PLAY button's "NEXT: biome - level n" caption is now white with a dark
+  outline (was a near-black green that was hard to read on the green button).
+
+**This session ran a Unity batch-mode compile check** (`Unity -batchmode
+-nographics -quit -projectPath .`, full asset import, no `-executeMethod`) as
+the only verification available without a GUI or a device — **it passed, zero
+`error CS` lines, exit code 0**, so nothing above is a compile-breaker. That is
+the ONLY thing it confirms — nothing about whether any of this actually looks
+or plays right. No `UiPreview` renders were regenerated for any of this
+phase's changes; the store and HUD preview shots on disk predate all of it.
+**Next session: open the editor, play a level, open the store from all four
+entry points, and re-run `UiPreview.Render` / `hud-towers` / `screen-wallet`
+so there is a real render to check future changes against.**
+
+**Before that: phase 23, a visual polish pass before the first device test**
+(see the phase list in section 3 for the full account). Maps, the environment
+and level screens, the store, the victory screen, the tower icons, the main
+menu title and the base/portal landmarks all changed. Every change is
 render-verified; **none of it has been played on a device.** Add these to the
 device-run table below:
 
@@ -48,10 +153,9 @@ In-app purchases are fully coded and **cannot work until these exist**. Until
 then the store correctly shows "Coin packs are unavailable right now" and hides
 the money half of Remove Ads. Full checklist: DISTRIBUTION.md -> In-app purchases.
 
-1. Create the five products in App Store Connect and Play Console with the exact
-   IDs in `IapCatalog` (4 consumable coin packs + `fungivsbacteria.noads`).
-2. RevenueCat project with a `no_ads` entitlement on the noads product, and an
-   offering holding all five.
+1. Create the four consumable coin packs in App Store Connect and Play Console
+   with the exact IDs in `IapCatalog` (2.5k/10k/20k/50k).
+2. RevenueCat project with an offering holding all four.
 3. Public SDK keys into `Assets/Editor/IapSetup.cs`, then Tools -> IAP -> Apply
    Keys. **Never the secret key.**
 4. iOS: sign the Paid Applications agreement, or no product ever loads.
@@ -290,6 +394,9 @@ Roughly in order. Each is committed.
       Priority 1 describe a player who owns none.
     Render-verified (`hud-boosters`, `screen-wallet`); **no booster has been
     fired in a running level.**
+
+    (Later changed: the money Remove Ads product and Restore were removed and
+    the 8k pack became 10k at $3.69 - see "Remove Ads is coins-only" below.)
 
     Remove Ads can also be bought for 15,000 COINS (`NoAds.CoinPrice`), beside
     the money button. `NoAds` stores the two routes separately (`Entitled` from
@@ -854,13 +961,23 @@ freshly created rect, set `sizeDelta` explicitly (usually `Vector2.zero`).
 `HudTheme.StyleTowersPanel` has hit the same thing from the other direction (a
 stale authored width, doubled).
 
-**Remove Ads has TWO flags, and they must stay two.** `NoAds.Entitled` comes
-from RevenueCat and is re-written by every CustomerInfo; `NoAds.BoughtWithCoins`
-is local. `Active` is either. Merge them and a player who paid 15,000 coins
-gets their ads back at the next RevenueCat refresh (they have no entitlement).
-Anything that is a reward for PAYING MONEY - the 5,000-coin gift, Restore's
-"restored" message - must key on `Entitled`, never on `Active`, or paying
-coins refunds coins.
+**The economy (retuned 2026-09-24, unplaytested).** Free income is ~1,650/day
+at most (8 ads x 150 + the 200/250/350/500/1,000 streak), plus 15/30/50 per level's
+first clear (3,500 lifetime). Remove Ads is 18,000 coins, so the 20,000 pack (EUR 6.99)
+buys it with 2,000 over and nothing cheaper does. Boosters 1,000/400/500/500/750
+(Bomb/Frost/Overclock/Mend/Shield), a Survival Kit of one each for 2,350,
+continues 300/600/1,200. The level top-up (`Wallet.EnsureMinimum`) is now a
+LOAN, repaid when the level ends and never spendable in the store
+(`Wallet.OwnCoins`) - as a gift it was infinite coins (start a level, quit,
+repeat). A continue bought with an ad no longer also pays coins (that was an
+uncapped faucet). Still open: store coins are ALSO tower gold, so any pack
+makes early levels easier to brute-force; only a split currency fixes that.
+
+**Remove Ads is coins-only.** The real-money `fungivsbacteria.noads` product,
+its `no_ads` entitlement, the 5,000-coin gift and Restore were all removed;
+`NoAds.Active` is just the local `BoughtWithCoins` flag. If a real-money route
+is ever re-added, keep it on a SEPARATE flag from the coin unlock, or an
+entitlement refresh will switch a coin buyer's ads back on.
 
 **A canvas rect does not report canvas UNITS until it has been through a layout
 pass.** During any `Start()` — and during `HudTheme.Apply` — the canvas exists

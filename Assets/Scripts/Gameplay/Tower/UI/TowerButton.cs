@@ -88,6 +88,9 @@ namespace TowerDefense.UI
 
       UiSkin.Label(nameText, UiSkin.Role.Caption);
       UiSkin.Label(costText, UiSkin.Role.Value, UiSkin.Gold);
+      costText.fontSizeMin = 16f;
+      costText.fontSizeMax = 26f;
+      costText.alignment = TextAlignmentOptions.MidlineLeft;
 
       // The affordability markers were tiny sprites; a coin and a dimmed coin
       // read better at card size and need no extra art.
@@ -103,6 +106,69 @@ namespace TowerDefense.UI
         lockIcon.color = UiSkin.Danger;
         lockIcon.preserveAspect = true;
       }
+
+      StyleCostRow();
+    }
+
+    // The prefab authored the coin icon at 15x15 next to a price label that
+    // auto-sizes up to 40pt, and the "can't afford" lock icon at a mismatched
+    // 30x30 - the coin read as a stray dot next to an oversized number, and
+    // swapping states changed the icon's size. A HorizontalLayoutGroup gives
+    // both icons one consistent size and keeps the price snug beside whichever
+    // one is showing instead of independently centred in its own box.
+    //
+    // The container itself is also re-anchored here, to the card's BOTTOM edge
+    // instead of the prefab's fixed offset from centre. The towers rail
+    // (HudTheme.StyleTowersPanel) shrinks each card's cell height to fit more
+    // rows in the rail, and GridLayoutGroup resizes a centre-pivoted card
+    // symmetrically - so a fixed centre offset calibrated for the full-height
+    // card ends up UNDER the shrunk card's real bottom edge, which is exactly
+    // what put the coin icon and price outside the card. Bottom-anchoring
+    // means this row always sits a fixed distance above whatever the card's
+    // actual bottom edge turns out to be.
+    private const float CostRowBottomMargin = 10f;
+
+    private void StyleCostRow()
+    {
+      if (costText == null) return;
+      Transform container = costText.transform.parent;
+      if (container == null) return;
+
+      var containerRect = (RectTransform)container;
+      containerRect.anchorMin = new Vector2(0.5f, 0f);
+      containerRect.anchorMax = new Vector2(0.5f, 0f);
+      containerRect.pivot = new Vector2(0.5f, 0f);
+      containerRect.anchoredPosition = new Vector2(0f, CostRowBottomMargin);
+
+      var row = container.GetComponent<HorizontalLayoutGroup>();
+      if (row == null) row = container.gameObject.AddComponent<HorizontalLayoutGroup>();
+      row.spacing = 6f;
+      row.childAlignment = TextAnchor.MiddleCenter;
+      row.childControlWidth = true;
+      row.childControlHeight = true;
+      row.childForceExpandWidth = false;
+      row.childForceExpandHeight = true;
+
+      const float iconSize = 22f;
+      SizeIcon(goldIcon, iconSize);
+      SizeIcon(lockIcon, iconSize);
+
+      var textElement = costText.GetComponent<LayoutElement>();
+      if (textElement == null) textElement = costText.gameObject.AddComponent<LayoutElement>();
+      textElement.flexibleWidth = 1f;
+      textElement.minWidth = 0f;
+    }
+
+    private static void SizeIcon(Image icon, float size)
+    {
+      if (icon == null) return;
+      icon.rectTransform.sizeDelta = new Vector2(size, size);
+
+      var element = icon.GetComponent<LayoutElement>();
+      if (element == null) element = icon.gameObject.AddComponent<LayoutElement>();
+      element.preferredWidth = size;
+      element.preferredHeight = size;
+      element.flexibleWidth = 0f;
     }
 
     public void UpdateInteractability()

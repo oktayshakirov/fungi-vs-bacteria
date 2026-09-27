@@ -35,9 +35,17 @@ public static class BoosterInventory
       ? BoosterCatalog.BundlePrice(kind)
       : BoosterCatalog.Price(kind) * amount;
 
-    if (!Wallet.TrySpend(price)) return false;
+    if (!Wallet.TrySpendOwn(price)) return false;
 
     Add(kind, amount);
+    return true;
+  }
+
+  public static bool BuyKit()
+  {
+    if (!Wallet.TrySpendOwn(BoosterCatalog.KitPrice)) return false;
+
+    foreach (BoosterKind kind in BoosterCatalog.All) Add(kind, 1);
     return true;
   }
 

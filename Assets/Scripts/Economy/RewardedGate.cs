@@ -17,7 +17,13 @@ using UnityEngine;
 // and not worth a server for a single-player game.
 public static class RewardedGate
 {
-  public const int DailyCap = 10;
+  public const int DailyCap = 8;
+
+  // Owned by the game, not the LevelPlay dashboard: the dashboard amount is a
+  // remote knob that can silently wreck the economy (a default of 1, or a typo
+  // of 3000). 150 x 8 = 1,200 a day, so Remove Ads is weeks of watching, and the
+  // cheapest pack (2,500) is worth two full days of ads.
+  public const int CoinsPerAd = 150;
 
   // Applied after the 1st, 2nd, and 3rd-or-later watch of the day.
   private static readonly int[] CooldownMinutes = { 1, 5, 10 };

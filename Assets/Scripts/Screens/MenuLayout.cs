@@ -103,11 +103,13 @@ public static class MenuLayout
 
     var caption = go.GetComponent<TextMeshProUGUI>();
     if (caption == null) caption = go.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(caption, UiSkin.Role.ButtonLabel, new Color(0.10f, 0.20f, 0.04f));
+    UiSkin.Label(caption, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
     caption.fontSizeMin = 14f;
     caption.fontSizeMax = 24f;
     caption.text = text;
     caption.alignment = TextAlignmentOptions.Midline;
+    caption.outlineWidth = 0.18f;
+    caption.outlineColor = new Color32(18, 40, 8, 200);
     caption.raycastTarget = false;
 
     var labelRect = label.rectTransform;
@@ -151,8 +153,10 @@ public static class MenuLayout
   // The game's name across the top, between the coin chip and the gear. The
   // menu showed the vs-battle art and a PLAY button and nothing else: nowhere
   // did it say what the game was called, which is the first thing a store
-  // screenshot or a first launch needs to say. Coloured per side - mushroom red
-  // for the fungi, the bacteria's violet - so it echoes the two casts below it.
+  // screenshot or a first launch needs to say. Both words share UiSkin's own
+  // Primary green - the same colour as PLAY - with "VS" in Gold between them,
+  // so the title reads as part of the same system as the rest of the menu
+  // instead of the character art's own red/violet, which clashed with it.
   public static void ApplyTitle(Transform root)
   {
     if (root == null) return;
@@ -179,7 +183,10 @@ public static class MenuLayout
     label.textWrappingMode = TextWrappingModes.NoWrap;
     label.alignment = TextAlignmentOptions.Midline;
     label.richText = true;
-    label.text = "<color=#FF5A4E>FUNGI</color> <color=#FFC94A><size=70%>VS</size></color> <color=#C58BFF>BACTERIA</color>";
+    // Hex, not the Color structs directly: TMP rich text only takes string tags.
+    string green = "#" + ColorUtility.ToHtmlStringRGB(UiSkin.Primary);
+    string vs = "#" + ColorUtility.ToHtmlStringRGB(UiSkin.Gold);
+    label.text = $"<color={green}>FUNGI</color> <color={vs}><size=70%>VS</size></color> <color={green}>BACTERIA</color>";
     label.outlineWidth = 0.22f;
     label.outlineColor = new Color32(10, 14, 24, 230);
     label.raycastTarget = false;

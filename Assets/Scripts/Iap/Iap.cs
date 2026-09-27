@@ -88,8 +88,8 @@ public class Iap : MonoBehaviour
 
     FetchProducts();
 
-    // Catches up on anything bought while the app was closed, or on another
-    // device, and re-applies the no-ads entitlement.
+    // Catches up on any consumable purchase that completed while the app was
+    // closed (a purchase finished in the background, an App Store promo).
     purchases.GetCustomerInfo((info, error) =>
     {
       if (error != null)
@@ -206,30 +206,5 @@ public class Iap : MonoBehaviour
       IapGrant.ProcessCustomerInfo(result.CustomerInfo);
       OnPurchaseFinished?.Invoke(true, null);
     }, "inapp");
-  }
-
-  // Apple requires a visible Restore control for non-consumables, which here
-  // means Remove Ads. Consumable coins are not restorable and are not expected
-  // to be - they were spent.
-  public static void Restore(Action<bool> onComplete = null)
-  {
-    if (Instance == null || !IsReady)
-    {
-      onComplete?.Invoke(false);
-      return;
-    }
-
-    Instance.purchases.RestorePurchases((info, error) =>
-    {
-      if (error != null)
-      {
-        Debug.LogWarning($"[IAP] Restore failed: {error.Message}");
-        onComplete?.Invoke(false);
-        return;
-      }
-
-      IapGrant.ProcessCustomerInfo(info);
-      onComplete?.Invoke(true);
-    });
   }
 }

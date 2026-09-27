@@ -43,7 +43,9 @@ public class GameManager : MonoBehaviour
     LevelConfig level = GameSession.SelectedLevel;
 
     // The wallet carries over between levels now; this only tops it up when the
-    // player arrives below what this level was balanced for.
+    // player arrives below what this level was balanced for, as a loan that is
+    // repaid when the level ends.
+    Wallet.RepayLoan();
     Wallet.EnsureMinimum(level != null ? level.startingGold : startingGold);
 
     currentHealth = level != null ? level.startingHealth : startingHealth;
@@ -91,6 +93,9 @@ public class GameManager : MonoBehaviour
   private void Victory()
   {
     gameEnded = true;
+
+    // Before the star payout, so the payout is never eaten by the repayment.
+    Wallet.RepayLoan();
 
     int stars = LevelProgress.StarsForHealth(currentHealth, levelStartingHealth);
 
@@ -149,6 +154,8 @@ public class GameManager : MonoBehaviour
 
   public void TakeDamage(int damage)
   {
+    if (BoosterEffects.ShieldActive) return;
+
     currentHealth = Mathf.Max(0, currentHealth - damage);
     UpdateUI();
 
@@ -228,5 +235,13 @@ public class GameManager : MonoBehaviour
   {
     Time.timeScale = 1f;
     SceneController.Instance.LoadScene(SceneController.GameScene.MainGame);
+  }
+
+  // Every way out of a level (quit, restart, next level) unloads this scene.
+  private void OnDestroy()
+  {
+    if (Instance != this) return;
+    Instance = null;
+    Wallet.RepayLoan();
   }
 }

@@ -27,9 +27,13 @@ public class BoosterEffects : MonoBehaviour
   public static bool OverclockActive => FireRateMultiplier > 1f;
   public static float OverclockRemaining => Mathf.Max(0f, overclockEndsAt - Time.time);
 
+  // Read by GameManager.TakeDamage. Scaled time, like Overclock.
+  private static float shieldEndsAt;
+  public static bool ShieldActive => Time.time < shieldEndsAt;
+
   // The wave number each booster was last used on, or -1. A level has at most a
   // handful of waves, so "once per wave" is just "not the wave I used it on".
-  private static readonly int[] usedOnWave = new int[4];
+  private static readonly int[] usedOnWave = new int[BoosterCatalog.All.Length];
 
   // Cleared by GameManager when a level starts - these are static and would
   // otherwise carry a previous level's usage into the next one, which is the
@@ -39,6 +43,7 @@ public class BoosterEffects : MonoBehaviour
     for (int i = 0; i < usedOnWave.Length; i++) usedOnWave[i] = -1;
     FireRateMultiplier = 1f;
     overclockEndsAt = 0f;
+    shieldEndsAt = 0f;
     OnUsageChanged?.Invoke();
   }
 
@@ -78,6 +83,7 @@ public class BoosterEffects : MonoBehaviour
       case BoosterKind.FrostWave: Freeze(); break;
       case BoosterKind.Overclock: Runtime().BeginOverclock(); break;
       case BoosterKind.Mend: Mend(); break;
+      case BoosterKind.Shield: shieldEndsAt = Time.time + BoosterCatalog.ShieldSeconds; break;
     }
 
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
@@ -90,7 +96,7 @@ public class BoosterEffects : MonoBehaviour
   // Kills everything on the board WITHOUT paying gold for it (Enemy.Vaporize).
   //
   // That is the balance rule the whole booster hangs on: a bomb that paid full
-  // kill rewards would earn back more than its 600 coins on any dense late
+  // kill rewards would earn back more than its 1,000 coins on any dense late
   // wave, and buying bombs would become the cheapest way to farm coins rather
   // than a way out of trouble.
   private static void Detonate()

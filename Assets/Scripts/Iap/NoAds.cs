@@ -1,74 +1,43 @@
 using System;
 using UnityEngine;
 
-// Whether the player has removed the ads, and the two ways they can do it:
-// paying money (the `no_ads` entitlement, through RevenueCat) or paying coins.
+// Whether the player has removed the ads, bought with coins only - there is no
+// real-money route (see IapCatalog).
 //
-// The two are stored SEPARATELY and Active is either one. That separation is
-// the whole point of this file's shape. The entitlement is re-read from every
-// CustomerInfo RevenueCat sends, and a player who unlocked with coins has no
-// entitlement - so if both wrote one flag, the first refresh after a coin
-// unlock would switch the ads straight back on.
-//
-// Both are cached in PlayerPrefs and read from there at startup, because the
-// entitlement only arrives once RevenueCat has answered - a network round trip
-// that may never happen on a plane. Caching the LAST KNOWN state means an owner
-// is not shown interstitials during that gap, which is the failure that matters;
-// the opposite mistake (a non-owner briefly skipping an ad) costs nothing.
+// Cached in PlayerPrefs and read from there at startup. Local, like the coins
+// that bought it: a reinstall loses it along with the wallet, and there is
+// nothing to restore it from.
 //
 // It removes INTERSTITIALS only. Rewarded ads stay: the player chooses to watch
 // those and they pay coins, so taking them away would remove a faucet from
 // someone who has just paid, not a nuisance.
 public static class NoAds
 {
-  private const string EntitledKey = "Iap_NoAds";
   private const string CoinsKey = "Iap_NoAdsCoins";
 
-  // Sized against both routes to the same thing. Earned for free it is about
-  // five days of the daily rewarded-ad cap (10 x 300) - a real goal, not a
-  // formality. Bought, it is most of the 20,000-coin pack ($6.99),
-  // so for someone spending money the $3.99 direct purchase stays the better
-  // deal, which is the incentive that should hold: coins are the grinder's
-  // route, money is the payer's.
-  public const int CoinPrice = 15000;
+  // Priced so the 20,000 pack (EUR 6.99) is the natural way to buy it, with
+  // 2,000 left over for boosters. The 10,000 pack plus the 2,500 pack (13,500)
+  // falls short, and two 10,000 packs cost more than one 20,000. Earned free it
+  // is ~11 days of every ad (8 x 150) plus every streak claim, with nothing
+  // spent on boosters meanwhile - reachable, but not by just playing.
+  public const int CoinPrice = 18000;
 
   public static event Action OnChanged;
 
-  public static bool Active => Entitled || BoughtWithCoins;
+  public static bool Active => BoughtWithCoins;
 
-  // The paid route. Only this one carries the thank-you gift and survives a
-  // reinstall through Restore.
-  public static bool Entitled
-  {
-    get => PlayerPrefs.GetInt(EntitledKey, 0) == 1;
-    private set => Set(EntitledKey, value);
-  }
-
-  // The coin route. Local, like the coins that bought it: a reinstall loses it
-  // along with the wallet, and there is nothing to restore it from.
   public static bool BoughtWithCoins
   {
     get => PlayerPrefs.GetInt(CoinsKey, 0) == 1;
     private set => Set(CoinsKey, value);
   }
 
-  // Reads the entitlement out of a CustomerInfo. Only ever called with real
-  // customer info from the SDK; an absent or failed fetch leaves the cached
-  // value alone rather than clearing it. Never touches the coin unlock.
-  public static void Apply(Purchases.CustomerInfo customerInfo)
-  {
-    Purchases.EntitlementInfos entitlements = customerInfo?.Entitlements;
-    if (entitlements?.Active == null) return;
-
-    Entitled = entitlements.Active.ContainsKey(IapCatalog.NoAdsEntitlement);
-  }
-
-  // Spends the coins and removes the ads, or does nothing. Refused once ads are
-  // already off by either route, so nobody can pay twice for the same thing.
+  // Spends the coins and removes the ads, or does nothing. Refused once ads
+  // are already off, so nobody can pay twice for the same thing.
   public static bool BuyWithCoins()
   {
     if (Active) return false;
-    if (!Wallet.TrySpend(CoinPrice)) return false;
+    if (!Wallet.TrySpendOwn(CoinPrice)) return false;
 
     BoughtWithCoins = true;
     return true;
@@ -76,9 +45,8 @@ public static class NoAds
 
   // For the editor and for QA builds: lets the no-ads path be exercised without
   // a store account. Never called from game code.
-  public static void SetForTesting(bool entitled, bool boughtWithCoins)
+  public static void SetForTesting(bool boughtWithCoins)
   {
-    Entitled = entitled;
     BoughtWithCoins = boughtWithCoins;
   }
 

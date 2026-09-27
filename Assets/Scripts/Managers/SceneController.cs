@@ -39,8 +39,11 @@ public class SceneController : MonoBehaviour
       DontDestroyOnLoad(activeLoadingScreen);
     }
 
-    loadingScreenComponent?.Prepare(scene == GameScene.MainGame);
+    // Activate before styling: a freshly instantiated, still-inactive loading
+    // screen hasn't run Awake/OnEnable on its TMP text yet, and styling it
+    // (outlineWidth etc.) that early throws inside TMP's internals.
     activeLoadingScreen.SetActive(true);
+    loadingScreenComponent?.Prepare(scene == GameScene.MainGame);
 
     var sceneLoad = SceneManager.LoadSceneAsync(scene.ToString());
 

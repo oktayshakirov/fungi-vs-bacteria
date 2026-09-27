@@ -62,7 +62,7 @@ would be a false declaration.
 | Unity LevelPlay (ironSource) | `com.unity.services.levelplay` 8.10.2 | Ad mediation — serves the interstitial and rewarded ads |
 | Google Mobile Ads (AdMob) + UMP | `com.google.ads.mobile` 10.4.2 | AdMob demand through LevelPlay; UMP shows the GDPR consent form |
 | Unity iOS Support | `com.unity.ads.ios-support` 1.0.1 | The iOS App Tracking Transparency (ATT) prompt |
-| RevenueCat | `com.revenuecat.purchases-unity` 8.9.0 | In-app purchases (coin packs, Remove Ads) |
+| RevenueCat | `com.revenuecat.purchases-unity` 8.9.0 | In-app purchases (coin packs) |
 
 Consent flow at launch (`LevelPlayAds.ConsentThenInit`): **ATT prompt (iOS) →
 UMP consent form (GDPR regions only) → LevelPlay init.** The networks read the
@@ -85,8 +85,8 @@ SDK updates change them.
   fraud prevention.
 - **App activity → app interactions** — collected; advertising, analytics.
 - **App info and performance → crash logs, diagnostics** — collected; analytics.
-- **Purchase history** — collected (RevenueCat), for app functionality: it is what
-  makes Remove Ads survive a reinstall. Not shared for advertising.
+- **Purchase history** — collected (RevenueCat), for app functionality: it is how
+  coin-pack purchases are verified and paid out. Not shared for advertising.
 - **Encrypted in transit:** yes (all SDKs use HTTPS).
 - **Advertising ID declaration** (separate Play Console question): **yes** — the
   AdMob SDK merges `com.google.android.gms.permission.AD_ID` into the manifest.
@@ -155,33 +155,29 @@ StoreKit and Google Play Billing. The game never talks to either store directly.
 | Product ID | Type | What it gives |
 |---|---|---|
 | `fungivsbacteria.coins.2500` | Consumable | 2,500 coins |
-| `fungivsbacteria.coins.8000` | Consumable | 8,000 coins |
+| `fungivsbacteria.coins.10000` | Consumable | 10,000 coins (the game pays 11,000 - see below) |
 | `fungivsbacteria.coins.20000` | Consumable | 20,000 coins |
 | `fungivsbacteria.coins.50000` | Consumable | 50,000 coins |
-| `fungivsbacteria.noads` | Non-consumable | Removes interstitials, plus 5,000 coins |
 
-Intended prices are $0.99 / $2.99 / $6.99 / $14.99 and $3.99. The **prices shown in
+Store prices are EUR 0.99 / 3.99 / 6.99 / 14.99. At 3.99, a plain 10,000 would be
+a worse rate than the 0.99 pack, so `IapCatalog` pays 11,000 for it (+9% badge;
+the others show +13% and +32%). The **prices shown in
 the game always come from the store**, never from the code — a hand-formatted price
 is wrong in every other currency and is a review rejection. The only thing the code
 derives from the intended ladder is the "+13%" bonus badge, which is a marketing cue
 rather than an exact rate (`IapCatalog.BonusPercent`).
 
-Remove Ads is granted through a RevenueCat **entitlement** named `no_ads`, not by
-product id, so the product behind it can change without a build. It can ALSO be
-bought for **15,000 coins** in the store (`NoAds.CoinPrice`), with no store
-involvement at all. The two routes are stored separately and either one turns the
-ads off — a coin unlock is never touched by an entitlement refresh — and only the
-paid route carries the 5,000-coin thank-you gift and is brought back by Restore. It removes
-interstitials only: rewarded ads stay, because the player opts into those and they
-pay coins.
+Remove Ads is not a store product: it is bought in-game for **15,000 coins**
+(`NoAds.CoinPrice`), with no store involvement, and is saved locally like the
+wallet (lost on reinstall). It removes interstitials only: rewarded ads stay,
+because the player opts into those and they pay coins.
 
 ### You must do this (accounts — cannot be automated)
 
-- [ ] Create all five products in **App Store Connect** and **Google Play Console**
-      with exactly the IDs above (consumable / non-consumable as listed)
-- [ ] Create the RevenueCat project, add both apps, and create the `no_ads`
-      entitlement attached to `fungivsbacteria.noads`
-- [ ] Put all five products in an **offering** so they can be reordered later
+- [ ] Create all four products in **App Store Connect** and **Google Play Console**
+      as consumables with exactly the IDs above
+- [ ] Create the RevenueCat project and add both apps
+- [ ] Put all four products in an **offering** so they can be reordered later
       without a build
 - [ ] Paste the RevenueCat **public SDK keys** into `Assets/Editor/IapSetup.cs`
       and run **Tools → IAP → Apply Keys**. Never put the *secret* key in this
@@ -201,8 +197,8 @@ pay coins.
   purchase arrives for an ID that is not in `IapCatalog`, and deliberately does
   NOT mark it as granted, so a later build that knows the product still pays it.
 - **Coins granted twice.** Should be impossible: grants are keyed on the store
-  transaction id in `PlayerPrefs`, and all four paths (purchase, restore, startup
-  fetch, SDK push) go through the same `IapGrant.ProcessCustomerInfo`.
+  transaction id in `PlayerPrefs`, and all three paths (purchase, startup fetch,
+  SDK push) go through the same `IapGrant.ProcessCustomerInfo`.
 
 ## Known gaps (deliberate, post-1.0)
 

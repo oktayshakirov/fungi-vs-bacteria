@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
@@ -25,6 +26,37 @@ public class PauseGameScreen : MonoBehaviour
     }
 
     ScreenTheme.Apply(transform, resumeGameButton);
+    BuildStoreButton();
+  }
+
+  // A player paused mid-level to check the store had no way to reach it
+  // without abandoning the run through Return to Menu. Built at runtime and
+  // slotted right under Resume, in the same ButtonsPanel column ScreenTheme
+  // already sized and styled the other three buttons into.
+  private void BuildStoreButton()
+  {
+    Transform panel = resumeGameButton != null ? resumeGameButton.transform.parent : null;
+    if (panel == null) return;
+
+    var go = new GameObject("StoreButton", typeof(RectTransform));
+    go.transform.SetParent(panel, false);
+    go.transform.SetSiblingIndex(resumeGameButton.transform.GetSiblingIndex() + 1);
+
+    var element = go.AddComponent<LayoutElement>();
+    element.minHeight = 76f;
+    element.preferredHeight = 84f;
+
+    // Gold, matching the "VS" in the menu title.
+    Button button = UiSkin.IconButton(go, UiSprites.Bag(), UiSkin.Gold, out TMP_Text label,
+      UiSkin.RadiusButton, UiSkin.TextDark);
+    label.text = "STORE";
+    label.alignment = TextAlignmentOptions.Midline;
+
+    button.onClick.AddListener(() =>
+    {
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      WalletScreen.Open(transform);
+    });
   }
 
   public void Show()
