@@ -56,6 +56,11 @@ public static class UiPreview
       settings: true);
 
     ShootWallet(cam, "screen-wallet");
+    // The store and Get Coins are two separate screens now, and the second one
+    // has two tabs of its own, so one shot of the first can no longer stand in
+    // for all of it.
+    ShootWallet(cam, "screen-getcoins", coins: true);
+    ShootWallet(cam, "screen-getcoins-packs", coins: true, tab: WalletScreen.TabPacks);
     ShootPlacement(cam, "hud-placing");
     ShootTowerActions(cam, "hud-tower-actions");
     ShootTutorial(cam, "screen-tutorial");
@@ -648,9 +653,10 @@ public static class UiPreview
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
   }
 
-  // The wallet has no prefab — it is built entirely in code — so it is
-  // constructed here the same way the game constructs it.
-  private static void ShootWallet(Camera cam, string name)
+  // The store and Get Coins have no prefab — both are built entirely in code —
+  // so they are constructed here the same way the game constructs them.
+  private static void ShootWallet(Camera cam, string name, bool coins = false,
+    int tab = WalletScreen.TabFree)
   {
     const int width = 1920, height = 1080;
     ClearCanvases();
@@ -677,7 +683,8 @@ public static class UiPreview
       { IapCatalog.Coins50000, "€14.99" },
     });
 
-    WalletScreen.Open(host.transform);
+    if (coins) WalletScreen.OpenCoins(host.transform, tab: tab);
+    else WalletScreen.OpenStore(host.transform);
 
     Canvas.ForceUpdateCanvases();
     LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)host.transform);

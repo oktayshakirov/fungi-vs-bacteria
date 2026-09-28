@@ -55,7 +55,7 @@ public class PauseGameScreen : MonoBehaviour
     button.onClick.AddListener(() =>
     {
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-      WalletScreen.Open(transform);
+      WalletScreen.OpenStore(transform);
     });
   }
 

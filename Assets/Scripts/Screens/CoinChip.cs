@@ -2,8 +2,12 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// The coin balance shown in the top-left of the main menu, with a "+" that
-// opens the wallet.
+// The coin balance shown in the top-left of the main menu.
+//
+// A passive readout and nothing else. It used to carry a "+" button that
+// opened the store, which asked the player to read a plus sign as "shop":
+// the labelled GET COINS pill under it now says so in words, so the chip is
+// back to doing one job.
 //
 // Built in code rather than authored into the menu prefab, for the same reason
 // the rest of the menu is: DisplaySetup/MenuLayout own the menu's layout, and a
@@ -13,7 +17,7 @@ public class CoinChip : MonoBehaviour
 {
   private TMP_Text amountLabel;
 
-  public static CoinChip Create(Transform parent, System.Action onPlusClicked)
+  public static CoinChip Create(Transform parent)
   {
     var go = new GameObject("CoinChip", typeof(RectTransform));
     go.transform.SetParent(parent, false);
@@ -24,14 +28,16 @@ public class CoinChip : MonoBehaviour
     rect.pivot = new Vector2(0f, 1f);
     // Matches the settings gear's inset on the opposite corner.
     rect.anchoredPosition = new Vector2(MenuLayout.CornerInset, -MenuLayout.CornerInset);
-    rect.sizeDelta = new Vector2(230f, 76f);
+    // Narrower than the pills below it now that the "+" is gone: a chip
+    // padded out to 230 with empty space read as a button missing its label.
+    rect.sizeDelta = new Vector2(190f, 76f);
 
     var chip = go.AddComponent<CoinChip>();
-    chip.Build(onPlusClicked);
+    chip.Build();
     return chip;
   }
 
-  private void Build(System.Action onPlusClicked)
+  private void Build()
   {
     var background = gameObject.AddComponent<Image>();
     UiSkin.Panel(background, UiSkin.PanelRaised, UiSkin.RadiusChip);
@@ -58,34 +64,6 @@ public class CoinChip : MonoBehaviour
     amountLabel.alignment = TextAlignmentOptions.MidlineLeft;
     amountLabel.raycastTarget = false;
     labelGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
-
-    // The "+" is the entry point to the wallet. It is a real button inside the
-    // chip so the balance itself stays a passive readout.
-    var plusGo = new GameObject("Plus", typeof(RectTransform));
-    plusGo.transform.SetParent(transform, false);
-    var plusImage = plusGo.AddComponent<Image>();
-    var plus = plusGo.AddComponent<Button>();
-    UiSkin.StyleButton(plus, UiSkin.Primary, UiSkin.RadiusChip);
-    plusImage.sprite = UiSprites.Button(UiSkin.RadiusChip);
-
-    var plusLabelGo = new GameObject("Label", typeof(RectTransform));
-    plusLabelGo.transform.SetParent(plusGo.transform, false);
-    var plusLabel = plusLabelGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(plusLabel, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
-    plusLabel.text = "+";
-    plusLabel.alignment = TextAlignmentOptions.Center;
-    plusLabel.raycastTarget = false;
-    UiSkin.Stretch((RectTransform)plusLabelGo.transform);
-
-    var plusElement = plusGo.AddComponent<LayoutElement>();
-    plusElement.preferredWidth = 58f;
-    plusElement.flexibleWidth = 0f;
-
-    plus.onClick.AddListener(() =>
-    {
-      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-      onPlusClicked?.Invoke();
-    });
 
     Refresh(Wallet.Coins);
   }

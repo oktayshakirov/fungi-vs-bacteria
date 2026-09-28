@@ -11,7 +11,33 @@ public static class BoosterInventory
 {
   private const string KeyPrefix = "Booster_";
 
+  // One of each, once, on a fresh install. A new player had no boosters, so
+  // the booster bar was five greyed-out buttons that never did anything until
+  // they went looking in a store they had no reason to open - the mechanic was
+  // invisible for as long as it took to notice it. Owning one of each means it
+  // is discovered by using it, and running out is what sends them to the store.
+  //
+  // Its own key, not a count check: granting it whenever the inventory is empty
+  // would hand out a fresh kit every time a player spent their last booster.
+  private const string StarterKey = "Booster_StarterGranted";
+  public const int StarterAmount = 1;
+
   public static event Action OnChanged;
+
+  // BeforeSceneLoad, so the bar and the store see the grant on the very first
+  // frame of a fresh install rather than a frame after they have drawn.
+  [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+  private static void GrantStarterBoosters()
+  {
+    if (PlayerPrefs.GetInt(StarterKey, 0) == 1) return;
+
+    // Written BEFORE the grant: a process killed midway through must not come
+    // back and grant a second kit.
+    PlayerPrefs.SetInt(StarterKey, 1);
+    PlayerPrefs.Save();
+
+    foreach (BoosterKind kind in BoosterCatalog.All) Add(kind, StarterAmount);
+  }
 
   public static int Count(BoosterKind kind) =>
     Mathf.Max(0, PlayerPrefs.GetInt(Key(kind), 0));

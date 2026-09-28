@@ -8,8 +8,15 @@ using UnityEngine;
 // dip into casually. Missing a day resets to day one - without that, there is
 // no reason to come back tomorrow specifically.
 //
+// After day five the cycle RESTARTS at day one rather than running on at
+// 1,000/day: an unbroken streak would otherwise pay out more than the cheapest
+// coin pack every single day, for an ad. Restarting keeps the ladder worth
+// climbing repeatedly and keeps the daily ceiling bounded.
+//
 // Deliberately separate from RewardedGate: this claim is once a day and should
 // not be blocked by, or count towards, the wallet's cooldown and daily cap.
+// It is the FIRST ad of the day, and the wallet shows it on the same button as
+// the plain ad - see WalletScreen.TodayAdReward.
 public static class DailyStreak
 {
   // Every day beats a plain ad (RewardedGate.CoinsPerAd), since each claim is
@@ -35,10 +42,14 @@ public static class DailyStreak
       int stored = PlayerPrefs.GetInt(DayIndexKey, 0);
       string last = LastClaim;
 
-      if (string.IsNullOrEmpty(last)) return 0;
+      if (string.IsNullOrEmpty(last)) return 0;                  // never claimed
       if (last == Today) return stored;        // already claimed; stored is today's
+      // Unbroken: step on, wrapping back to day one past the end of the ladder.
       if (last == Yesterday) return stored + 1 >= Length ? 0 : stored + 1;
-      return 0;                                // a gap - streak is broken
+      // Anything else is a gap - a missed day, or a clock moved backwards past
+      // the last claim. Both reset to day one, which is the safe direction:
+      // the worst a clock-fiddler can do to themselves is start over.
+      return 0;
     }
   }
 

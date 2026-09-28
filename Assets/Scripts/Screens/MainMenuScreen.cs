@@ -35,14 +35,13 @@ public class MainMenu : MonoBehaviour
     // is the rect MenuLayout anchors against, so the chip and the gear share a
     // coordinate space and stay in the same band on every aspect ratio.
     Transform cornerHost = settingsButton != null ? settingsButton.transform.parent : transform;
-    // The "+" is a player saying "I want more coins" - it opens straight to
-    // the Coins tab rather than landing on Boosters like every other entry
-    // point into the store.
-    CoinChip.Create(cornerHost, () => OpenWallet(WalletScreen.TabCoins));
+    // A readout now, not a button: the two labelled pills under it are the
+    // way in, so nobody has to read a "+" as "shop".
+    CoinChip.Create(cornerHost);
 
-    // The coin chip's "+" already opened the store, but nothing on the menu
-    // said a store existed - a player had to notice a plus sign meant "spend
-    // coins". A labelled button right under the balance says so directly.
+    // Two pills under the balance, in the order a player needs them: how to
+    // GET coins, then what to SPEND them on.
+    BuildCoinsButton(cornerHost);
     BuildStoreButton(cornerHost);
 
     // Cold launch only. The ad SDK does its main-thread startup work behind
@@ -53,38 +52,63 @@ public class MainMenu : MonoBehaviour
     }
   }
 
-  private void OpenWallet(int tab)
+  // Two compact pills directly under the coin chip, same left inset, stacked
+  // as one column with the balance above them.
+  //
+  // Both are coloured from the skin's own palette: GET COINS is Gold, the
+  // currency colour, and carries the "+" that used to live inside the chip;
+  // STORE is Primary green, the same green as PLAY and the title, so the menu
+  // reads as one system rather than three unrelated colours. A grey STORE
+  // plate read as disabled next to the gold pill above it.
+  // Matched to the coin chip above them, so the three read as one flush
+  // column rather than a narrow chip over two wider plates.
+  private const float PillWidth = 190f;
+  private const float PillHeight = 54f;
+  private const float ChipHeight = 76f;
+
+  private void BuildCoinsButton(Transform parent)
   {
-    if (screensTransform == null) return;
-    WalletScreen.Open(screensTransform, tab: tab);
+    Button button = BuildPill(parent, "GetCoinsButton", "GET COINS", UiSprites.Plus(),
+      UiSkin.Gold, UiSkin.TextDark, MenuLayout.CornerInset + ChipHeight + 10f);
+
+    button.onClick.AddListener(() =>
+    {
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      if (screensTransform != null) WalletScreen.OpenCoins(screensTransform);
+    });
   }
 
-  // A compact "STORE" pill directly under the coin chip, same width, same
-  // corner inset - reads as one column with the balance above it rather than
-  // a second, unrelated control.
   private void BuildStoreButton(Transform parent)
   {
-    var go = new GameObject("StoreButton", typeof(RectTransform));
+    Button button = BuildPill(parent, "StoreButton", "STORE", UiSprites.Bag(),
+      UiSkin.Primary, UiSkin.TextDark,
+      MenuLayout.CornerInset + ChipHeight + 10f + PillHeight + 8f);
+
+    button.onClick.AddListener(() =>
+    {
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      if (screensTransform != null) WalletScreen.OpenStore(screensTransform);
+    });
+  }
+
+  private static Button BuildPill(Transform parent, string name, string text, Sprite icon,
+    Color tint, Color textColor, float fromTop)
+  {
+    var go = new GameObject(name, typeof(RectTransform));
     go.transform.SetParent(parent, false);
 
     var rect = (RectTransform)go.transform;
     rect.anchorMin = new Vector2(0f, 1f);
     rect.anchorMax = new Vector2(0f, 1f);
     rect.pivot = new Vector2(0f, 1f);
-    rect.anchoredPosition = new Vector2(MenuLayout.CornerInset, -MenuLayout.CornerInset - 76f - 10f);
-    rect.sizeDelta = new Vector2(230f, 54f);
+    rect.anchoredPosition = new Vector2(MenuLayout.CornerInset, -fromTop);
+    rect.sizeDelta = new Vector2(PillWidth, PillHeight);
 
-    // Gold, matching the "VS" in the menu title.
-    Button button = UiSkin.IconButton(go, UiSprites.Bag(), UiSkin.Gold, out TMP_Text label,
-      UiSkin.RadiusChip, UiSkin.TextDark);
-    label.text = "STORE";
+    Button button = UiSkin.IconButton(go, icon, tint, out TMP_Text label,
+      UiSkin.RadiusChip, textColor);
+    label.text = text;
     label.alignment = TextAlignmentOptions.MidlineLeft;
-
-    button.onClick.AddListener(() =>
-    {
-      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-      OpenWallet(WalletScreen.TabBoosters);
-    });
+    return button;
   }
 
   private void OnPlayClicked()

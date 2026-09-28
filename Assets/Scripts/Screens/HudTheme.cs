@@ -448,6 +448,12 @@ public static class HudTheme
     rail.width = width;
     rail.right = RailInset;
     rail.bottom = RailBottomMargin;
+
+    // Published for the booster bar, which sits along the bottom of the screen
+    // and has to know where the right-hand furniture starts. The rail's width
+    // comes from the tower grid's cell size at runtime, so it cannot be a
+    // constant and nothing else can work it out on its own.
+    RightRailSpan = RailInset + width;
     return rail;
   }
 
@@ -599,6 +605,11 @@ public static class HudTheme
   public const float StackedButtonWidth = 132f;
   public const float StackedButtonHeight = 58f;
   public const float EdgeMargin = 20f;
+
+  // How much of the right edge the towers rail and Start Wave occupy, measured
+  // when the rail is laid out. Zero until then, which is the safe default: a
+  // bar that assumes nothing is there simply centres itself.
+  public static float RightRailSpan { get; private set; }
 
   // The scene anchors the right-hand HUD at x = +10, i.e. ten units past the
   // screen edge. That was survivable at the old canvas scale; once the UI was

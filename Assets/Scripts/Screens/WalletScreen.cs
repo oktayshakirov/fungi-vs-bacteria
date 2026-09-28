@@ -3,8 +3,18 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// The coin wallet: current balance, a rewarded ad to earn more, and a plain
-// statement of what coins are for.
+// Two screens built from one class, because they share a card, a header, a
+// balance chip and a scroll body and differed only in what goes inside:
+//
+//   STORE     - what coins buy. Boosters and Remove Ads, no tabs.
+//   GET COINS - how to get coins. Two tabs: FREE COINS (rewarded ads and the
+//               daily streak) and COIN PACKS (the real-money products).
+//
+// They used to be a single dialog with three tabs (BOOSTERS / COINS / FREE),
+// which made "spend" and "earn" the same place and asked the player to find
+// the right tab for whichever one they came for. Splitting them means each
+// entry point lands somewhere that already answers the question it was
+// opened with.
 //
 // Built entirely in code, with no prefab. Every other screen is a prefab, but
 // those predate the code-built skin and each one needed a runtime pass
@@ -17,35 +27,49 @@ public class WalletScreen : MonoBehaviour
   private Button watchButton;
   private TMP_Text watchLabel;
   private TMP_Text statusLabel;
-  private Button streakButton;
-  private TMP_Text streakLabel;
+  private TMP_Text streakCaption;
+  private Transform streakPips;
   private bool awaitingAd;
   private Action onClosed;
   private int initialTab;
+  private Mode mode;
 
-  // The three shelves and the buttons that switch between them.
-  private RectTransform boostersTab;
-  private RectTransform coinsTab;
+  // Which of the two screens this instance is.
+  public enum Mode { Store, Coins }
+
+  // The shelves and the buttons that switch between them. The store has a
+  // single shelf and no tab bar; Get Coins has two.
+  private RectTransform storeShelf;
   private RectTransform freeTab;
+  private RectTransform packsTab;
   private readonly System.Collections.Generic.List<(Button button, TMP_Text label)> tabButtons =
     new System.Collections.Generic.List<(Button, TMP_Text)>();
 
-  // Tab indices, for callers that want to land on a specific shelf - the
-  // wallet chip's "+" opens straight to Coins rather than Boosters, since
-  // tapping it is a player saying "I want more coins", not "show me boosters".
-  public const int TabBoosters = 0;
-  public const int TabCoins = 1;
-  public const int TabFree = 2;
+  // Tab indices within GET COINS. Free is first and is the default: a player
+  // who taps "get coins" is not necessarily saying "sell me something", and
+  // the free options should not be the tab they have to go looking for.
+  public const int TabFree = 0;
+  public const int TabPacks = 1;
 
-  public static WalletScreen Open(Transform parent, Action onClosed = null, int tab = TabBoosters)
+  // What coins buy: boosters, and Remove Ads. No tabs.
+  public static WalletScreen OpenStore(Transform parent, Action onClosed = null) =>
+    Create(parent, Mode.Store, TabFree, onClosed);
+
+  // How to get coins: free first, packs second.
+  public static WalletScreen OpenCoins(Transform parent, Action onClosed = null, int tab = TabFree) =>
+    Create(parent, Mode.Coins, tab, onClosed);
+
+  private static WalletScreen Create(Transform parent, Mode mode, int tab, Action onClosed)
   {
-    var go = new GameObject("WalletScreen", typeof(RectTransform));
+    var go = new GameObject(mode == Mode.Store ? "StoreScreen" : "GetCoinsScreen",
+      typeof(RectTransform));
     go.transform.SetParent(parent, false);
     UiSkin.Stretch((RectTransform)go.transform);
 
     var screen = go.AddComponent<WalletScreen>();
     screen.onClosed = onClosed;
-    screen.initialTab = Mathf.Clamp(tab, TabBoosters, TabFree);
+    screen.mode = mode;
+    screen.initialTab = Mathf.Clamp(tab, TabFree, TabPacks);
     screen.Build();
     return screen;
   }
@@ -64,37 +88,37 @@ public class WalletScreen : MonoBehaviour
     RectTransform safeArea = ScreenTheme.EnsureSafeArea(transform);
 
     RectTransform card = Panel(safeArea);
-    Header(card, "STORE");
+    Header(card, mode == Mode.Store ? "STORE" : "GET COINS");
 
-    // Three shelves - what coins buy in a level, what money buys, what is
-    // free - shown one at a time instead of one long scroll. The dialog used
-    // to run boosters, packs, remove-ads and the free-coins rows together in a
-    // single ~860-unit column, which meant scrolling past everything else to
-    // find any one of them. A tab switches which shelf is visible; each one is
-    // still wrapped in the same scroll body so a long booster or pack list
-    // never overflows the card on a small phone.
-    TabBar(card);
+    // The store is one shelf, so it gets no tab bar at all - a single tab is
+    // a control that cannot do anything.
+    if (mode == Mode.Coins) TabBar(card);
 
     RectTransform body = ScrollBody(card);
 
-    boostersTab = TabPanel(body, "BoostersTab");
-    BoostersSection(boostersTab);
+    if (mode == Mode.Store)
+    {
+      storeShelf = TabPanel(body, "StoreShelf");
+      BoostersSection(storeShelf);
+      SectionHeader(storeShelf, "EXTRAS");
+      NoAdsRow(storeShelf);
+      StatusLine(storeShelf);
+    }
+    else
+    {
+      freeTab = TabPanel(body, "FreeTab");
+      StreakRow(freeTab);
+      WatchAdRow(freeTab);
+      Explainer(freeTab);
 
-    coinsTab = TabPanel(body, "CoinsTab");
-    SectionHeader(coinsTab, "COIN PACKS");
-    PacksSection(coinsTab);
-    SectionHeader(coinsTab, "REMOVE ADS");
-    NoAdsRow(coinsTab);
+      packsTab = TabPanel(body, "PacksTab");
+      PacksSection(packsTab);
 
-    freeTab = TabPanel(body, "FreeTab");
-    SectionHeader(freeTab, "FREE COINS");
-    StreakRow(freeTab);
-    WatchAdRow(freeTab);
-    Explainer(freeTab);
-
-    SelectTab(initialTab);
+      SelectTab(initialTab);
+    }
 
     RefreshBalance(Wallet.OwnCoins);
+    RefreshStreak();
     RefreshWatchButton();
     RefreshStore();
   }
@@ -275,9 +299,10 @@ public class WalletScreen : MonoBehaviour
     close.onClick.AddListener(Close);
   }
 
-  // The three tab buttons - BOOSTERS / COINS / FREE - sitting between the
-  // title and the scrollable body. A fixed-height row rather than part of the
+  // The two tab buttons - FREE COINS / COIN PACKS - sitting between the title
+  // and the scrollable body. A fixed-height row rather than part of the
   // scroll, so it is always visible regardless of which shelf is open.
+  // Built only in Coins mode; the store has nothing to switch between.
   private void TabBar(RectTransform parent)
   {
     const float tabHeight = 46f;
@@ -303,7 +328,7 @@ public class WalletScreen : MonoBehaviour
     row.childForceExpandWidth = true;
     row.childForceExpandHeight = true;
 
-    string[] labels = { "BOOSTERS", "COINS", "FREE" };
+    string[] labels = { "FREE COINS", "COIN PACKS" };
     for (int i = 0; i < labels.Length; i++)
     {
       int index = i;
@@ -351,9 +376,10 @@ public class WalletScreen : MonoBehaviour
 
   private void SelectTab(int index)
   {
-    boostersTab.gameObject.SetActive(index == 0);
-    coinsTab.gameObject.SetActive(index == 1);
-    freeTab.gameObject.SetActive(index == 2);
+    if (freeTab == null || packsTab == null) return;   // store mode: no tabs
+
+    freeTab.gameObject.SetActive(index == TabFree);
+    packsTab.gameObject.SetActive(index == TabPacks);
 
     for (int i = 0; i < tabButtons.Count; i++)
     {
@@ -397,6 +423,13 @@ public class WalletScreen : MonoBehaviour
     lineImage.raycastTarget = false;
   }
 
+  // THE button. There is only one "watch an ad" offer in the game, and what
+  // it pays changes: the first ad of the day claims the next rung of the daily
+  // streak (200 -> 1,000), and every ad after that pays the flat rate.
+  //
+  // This used to be two buttons stacked on top of each other, both saying
+  // WATCH AD with different numbers, which asked the player to work out which
+  // ad they wanted to watch - a question the game already knows the answer to.
   private void WatchAdRow(RectTransform parent)
   {
     var go = new GameObject("WatchAd", typeof(RectTransform));
@@ -405,22 +438,33 @@ public class WalletScreen : MonoBehaviour
     watchButton = UiSkin.IconButton(go, UiSprites.Coin(), UiSkin.Primary, out watchLabel,
       UiSkin.RadiusButton, UiSkin.Gold);
     watchLabel.alignment = TextAlignmentOptions.Center;
-    // Was 96 - taller than every other row in the store for a button that
-    // does the same job (watch an ad, get coins) as the streak button below,
-    // which manages at 56. Matched down to that so the FREE tab's three rows
-    // fit the card without pushing the whole shelf into a scroll.
-    go.AddComponent<LayoutElement>().preferredHeight = 64f;
+    go.AddComponent<LayoutElement>().preferredHeight = 72f;
 
     watchButton.onClick.AddListener(OnWatchClicked);
 
-    var statusGo = new GameObject("Status", typeof(RectTransform));
-    statusGo.transform.SetParent(parent, false);
-    statusLabel = statusGo.AddComponent<TextMeshProUGUI>();
+    StatusLine(parent);
+  }
+
+  // One line of feedback per screen - "+150 coins!", "Not enough coins.", a
+  // purchase result. Both screens need it, and several handlers write to it
+  // without knowing which screen they are on, so it is never left null: the
+  // store used to report "Not enough coins" into a label that only the free
+  // tab had built, which meant a failed purchase said nothing at all.
+  private void StatusLine(RectTransform parent)
+  {
+    var go = new GameObject("Status", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+    statusLabel = go.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(statusLabel, UiSkin.Role.Caption, UiSkin.TextMuted);
     statusLabel.alignment = TextAlignmentOptions.Center;
     statusLabel.text = "";
-    statusGo.AddComponent<LayoutElement>().preferredHeight = 30f;
+    go.AddComponent<LayoutElement>().preferredHeight = 30f;
   }
+
+  // What the next ad is worth: the streak rung while today's check-in is still
+  // unclaimed, the flat rate afterwards.
+  private static int TodayAdReward =>
+    DailyStreak.ClaimedToday ? RewardedGate.CoinsPerAd : DailyStreak.TodayReward;
 
   // Five pips, one per streak day, with the reward under each. Claimed days are
   // filled gold, today's is outlined in the call-to-action colour, and future
@@ -445,9 +489,7 @@ public class WalletScreen : MonoBehaviour
     var heading = headingGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(heading, UiSkin.Role.Caption, UiSkin.TextMuted);
     heading.alignment = TextAlignmentOptions.Center;
-    heading.text = DailyStreak.ClaimedToday
-      ? "DAILY STREAK - COME BACK TOMORROW"
-      : "DAILY STREAK";
+    heading.text = "DAILY STREAK";
     headingGo.AddComponent<LayoutElement>().preferredHeight = 26f;
 
     var pipsGo = new GameObject("Pips", typeof(RectTransform));
@@ -461,6 +503,46 @@ public class WalletScreen : MonoBehaviour
     row.childForceExpandHeight = false;
     pipsGo.AddComponent<LayoutElement>().preferredHeight = 74f;
 
+    // Filled by RefreshStreak, which runs at the end of Build() - building
+    // them here too would leave ten pips in the row for a frame, which is
+    // exactly one frame too many for the editor's preview renderer.
+    streakPips = pipsGo.transform;
+
+    // One line saying where in the ladder the player is and what it means for
+    // the button below - the card is otherwise five dots and five numbers with
+    // nothing tying them to the offer underneath.
+    var captionGo = new GameObject("Caption", typeof(RectTransform));
+    captionGo.transform.SetParent(go.transform, false);
+    streakCaption = captionGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(streakCaption, UiSkin.Role.Caption, UiSkin.TextMuted);
+    streakCaption.alignment = TextAlignmentOptions.Center;
+    streakCaption.enableAutoSizing = false;
+    streakCaption.fontSize = 20f;
+    captionGo.AddComponent<LayoutElement>().preferredHeight = 28f;
+
+    // heading(26) + spacing(8) + pips(74) + spacing(8) + caption(28) +
+    // padding(12 top + 12 bottom) - recomputed rather than left as a round
+    // guess, so changing a row above doesn't leave dead space or clip it.
+    go.AddComponent<LayoutElement>().preferredHeight = 168f;
+  }
+
+  // Rebuilt rather than restyled in place: claiming moves which pip is filled
+  // AND which one is highlighted as today, so every pip in the row changes
+  // state anyway. Five objects is not worth an incremental update.
+  private void BuildPips()
+  {
+    if (streakPips == null) return;
+
+    for (int i = streakPips.childCount - 1; i >= 0; i--)
+    {
+      GameObject pip = streakPips.GetChild(i).gameObject;
+      // Destroy() is deferred to the end of the frame, which is a frame too
+      // late for the editor's preview renderer - it lays out and shoots
+      // immediately and would catch both sets of pips in the row.
+      if (Application.isPlaying) Destroy(pip);
+      else DestroyImmediate(pip);
+    }
+
     int claimed = DailyStreak.ClaimedInStreak;
     int todayIndex = DailyStreak.CurrentDay - 1;
 
@@ -468,14 +550,8 @@ public class WalletScreen : MonoBehaviour
     {
       bool isDone = i < claimed;
       bool isToday = !DailyStreak.ClaimedToday && i == todayIndex;
-      BuildPip(pipsGo.transform, DailyStreak.Rewards[i], isDone, isToday);
+      BuildPip(streakPips, DailyStreak.Rewards[i], isDone, isToday);
     }
-
-    streakButton = BuildStreakButton(go.transform);
-    // heading(26) + spacing(8) + pips(74) + spacing(8) + button(56) +
-    // padding(12 top + 12 bottom) - recomputed rather than left as a round
-    // guess, so shrinking the button below doesn't leave dead space or clip it.
-    go.AddComponent<LayoutElement>().preferredHeight = 196f;
   }
 
   private void BuildPip(Transform parent, int reward, bool isDone, bool isToday)
@@ -513,48 +589,6 @@ public class WalletScreen : MonoBehaviour
     labelGo.AddComponent<LayoutElement>().preferredHeight = 24f;
   }
 
-  private Button BuildStreakButton(Transform parent)
-  {
-    var go = new GameObject("ClaimStreak", typeof(RectTransform));
-    go.transform.SetParent(parent, false);
-
-    Button button = UiSkin.IconButton(go, UiSprites.Coin(), UiSkin.Primary,
-      out streakLabel, UiSkin.RadiusButton, UiSkin.Gold);
-    streakLabel.alignment = TextAlignmentOptions.Center;
-    go.AddComponent<LayoutElement>().preferredHeight = 56f;
-
-    button.onClick.AddListener(OnClaimStreakClicked);
-    return button;
-  }
-
-  private void OnClaimStreakClicked()
-  {
-    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-    if (DailyStreak.ClaimedToday) return;
-
-    awaitingAd = true;
-    RefreshWatchButton();
-
-    Ads.ShowRewarded(
-      _ =>
-      {
-        awaitingAd = false;
-        int reward = DailyStreak.Claim();
-        Ads.DeferInterstitial();
-        Haptics.Play(Haptics.Style.Success);
-        AudioManager.Instance?.PlaySound(AudioManager.SoundType.LevelPicked);
-        statusLabel.text = $"Day {DailyStreak.CurrentDay - 1} claimed: +{reward}!";
-        RefreshWatchButton();
-      },
-      () =>
-      {
-        awaitingAd = false;
-        statusLabel.text = "No ad available right now. Try again shortly.";
-        Ads.Prewarm();
-        RefreshWatchButton();
-      });
-  }
-
   // ------------------------------------------------------------- boosters
 
   // Bought with COINS, not money, which is why this sits above the coin packs:
@@ -570,14 +604,65 @@ public class WalletScreen : MonoBehaviour
     foreach (BoosterKind kind in BoosterCatalog.All) BuildBoosterRow(parent, kind);
   }
 
-  // First on the shelf because it is the best deal in the store.
+  // First on the shelf because it is the best deal in the store, and built as
+  // a two-line card rather than one long label: "SURVIVAL KIT - 1 OF EACH
+  // -25%  1530" auto-sized itself down to fit a single line, so the best offer
+  // in the store was also its smallest text.
   private void BuildKitRow(RectTransform parent)
   {
-    Button kit = LabelButton(parent, "SurvivalKit", UiSkin.Primary, UiSkin.TextDark,
-      out TMP_Text label);
-    kit.GetComponent<LayoutElement>().preferredHeight = 78f;
+    var go = new GameObject("SurvivalKit", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+    go.AddComponent<Image>();
+    var kit = go.AddComponent<Button>();
+    UiSkin.StyleButton(kit, UiSkin.Primary, UiSkin.RadiusButton);
+    go.AddComponent<LayoutElement>().preferredHeight = 88f;
+
+    var row = go.AddComponent<HorizontalLayoutGroup>();
+    row.padding = new RectOffset(18, 16, 10, 10);
+    row.spacing = 12f;
+    row.childAlignment = TextAnchor.MiddleLeft;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = false;
+    row.childForceExpandHeight = true;
+
+    var textGo = new GameObject("Text", typeof(RectTransform));
+    textGo.transform.SetParent(go.transform, false);
+    var stack = textGo.AddComponent<VerticalLayoutGroup>();
+    stack.spacing = 0f;
+    stack.childAlignment = TextAnchor.MiddleLeft;
+    stack.childControlWidth = true;
+    stack.childControlHeight = true;
+    stack.childForceExpandWidth = true;
+    stack.childForceExpandHeight = false;
+    textGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+
+    var nameGo = new GameObject("Name", typeof(RectTransform));
+    nameGo.transform.SetParent(textGo.transform, false);
+    var name = nameGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(name, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
+    name.text = "SURVIVAL KIT";
+    name.alignment = TextAlignmentOptions.MidlineLeft;
+    name.textWrappingMode = TextWrappingModes.NoWrap;
+    name.fontSizeMax = 30f;
+    name.raycastTarget = false;
+    nameGo.AddComponent<LayoutElement>().preferredHeight = 34f;
+
     int percent = Mathf.RoundToInt(BoosterCatalog.KitDiscount * 100f);
-    label.text = $"SURVIVAL KIT  -  1 OF EACH  -{percent}%   {BoosterCatalog.KitPrice:N0}";
+    var descGo = new GameObject("Desc", typeof(RectTransform));
+    descGo.transform.SetParent(textGo.transform, false);
+    var desc = descGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(desc, UiSkin.Role.Caption, new Color(0f, 0f, 0f, 0.62f));
+    desc.text = $"One of every booster  -  save {percent}%";
+    desc.alignment = TextAlignmentOptions.TopLeft;
+    desc.enableAutoSizing = false;
+    desc.fontSize = 21f;
+    desc.raycastTarget = false;
+    descGo.AddComponent<LayoutElement>().preferredHeight = 28f;
+
+    // The price on its own dark plate, so it reads as the thing being paid
+    // rather than more of the green button's copy.
+    PricePlate(go.transform, BoosterCatalog.KitPrice, 150f);
 
     kit.onClick.AddListener(() =>
     {
@@ -593,6 +678,44 @@ public class WalletScreen : MonoBehaviour
     });
 
     boosterRefreshers += () => kit.interactable = Wallet.CanAffordOwn(BoosterCatalog.KitPrice);
+  }
+
+  // A coin and a number on a dark plate, for prices that are not themselves a
+  // button (the kit's, whose whole row is the button).
+  private static void PricePlate(Transform parent, int price, float width)
+  {
+    var go = new GameObject("Price", typeof(RectTransform));
+    go.transform.SetParent(parent, false);
+    var plate = go.AddComponent<Image>();
+    UiSkin.Panel(plate, UiSkin.PanelDark, UiSkin.RadiusChip);
+    plate.raycastTarget = false;
+
+    var element = go.AddComponent<LayoutElement>();
+    element.preferredWidth = width;
+    element.flexibleWidth = 0f;
+
+    var row = go.AddComponent<HorizontalLayoutGroup>();
+    row.padding = new RectOffset(10, 10, 0, 0);
+    row.spacing = 8f;
+    row.childAlignment = TextAnchor.MiddleCenter;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = false;
+    row.childForceExpandHeight = false;
+
+    Image coin = UiSkin.Icon(go.transform, UiSprites.Coin(), UiSkin.Gold, 26f);
+    var coinElement = coin.gameObject.AddComponent<LayoutElement>();
+    coinElement.preferredWidth = 26f;
+    coinElement.preferredHeight = 26f;
+
+    var valueGo = new GameObject("Value", typeof(RectTransform));
+    valueGo.transform.SetParent(go.transform, false);
+    var value = valueGo.AddComponent<TextMeshProUGUI>();
+    UiSkin.Label(value, UiSkin.Role.Value, UiSkin.Gold);
+    value.enableAutoSizing = false;
+    value.fontSize = 28f;
+    value.text = price.ToString("N0");
+    value.raycastTarget = false;
   }
 
   private void BuildBoosterRow(RectTransform parent, BoosterKind kind)
@@ -981,6 +1104,10 @@ public class WalletScreen : MonoBehaviour
   // build time and again on every price update and finished purchase.
   private void RefreshStore()
   {
+    // The store has no packs section and the coins screen has no no-ads row,
+    // so each half is guarded on its own - an early return on a null
+    // packsSection left the store's Remove Ads row never refreshed.
+    RefreshNoAdsRow();
     if (packsSection == null) return;
 
     for (int i = packsSection.childCount - 1; i >= 0; i--)
@@ -1010,8 +1137,6 @@ public class WalletScreen : MonoBehaviour
     packsStatus.text = shown > 0 ? "" : "Coin packs are unavailable right now.";
     packsStatus.gameObject.SetActive(shown == 0);
     packsStatus.transform.SetAsFirstSibling();
-
-    RefreshNoAdsRow();
   }
 
   private void RefreshNoAdsRow()
@@ -1029,8 +1154,10 @@ public class WalletScreen : MonoBehaviour
   }
 
 
-  // The small print. Caption-sized and sized by its own text, where it used to
-  // be body-sized in a fixed 210-unit box that left a dead gap above it.
+  // The small print. Two lines: what coins are for, and the one thing about
+  // them that can surprise a player. The cooldown, the daily cap, the level
+  // loan and the continue price all used to be spelled out here - five lines
+  // of rules for a screen whose buttons already state their own terms.
   private void Explainer(RectTransform parent)
   {
     var go = new GameObject("Explainer", typeof(RectTransform));
@@ -1043,21 +1170,22 @@ public class WalletScreen : MonoBehaviour
     label.alignment = TextAlignmentOptions.TopLeft;
     label.margin = new Vector4(6f, 0f, 6f, 0f);
     label.text =
-      $"Coins buy towers in a level, boosters here, and a continue after a loss " +
-      $"(from {Boosters.FirstContinueCost}). Clear levels and raise your stars to earn more. " +
-      $"{RewardedGate.WatchesLeftToday} ad rewards left today.\n" +
+      "Coins buy towers, boosters and a continue after a loss. Earn them by " +
+      "clearing levels, watching ads or buying a pack.\n" +
       // Said plainly, because a reinstall loses the wallet along with anything
       // bought with it, including Remove Ads, and there is nothing to restore
       // it from - unlike a subscription or a real-money purchase.
-      $"If you start a level short of coins, it lends you its starting gold for towers; " +
-      $"that loan is paid back when the level ends and cannot be spent here.\n" +
-      $"Coins are saved on this device and do not carry over to a reinstall.";
+      "Coins are saved on this device and do not carry over to a reinstall.";
   }
 
   private void OnWatchClicked()
   {
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-    if (!RewardedGate.IsReady) return;
+
+    // The streak claim is the first ad of the day and is NOT gated by the
+    // wallet's cooldown or daily cap (see DailyStreak); everything after it is.
+    bool streakClaim = !DailyStreak.ClaimedToday;
+    if (!streakClaim && !RewardedGate.IsReady) return;
 
     awaitingAd = true;
     statusLabel.text = "";
@@ -1068,16 +1196,27 @@ public class WalletScreen : MonoBehaviour
       {
         awaitingAd = false;
 
-        // Recorded only on a completed watch, so a failed or skipped ad never
-        // costs the player a slot or starts a cooldown.
-        RewardedGate.RecordWatch();
+        int amount;
+        if (streakClaim)
+        {
+          // Claim() pays the wallet itself and advances the ladder.
+          amount = DailyStreak.Claim();
+          statusLabel.text = $"Day {DailyStreak.CurrentDay} claimed: +{amount}!";
+        }
+        else
+        {
+          // Recorded only on a completed watch, so a failed or skipped ad never
+          // costs the player a slot or starts a cooldown.
+          RewardedGate.RecordWatch();
+          amount = RewardedGate.CoinsPerAd;
+          Wallet.Add(amount);
+          statusLabel.text = $"+{amount} coins!";
+        }
 
-        int amount = RewardedGate.CoinsPerAd;
-        Wallet.Add(amount);
         Ads.DeferInterstitial();
         Haptics.Play(Haptics.Style.Success);
         AudioManager.Instance?.PlaySound(AudioManager.SoundType.LevelPicked);
-        statusLabel.text = $"+{amount} coins!";
+        RefreshStreak();
         RefreshWatchButton();
       },
       () =>
@@ -1094,8 +1233,20 @@ public class WalletScreen : MonoBehaviour
   {
     if (Time.unscaledTime < nextTick) return;
     nextTick = Time.unscaledTime + 1f;
+
+    // Midnight can pass with this screen open: the streak becomes claimable
+    // again and the whole card changes meaning. Compared rather than rebuilt
+    // every tick, so the pips are not thrown away once a second.
+    if (streakCaption != null && lastClaimedToday != DailyStreak.ClaimedToday)
+    {
+      lastClaimedToday = DailyStreak.ClaimedToday;
+      RefreshStreak();
+    }
+
     RefreshWatchButton();
   }
+
+  private bool lastClaimedToday;
 
   private float nextTick;
 
@@ -1141,30 +1292,40 @@ public class WalletScreen : MonoBehaviour
     RefreshNoAdsRow();
   }
 
+  // Says where the player is in the ladder, and what the button under it is
+  // about to pay. Rebuilding the pips would mean rebuilding the row, so only
+  // the caption moves - the pips are correct until midnight either way.
+  private void RefreshStreak()
+  {
+    if (streakCaption == null) return;
+
+    lastClaimedToday = DailyStreak.ClaimedToday;
+    BuildPips();
+
+    streakCaption.text = DailyStreak.ClaimedToday
+      ? $"Day {DailyStreak.CurrentDay} claimed - come back tomorrow for more"
+      : $"Day {DailyStreak.CurrentDay} of {DailyStreak.Length} - today's check-in is worth {DailyStreak.TodayReward}";
+  }
+
   // The button stays visible when no ad is loaded, just disabled and labelled.
   // Hiding it makes the wallet look broken and gives the player nothing to
   // understand; a greyed button with a reason does not.
   private void RefreshWatchButton()
   {
-    if (streakButton != null)
-    {
-      bool streakClaimable = !DailyStreak.ClaimedToday && !awaitingAd;
-      streakButton.interactable = streakClaimable && Ads.IsRewardedReady;
-      streakLabel.text = DailyStreak.ClaimedToday
-        ? "CLAIMED TODAY"
-        : $"DAY {DailyStreak.CurrentDay}: WATCH AD  +{DailyStreak.TodayReward}";
-    }
-
     if (watchButton == null) return;
 
-    // Four states, in the order the player runs into them: out of watches for
-    // today, waiting out a cooldown, no ad loaded, or good to go.
-    if (RewardedGate.CapReached)
+    bool streakClaim = !DailyStreak.ClaimedToday;
+    int reward = TodayAdReward;
+
+    // The states, in the order the player runs into them. The cap and the
+    // cooldown are skipped while the streak is unclaimed: that ad is the daily
+    // check-in and the gate has no say over it.
+    if (!streakClaim && RewardedGate.CapReached)
     {
       watchButton.interactable = false;
       watchLabel.text = "BACK TOMORROW";
     }
-    else if (!RewardedGate.IsReady)
+    else if (!streakClaim && !RewardedGate.IsReady)
     {
       watchButton.interactable = false;
       watchLabel.text = $"NEXT IN  {RewardedGate.RemainingText()}";
@@ -1182,7 +1343,9 @@ public class WalletScreen : MonoBehaviour
     else
     {
       watchButton.interactable = true;
-      watchLabel.text = $"WATCH AD  +{RewardedGate.CoinsPerAd}";
+      // Same words either way, because it is the same action - only the number
+      // moves, which is the whole point of merging the two buttons.
+      watchLabel.text = $"WATCH AD  +{reward}";
     }
   }
 

@@ -4,12 +4,16 @@ using UnityEngine;
 using UnityEngine.UI;
 using TowerDefense.UI;
 
-// The column of booster buttons down the left edge of the HUD, between the
-// speed/camera controls above and the info panel below.
+// The row of booster buttons along the bottom of the HUD, centred in the strip
+// between the tower info panel (bottom-left) and the towers rail with Start
+// Wave (right).
 //
-// Left, not right: the right edge is the towers rail and Start Wave, and the
-// left column already holds the two other in-level controls, so this continues
-// a stack the eye already knows rather than opening a third cluster.
+// It used to be a column down the left edge, under the speed/camera controls -
+// which put it straight on top of the STORE button once that was added, and
+// forced the buttons down to 46 units to fit the four other controls sharing
+// that edge. The bottom strip is the one part of the HUD nothing else wants:
+// the board is drawn above it, both thumbs reach it, and the buttons can be
+// half as big again as they were.
 //
 // Only boosters the player OWNS get a button, decided once when the level
 // loads. A player who has never bought one sees no bar at all rather than four
@@ -17,23 +21,21 @@ using TowerDefense.UI;
 // stays put (disabled) so the column never reshuffles under a thumb.
 public class BoosterBar : MonoBehaviour
 {
-  private const float MaxButtonSize = 62f;
-  private const float MinButtonSize = 46f;
-  private const float Gap = 8f;
+  private const float MaxButtonSize = 92f;
+  private const float MinButtonSize = 62f;
+  private const float Gap = 12f;
 
-  // Height the HUD already spends above this bar: the stats chips plus the
-  // speed and camera buttons, and a gap. The bar is squeezed into whatever is
-  // left between that and the info panel below it.
-  private const float TopReserve = 300f;
+  // Kept clear of the furniture at each end of the bottom strip.
+  private const float SideGap = 20f;
 
   private float buttonSize = MaxButtonSize;
 
-  // How far above the bottom the column starts: clear of the info panel that
-  // shares this corner, at its tallest (TowerActions grows by one line when it
-  // previews an upgrade), plus a gap.
-  private static float PanelClearance =>
-    TowerInfoPanel.BottomInset + TowerInfoPanel.BaseHeight
-    + TowerInfoPanel.ExtraLineHeight + 12f;
+  // Where the free strip starts: past the tower info / sell panel, which owns
+  // the bottom-left corner and is the panel these buttons themselves open.
+  // Its width is fixed, so only its right edge matters here - the row sits
+  // BESIDE it, not above it, and its height is irrelevant.
+  private static float LeftBound =>
+    TowerInfoPanel.BottomInset + TowerInfoPanel.Width + SideGap;
 
   private readonly Dictionary<BoosterKind, Button> buttons = new Dictionary<BoosterKind, Button>();
   private readonly Dictionary<BoosterKind, TMP_Text> counts = new Dictionary<BoosterKind, TMP_Text>();
@@ -63,38 +65,45 @@ public class BoosterBar : MonoBehaviour
 
   private void Build(List<BoosterKind> owned, RectTransform reference, int slot)
   {
-    // Anchored to the BOTTOM-left and stacked upward, starting just above the
-    // slot the tower/booster info panels occupy.
-    //
-    // It started under the speed and camera buttons, continuing that column
-    // downward, and with four boosters owned the last button ran straight into
-    // the info panel - which is the panel the bar itself opens. Growing up from
-    // a fixed floor means the two can never meet however many boosters are
-    // owned, and it puts the buttons nearer the thumb.
-    // Sized to the space that is actually free, not to a fixed button size.
-    // The left edge of a 720-unit canvas is fully spoken for once a player owns
-    // all four: chips, two controls, four boosters and the info panel come to
-    // more than the screen, and at a fixed 62 the top button sat on the camera
-    // control. Shrinking is the right trade - a smaller button is still
-    // tappable, an overlapping one is not.
-    float free = ScreenTheme.LayoutHeight(transform) - PanelClearance - TopReserve;
+    // The strip between the info panel and the towers rail, and the row is
+    // centred in THAT rather than on the screen: a screen-centred row overlaps
+    // the info panel on a 4:3 canvas, where the two ends leave barely 400
+    // units between them.
+    float canvas = ScreenTheme.LayoutWidth(transform);
+    float rightBound = canvas - HudTheme.RightRailSpan - SideGap;
+    float band = Mathf.Max(0f, rightBound - LeftBound);
+    float centre = (LeftBound + rightBound) * 0.5f;
+
+    // Shrink only if the band cannot take the buttons at full size - a smaller
+    // button is still tappable, an overlapping one is not.
     float gaps = Mathf.Max(0, owned.Count - 1) * Gap;
-    buttonSize = Mathf.Clamp((free - gaps) / owned.Count, MinButtonSize, MaxButtonSize);
+    buttonSize = Mathf.Clamp((band - gaps) / owned.Count, MinButtonSize, MaxButtonSize);
+    float width = owned.Count * buttonSize + gaps;
+
+    // If even the minimum size overflows the strip - five boosters on a 4:3
+    // canvas, where the two ends leave ~320 units between them - the row keeps
+    // its size and is kept on SCREEN instead. It then reaches under the info
+    // panel's corner, which is the better failure: that panel is transient and
+    // only open while a tower is selected, whereas an unreachably small or
+    // half-off-screen booster button is broken all level.
+    centre = Mathf.Clamp(centre,
+      width * 0.5f + HudTheme.EdgeMargin,
+      Mathf.Max(width * 0.5f + HudTheme.EdgeMargin, canvas - width * 0.5f - HudTheme.EdgeMargin));
 
     var rect = (RectTransform)transform;
     rect.anchorMin = Vector2.zero;
     rect.anchorMax = Vector2.zero;
-    rect.pivot = Vector2.zero;
-    rect.anchoredPosition = new Vector2(HudTheme.EdgeMargin, PanelClearance);
-    rect.sizeDelta = new Vector2(buttonSize, owned.Count * buttonSize + gaps);
+    rect.pivot = new Vector2(0.5f, 0f);
+    rect.anchoredPosition = new Vector2(centre, HudTheme.EdgeMargin);
+    rect.sizeDelta = new Vector2(width, buttonSize);
 
-    var layout = gameObject.AddComponent<VerticalLayoutGroup>();
+    var layout = gameObject.AddComponent<HorizontalLayoutGroup>();
     layout.spacing = Gap;
-    layout.childAlignment = TextAnchor.UpperLeft;
+    layout.childAlignment = TextAnchor.MiddleCenter;
     layout.childControlWidth = true;
     layout.childControlHeight = true;
-    layout.childForceExpandWidth = true;
-    layout.childForceExpandHeight = false;
+    layout.childForceExpandWidth = false;
+    layout.childForceExpandHeight = true;
 
     foreach (BoosterKind kind in owned) BuildButton(kind);
     Refresh();
@@ -104,7 +113,10 @@ public class BoosterBar : MonoBehaviour
   {
     var go = new GameObject(kind.ToString(), typeof(RectTransform));
     go.transform.SetParent(transform, false);
-    go.AddComponent<LayoutElement>().preferredHeight = buttonSize;
+    var element = go.AddComponent<LayoutElement>();
+    element.preferredWidth = buttonSize;
+    element.preferredHeight = buttonSize;
+    element.flexibleWidth = 0f;
 
     go.AddComponent<Image>();
     var button = go.AddComponent<Button>();

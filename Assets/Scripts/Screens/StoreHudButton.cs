@@ -35,6 +35,6 @@ public class StoreHudButton : MonoBehaviour
   private void OnClick()
   {
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-    WalletScreen.Open(canvasParent);
+    WalletScreen.OpenStore(canvasParent);
   }
 }

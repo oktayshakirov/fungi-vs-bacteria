@@ -1,7 +1,7 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-27 (phase 26, store launch prep: IAP catalog, economy
-retune, new icon). Committed and pushed on `main`.
+Last updated 2026-09-28 (phase 27, menu + store/coins UI pass). Committed and
+pushed on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -10,8 +10,15 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 26 — store launch prep. Compiles and render-checked
-(`screen-wallet`, `hud-boosters`); NOT played on a device.**
+**Latest: phase 27 — menu and store/coins UI pass. COMPILES ONLY. The previews
+have NOT been re-rendered since these changes and nothing here has been played
+on a device: `UiPreview.Render` (`screen-wallet`, `screen-getcoins`,
+`screen-getcoins-packs`), `CameraPreview`/`hud-boosters` and a Device Simulator
+pass at both a 19.5:9 phone and a 4:3 tablet are the first thing the next
+session should do. Phase 26 (store launch prep: IAP catalog, economy retune,
+new icon) was render-checked before it.**
+
+**Phase 26 — store launch prep** (render-checked). Where the release stands:
 
 - **Store listings exist** on App Store Connect and Google Play. The user has
   created the four consumable coin packs: `fungivsbacteria.coins.2500` /
@@ -43,6 +50,69 @@ that has actually cost debugging time, section 7 has the house rules.
 - **Still open:** store coins are also in-level tower gold, so any coin pack
   makes early levels easier to brute-force. Only splitting the currencies
   fixes that. Deferred as a design decision for the user.
+
+**Phase 27 — menu and store/coins UI pass, from screenshots. COMPILES ONLY,
+not rendered and not played.** Same weaker guarantee as phase 25 below: the
+work was done from screenshots the user sent, traced through the source. What
+changed:
+
+- **Store and Get Coins split into two screens.** `WalletScreen` builds both
+  from one class (`WalletScreen.Mode`), since they share the card, header,
+  balance chip and scroll body:
+  - `OpenStore(parent)` — "STORE", **no tabs**: the Survival Kit card, the
+    booster rows, then EXTRAS (Remove Ads, which is priced in coins).
+  - `OpenCoins(parent, tab)` — "GET COINS", **two tabs**: FREE COINS (daily
+    streak + rewarded ad) and COIN PACKS (the real-money products). Free is
+    the default tab.
+  This replaced a single three-tab dialog (BOOSTERS / COINS / FREE) that put
+  spending and earning in the same place. The coin chip is now a passive
+  readout — its "+" is gone — and the menu carries two labelled pills under it
+  instead: gold GET COINS (with the "+" glyph) and a green STORE. Every
+  in-game entry point (pause, HUD button) opens the store.
+  Tab button height was fixed by pinning min/preferred/flexible height
+  explicitly on both the row and its buttons — leaving only `preferredHeight`
+  let a `LayoutElement` vs `HorizontalLayoutGroup` priority ambiguity blow the
+  row up to near-card height (see section 6 if this regresses). Watch Ad /
+  streak claim buttons shrunk (96->64, 74->56) so the FREE tab's rows fit
+  without scrolling on most screens.
+- **Booster bar moved to the bottom-centre strip and made bigger.** It was a
+  column down the left edge, which the STORE HUD button landed on top of, and
+  it had shrunk its buttons to 46 units to share that edge with four other
+  controls. It is now a horizontal row (92 units, min 62) centred in the band
+  between the tower info panel's right edge and the towers rail
+  (`HudTheme.RightRailSpan`, published when the rail is measured since its
+  width comes from the tower grid's cell size at runtime). Tapping a booster
+  opens `BoosterPanel` in the bottom-LEFT corner, which the row is clear of.
+- **New players start with one of each booster.**
+  `BoosterInventory.GrantStarterBoosters` runs once per install
+  (`Booster_StarterGranted`, BeforeSceneLoad) so the booster bar has something
+  in it on the first level instead of five permanently greyed buttons. Running
+  out is what sends the player to the store; the key is written before the
+  grant so a kill mid-grant cannot hand out a second kit.
+- **One watch-ad button, not two.** The FREE COINS tab used to stack a streak
+  claim button and a plain watch-ad button, both reading "WATCH AD" with
+  different numbers. There is now a single button whose payout moves:
+  `WalletScreen.TodayAdReward` = the streak rung (200/250/350/500/1000) while
+  today's check-in is unclaimed, `RewardedGate.CoinsPerAd` (150) after. The
+  streak claim is still exempt from the gate's cooldown and daily cap, so the
+  cap/cooldown states only apply once it is claimed. The streak card is now a
+  readout (pips + one caption line) and its pips rebuild on claim, which they
+  never did before. Fixed an off-by-one in the claim message (`Day 0 claimed`).
+- **Streak ladder confirmed:** unbroken days step 1->5, day 5 wraps back to
+  day 1 (the cycle restarts rather than paying 1,000/day forever); any gap, and
+  a clock moved backwards, reset to day 1. Resolved on read from the last-claim
+  date, so nothing has to run while the app is closed.
+- **Menu logo fitted to the space it has.** The vs-battle art was a 90x90 rect
+  at `localScale 5` - it rendered at 450 units while every layout calculation
+  that read the rect saw 90, which is why it kept colliding with PLAY.
+  `MenuLayout.FitLogo` now measures the band between the title and the PLAY
+  plate and sizes the art to it; `MenuLogoFit` re-runs that whenever the band
+  changes (SafeArea resolving, rotation, Device Simulator).
+- **"NEXT: <biome> - LEVEL n" moved out of the PLAY button** to a dimmed strip
+  along the bottom of the screen with a play triangle in front of it. The
+  button's inset and height are now paired (`64 + 116 = 180`) so its TOP edge
+  is exactly where it was - raising the inset alone pushed the plate up into
+  the characters.
 
 **Previous: phase 25 — HUD and store fixes from screenshots, NOT played.** The
 user sent screenshots of the running game (not renders) across several rounds
@@ -79,19 +149,6 @@ than every other phase in this file, which was at minimum render-verified.
   `HudTheme.CompactPause` shrinks the button and adds a NEW `PauseGlyph` icon
   on top, but never hid the old one — so the stale, oversized icon rendered
   bleeding out over the wave readout beside it. Now explicitly disabled.
-- **Store rebuilt into three tabs** (BOOSTERS / COINS / FREE) instead of one
-  long scroll — `WalletScreen` now shows one shelf at a time, each still
-  wrapped in the same scroll body for safety on a small phone or a long
-  booster list. Restore Purchases moved from FREE to COINS (it restores a
-  real-money purchase, Remove Ads, so it belongs on the shelf that sells
-  real-money purchases). The coin chip's "+" opens straight to the COINS tab
-  (`WalletScreen.Open(parent, tab: WalletScreen.TabCoins)`); every other entry
-  point defaults to BOOSTERS. Tab button height was fixed by pinning
-  min/preferred/flexible height explicitly on both the row and its buttons —
-  leaving only `preferredHeight` let a `LayoutElement` vs `HorizontalLayoutGroup`
-  priority ambiguity blow the row up to near-card height (see section 6 if this
-  regresses). Watch Ad / streak claim buttons shrunk (96->64, 74->56) so the
-  FREE tab's rows fit without scrolling on most screens.
 - **More store entry points.** A STORE button now exists in three places it
   didn't before: under the coin chip on the main menu, in the in-level HUD
   (stacked under the speed/camera buttons), and in the pause screen (under
@@ -169,9 +226,11 @@ the money half of Remove Ads. Full checklist: DISTRIBUTION.md -> In-app purchase
 |---|---|---|
 | Sell / upgrade panel | Tap a placed tower, upgrade twice, sell | **It was unreachable until phase 20** (towers were on the wrong physics layer), so it has never been used by anyone. The upgrade price is deliberately poor value and may read as a trap |
 | Boosters | Buy one of each in the store, then use them in a level | Nothing has been FIRED in a running level. Check: the bomb clears the board and pays no gold, Frost Wave stops everything for 5s and they resume, Overclock visibly speeds towers for 15s, Mend never exceeds starting health, and the per-wave limits free up on the next wave |
-| Booster bar | Own all four, then open a tower's panel | The bar squeezes its buttons to fit between the camera control and the info panel. At 46-62 units they may be small on a phone |
+| Booster bar | Own all five, then open a tower's panel, on BOTH a 19.5:9 phone and a 4:3 tablet | The row is centred in the strip between the info panel and the towers rail. On a 4:3 canvas five buttons at the 62 minimum overflow that strip and get clamped to the screen instead, reaching under the info panel's corner |
+| Starter boosters | Wipe PlayerPrefs, launch, start a level | New installs are granted one of each (`Booster_StarterGranted`). Never seen: every test device already has the key set after one launch |
+| Get Coins / one ad button | Open GET COINS on a fresh day, watch, then watch again | The first ad of the day pays the streak rung and ignores the cooldown/cap; the second pays 150 and is gated. Check the button's number changes and the pips fill |
 | Remove Ads with coins | Reach 15,000 coins, buy it, finish 3+ levels | No interstitial should appear. The coin unlock and the paid entitlement are stored separately on purpose (section 6) |
-| Store scroll | Open the store and scroll to Restore | Long, deliberately ordered dialog: balance, boosters, coin packs, Remove Ads, free coins, small print, Restore |
+| Store scroll | Open STORE and scroll to the bottom | Survival Kit, five booster rows, then EXTRAS / Remove Ads - one unbroken scroll with no tabs, and the row density has never been looked at |
 | Privacy Options | Settings, from inside the EEA/UK | Only shown where UMP says it is required, so it never appears in the editor or outside those regions. Use a UMP debug geography to see it |
 | Towers rail | Collapse and expand it on a notched phone | The rail and Start Wave are hoisted OUT of the SafeArea to use the right-hand strip; `RailInset` (18) is the only thing clearing the rounded corner |
 | App icon | Home screen after a fresh install | Set through PlayerSettings, never seen on a device |
@@ -381,10 +440,9 @@ Roughly in order. Each is committed.
     - **The bomb deliberately pays no gold** (`Enemy.Vaporize`, which also
       skips splitting). A bomb that paid kill rewards would earn back its own
       price on a dense late wave and become the cheapest way to farm coins.
-    - The HUD bar is bottom-left, stacked UPWARD from above the info panel, and
-      sizes its buttons to the space left between the camera control and that
-      panel - on a 720-unit canvas four boosters plus everything else on the
-      left edge does not fit at a fixed size.
+    - The HUD bar is a row along the BOTTOM of the screen, centred between the
+      tower info panel and the towers rail (see phase 27). It was a left-edge
+      column until the STORE HUD button landed on top of it.
     - A booster is armed, not fired, by tapping it: the bar opens the shared
       `TowerInfoPanel` plate with what it does and a USE button, so a stray tap
       cannot spend a 600-coin bomb. It is mutually exclusive with the placement

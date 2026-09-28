@@ -111,6 +111,17 @@ public static class UiSprites
     Shape(size, (x, y) => InTriangle(x, y, 0.04f, 0.16f, 0.04f, 0.84f, 0.48f, 0.5f)
                        || InTriangle(x, y, 0.50f, 0.16f, 0.50f, 0.84f, 0.94f, 0.5f)));
 
+  // Plus sign, for the "get coins" button. Drawn rather than typed so it has
+  // the same weight as the other glyphs in the skin at every size - a "+"
+  // from the display face is a thin, off-centre character at 26 units.
+  public static Sprite Plus(int size = 64) => Cached("plus" + size, () => Shape(size, (x, y) =>
+    (x > 0.41f && x < 0.59f && y > 0.16f && y < 0.84f)
+ || (y > 0.41f && y < 0.59f && x > 0.16f && x < 0.84f)));
+
+  // Solid right-pointing triangle, for the "next up" caption under PLAY.
+  public static Sprite Play(int size = 64) => Cached("play" + size, () =>
+    Shape(size, (x, y) => InTriangle(x, y, 0.16f, 0.10f, 0.16f, 0.90f, 0.88f, 0.5f)));
+
   // Camera body with a lens, for the view-angle control.
   public static Sprite Camera(int size = 64) => Cached("camera" + size, () => Shape(size, (x, y) =>
   {
