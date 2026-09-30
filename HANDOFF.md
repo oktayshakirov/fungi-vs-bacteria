@@ -119,8 +119,16 @@ new icon) was render-checked before it.**
 - **Store copy** (subtitle, short and full description) was written for both
   stores with no counts, because maps, biomes, towers and enemies will be added
   later. It was not saved to the repo.
-- **Still blocking purchases:** the RevenueCat public SDK keys in
-  `Assets/Editor/IapSetup.cs` are empty.
+- **RevenueCat public SDK keys are set** (2026-10-01) in
+  `Assets/Editor/IapSetup.cs`, and `Tools -> IAP -> Apply Keys` has been run,
+  so they are written into the `Ads` object in `MainMenu.unity` too. Nothing
+  else belongs in the repo: `Iap.FetchProducts` asks for the four product IDs
+  directly, so no RevenueCat Offering or entitlement has to be configured for
+  purchases to resolve. What is still owed is DASHBOARD side, and without it
+  RevenueCat cannot validate a real purchase: the App Store Connect in-app
+  purchase key (.p8) plus the app-specific shared secret, and the Google Play
+  service-account JSON. The RevenueCat **secret** key must never enter this
+  project.
 - **Still open:** store coins are also in-level tower gold, so any coin pack
   makes early levels easier to brute-force. Only splitting the currencies
   fixes that. Deferred as a design decision for the user.

@@ -572,8 +572,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8093e43a8c230444b8f79b6b058d2d0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Iap
-  iosApiKey: 
-  androidApiKey: 
+  iosApiKey: appl_AKqUiSlroYeDihqjepEHhPWZEDm
+  androidApiKey: goog_SOwHytWcpbMFiYUvvZRSBuGVmYj
 --- !u!114 &1053140280
 MonoBehaviour:
   m_ObjectHideFlags: 0

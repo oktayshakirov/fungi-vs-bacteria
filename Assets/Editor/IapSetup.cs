@@ -20,8 +20,8 @@ public static class IapSetup
   // Fill these in from RevenueCat -> Project settings -> API keys, then run
   // Tools -> IAP -> Apply Keys. Until they are set the store shows no prices
   // and every purchase button is disabled - deliberately, rather than throwing.
-  private const string RevenueCatIosApiKey = "";
-  private const string RevenueCatAndroidApiKey = "";
+  private const string RevenueCatIosApiKey = "appl_AKqUiSlroYeDihqjepEHhPWZEDm";
+  private const string RevenueCatAndroidApiKey = "goog_SOwHytWcpbMFiYUvvZRSBuGVmYj";
 
   private const string MenuScenePath = "Assets/Scenes/MainMenu.unity";
 
