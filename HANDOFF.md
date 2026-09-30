@@ -70,6 +70,11 @@ mid-level is the one flow nothing here has exercised end to end. What changed:**
   the children too. It also exposes `Apply()`, because batch mode never calls
   LateUpdate and the preview shots would otherwise show the uncorrected
   position.
+- **The store icon is a shopfront** (`UiSprites.Store`), on all three store
+  buttons: the menu pill, the pause screen and the HUD corner. The shopping
+  bag it replaced built its handle out of the same arc as the padlock's
+  shackle, so at HUD size the store button read as "locked". `UiSprites.Bag`
+  is gone rather than aliased - nothing should be able to draw it again.
 - **The "next level" halo is centred again.** It was sized off the face alone
   and nudged up 26 units, which left ~46 units of glow below the tile against
   ~18 above. It now measures the face PLUS the edge plate and bleeds an equal

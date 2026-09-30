@@ -80,7 +80,7 @@ public class MainMenu : MonoBehaviour
 
   private void BuildStoreButton(Transform parent)
   {
-    Button button = BuildPill(parent, "StoreButton", "STORE", UiSprites.Bag(),
+    Button button = BuildPill(parent, "StoreButton", "STORE", UiSprites.Store(),
       UiSkin.Primary, UiSkin.TextDark,
       MenuLayout.CornerInset + ChipHeight + 10f + PillHeight + 8f);
 

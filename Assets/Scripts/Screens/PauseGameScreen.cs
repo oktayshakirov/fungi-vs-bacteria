@@ -47,7 +47,7 @@ public class PauseGameScreen : MonoBehaviour
     element.preferredHeight = 84f;
 
     // Gold, matching the "VS" in the menu title.
-    Button button = UiSkin.IconButton(go, UiSprites.Bag(), UiSkin.Gold, out TMP_Text label,
+    Button button = UiSkin.IconButton(go, UiSprites.Store(), UiSkin.Gold, out TMP_Text label,
       UiSkin.RadiusButton, UiSkin.TextDark);
     label.text = "STORE";
     label.alignment = TextAlignmentOptions.Midline;

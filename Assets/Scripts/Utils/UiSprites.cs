@@ -314,19 +314,35 @@ public static class UiSprites
         || (x >= 0.79f && x <= 0.86f && y >= 0.32f && y <= 0.68f);
   }));
 
-  // A shopping bag: a rounded sack with a carry handle, for the store
-  // buttons. A coin reads as "currency", not "go here to spend it" - a bag is
-  // the one shape that unambiguously means "shop".
-  public static Sprite Bag(int size = 64) => Cached("bag" + size, () => Shape(size, (x, y) =>
+  // A shopfront: an awning over a doorway, for every button that opens the
+  // store.
+  //
+  // It replaced a shopping bag, whose handle was built out of the same arc as
+  // the padlock's shackle - at 34 units the two were the same picture, so the
+  // store button read as "locked". A building cannot be confused with a lock,
+  // and it is the same visual family as Home(), which is the point: both are
+  // places you go.
+  public static Sprite Store(int size = 64) => Cached("store" + size, () => Shape(size, (x, y) =>
   {
-    if (InRoundedRect(x, y, 0.16f, 0.06f, 0.84f, 0.62f, 0.10f)) return true;
+    // The awning: a trapezoid across the top, wider at its lower edge so it
+    // reads as jutting out over the street.
+    // Deliberately WIDER than the building, with visible eaves on both sides:
+    // a trapezoid the same width as the body below it is a roof, and this
+    // already sits close enough to Home() as it is.
+    const float awningBottom = 0.62f, awningTop = 0.88f;
+    if (y >= awningBottom && y <= awningTop)
+    {
+      float t = (y - awningBottom) / (awningTop - awningBottom);
+      float half = Mathf.Lerp(0.50f, 0.31f, t);
+      if (Mathf.Abs(x - 0.5f) <= half) return true;
+    }
 
-    // The handle: an arc above the body, same construction as the lock's
-    // shackle - the two ends sink slightly into the body's top edge so the
-    // handle reads as attached rather than floating over it.
-    float dx = x - 0.5f, dy = y - 0.60f;
-    float r = Mathf.Sqrt(dx * dx + dy * dy);
-    return dy >= 0f && r <= 0.26f && r >= 0.17f;
+    // The building under it, with a doorway punched out. The door is left
+    // open-bottomed (it runs to the body's own bottom edge) so it reads as a
+    // way in rather than as a window.
+    bool body = InRoundedRect(x, y, 0.18f, 0.06f, 0.82f, 0.60f, 0.04f);
+    bool door = InRoundedRect(x, y, 0.38f, 0.06f, 0.62f, 0.45f, 0.12f);
+    return body && !door;
   }));
 
   // A padlock, for locked levels and environments.

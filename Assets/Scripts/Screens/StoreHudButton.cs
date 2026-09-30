@@ -40,7 +40,7 @@ public class StoreHudButton : MonoBehaviour
     // never mistaken for each other at a glance.
     UiSkin.StyleButton(button, UiSkin.Gold, UiSkin.RadiusButton);
 
-    Image glyph = UiSkin.Icon(transform, UiSprites.Bag(), UiSkin.TextDark, 34f);
+    Image glyph = UiSkin.Icon(transform, UiSprites.Store(), UiSkin.TextDark, 34f);
     glyph.raycastTarget = false;
     var glyphRect = (RectTransform)glyph.transform;
     glyphRect.anchorMin = glyphRect.anchorMax = new Vector2(0.5f, 0.5f);
