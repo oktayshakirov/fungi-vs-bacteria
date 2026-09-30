@@ -264,10 +264,35 @@ public class EnvironmentsScreen : MonoBehaviour
       if (cardButton != null)
       {
         string envName = envData.environmentName;
-        cardButton.onClick.AddListener(() => OnEnvironmentSelected(envName));
+
+        // Locked cards stay interactable and answer with EnvironmentCard's
+        // refusal (wobble + padlock punch + thud) instead of swallowing the
+        // tap, which looked like the list had stopped responding.
+        cardButton.interactable = true;
         if (isLocked)
         {
-          cardButton.interactable = false;
+          // No card component means nothing to wobble, so fall back to the old
+          // dead button rather than letting the tap through to a locked biome.
+          if (card != null)
+          {
+            cardButton.onClick.AddListener(card.RefuseTap);
+
+            // An interactable Button tints its target graphic with normalColor
+            // instead of disabledColor, which brightened every locked card the
+            // moment they started accepting taps. Pinning the resting states to
+            // the disabled tint keeps the locked look exactly as it was.
+            ColorBlock colors = cardButton.colors;
+            colors.normalColor = colors.disabledColor;
+            colors.highlightedColor = colors.disabledColor;
+            colors.selectedColor = colors.disabledColor;
+            colors.pressedColor = colors.disabledColor * 0.92f;
+            cardButton.colors = colors;
+          }
+          else cardButton.interactable = false;
+        }
+        else
+        {
+          cardButton.onClick.AddListener(() => OnEnvironmentSelected(envName));
         }
       }
     }

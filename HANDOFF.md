@@ -1,7 +1,7 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-09-28 (phase 27, menu + store/coins UI pass). Committed and
-pushed on `main`.
+Last updated 2026-10-01 (phase 28, booster timers, locked-card feedback and
+the HUD corner rework). Render-checked; committed and pushed on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -10,7 +10,72 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 27 — menu and store/coins UI pass. COMPILES ONLY. The previews
+**Latest: phase 28 — booster countdown dials, the always-on booster bar with
+BUY, the locked-card refusal, the level-halo geometry and the HUD top corners.
+`UiPreview.Render` was re-run and every shot checked at 20:9, 16:9 and 4:3;
+the halo is even, the locked cards render exactly as they did before, and
+nothing in the reworked HUD corners or the five-wide booster bar collides. NOT played on a device: the wobble, the locked thud and the dial
+actually EMPTYING are all motion, and a batch render is one still frame at
+t=0 - a Device Simulator pass is what is still owed, and buying a booster
+mid-level is the one flow nothing here has exercised end to end. What changed:**
+
+- **Frost Wave never froze the towers** — only `Enemy.ApplyFreeze` was ever
+  called. Its store copy said "Freezes everything solid", which is what read as
+  a warning; it now says every bacterium, and that the towers keep firing.
+- **The three timed boosters carry a countdown dial** on the top edge of their
+  HUD button: a radial-filled circle that empties clockwise, no numerals.
+  `BoosterEffects.ActiveFraction` is the single source for it, and Frost now
+  records a `frostEndsAt` purely so the HUD has something to read (nothing
+  else consults it). The dial object is only built for the timed three and is
+  hidden whenever nothing is running. `UiPreview` gained a
+  **`hud-boosters-timers`** shot for it (and a `hud-boosters-buy` shot for the
+  owns-nothing case), which fires the three through the real
+  `BoosterEffects.Use` BEFORE building the bar - `Build` ends in `Refresh()`,
+  and that is the only thing that puts the dials on screen, because `Update`
+  never runs in batch mode.
+- **Locked biomes and locked levels answer a tap** instead of swallowing it.
+  Both cards stay `interactable` and route to a refusal: `UiShake.Nudge` (a
+  decaying sideways wobble, unscaled time), a `UiShake.Punch` on the padlock,
+  and `AudioManager.PlayLocked` — the ButtonClick clip at pitch 0.55 on a
+  second AudioSource, so no new clip has to be assigned in the inspector and
+  the shared `sfxSource` is never detuned. `UiShake.cs` is a NEW file, so it
+  had to be added to `Assembly-CSharp.csproj` by hand.
+  **The trap this walked into:** an interactable Button tints its target
+  graphic with `normalColor` rather than `disabledColor`, so simply flipping
+  `interactable` brightened every locked environment card. `EnvironmentsScreen`
+  now pins the resting colour states to the disabled tint. Level tiles need no
+  such fix - their target graphic is the fully transparent root image.
+- **The booster bar shows all five boosters at all times.** It was built from
+  the OWNED ones only, so the row changed shape between levels and a player who
+  had spent everything saw no bar at all - and so had no way back in. An
+  unowned booster is drawn dimmed with no count, and its panel offers
+  **BUY <price>** where USE would be: it buys through the existing
+  `BoosterInventory.Buy` and stays open (now showing USE), and with too few
+  coins it shakes and opens Get Coins instead. Two knock-on fixes this forced:
+  `MinButtonSize` is 48, and the row now clamps against the TOWERS RAIL rather
+  than the screen edge - five buttons never fit the 4:3 strip, and the old
+  clamp parked the last one underneath Start Wave. Growing left, under the
+  transient tower info panel, is the better failure.
+- **The store moved to the top right, beside pause,** at exactly pause's size
+  (`HudTheme.PlaceLeftOfPause`, which measures the real button through the new
+  `HudTheme.PauseRect`). It was a labelled plate in the left stack, which was
+  three deep and crowding the booster bar.
+- **The wave badge is centred on the top edge**, which is where the store
+  button's old corner neighbour used to push it out of. On a 4:3 canvas it
+  would then collide with the gold chip, so `HudKeepClear` pushes it right by
+  just enough, every frame. It has to be live rather than a nudge at load:
+  the gold chip's width follows the number inside it. **The trap:** the stats
+  panel's own rect stops ~95 units short of the chips it contains (its layout
+  group overflows), so measuring the panel alone found no collision - it walks
+  the children too. It also exposes `Apply()`, because batch mode never calls
+  LateUpdate and the preview shots would otherwise show the uncorrected
+  position.
+- **The "next level" halo is centred again.** It was sized off the face alone
+  and nudged up 26 units, which left ~46 units of glow below the tile against
+  ~18 above. It now measures the face PLUS the edge plate and bleeds an equal
+  `HaloBleed` (32) on all four sides.
+
+**Phase 27 — menu and store/coins UI pass. COMPILES ONLY. The previews
 have NOT been re-rendered since these changes and nothing here has been played
 on a device: `UiPreview.Render` (`screen-wallet`, `screen-getcoins`,
 `screen-getcoins-packs`), `CameraPreview`/`hud-boosters` and a Device Simulator

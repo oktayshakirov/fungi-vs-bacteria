@@ -213,6 +213,35 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    // The answer to tapping something that is still locked: the ordinary click
+    // clip dropped well below its own pitch, which reads as a dull thud rather
+    // than as a press that worked.
+    //
+    // Pitched on a SECOND AudioSource rather than by nudging sfxSource: that
+    // source is shared by every one-shot in the game, so pitching it would
+    // detune whatever else happens to be playing. No new clip to assign in the
+    // inspector either, which is why it is not a SoundType of its own.
+    public void PlayLocked()
+    {
+        Haptics.Play(Haptics.Style.Warning);
+
+        if (isSfxMuted) return;
+        if (soundDictionary == null) return;
+        if (!soundDictionary.TryGetValue(SoundType.ButtonClick, out VolumeData data)) return;
+        if (data.clip == null) return;
+
+        if (lockedSource == null)
+        {
+            lockedSource = gameObject.AddComponent<AudioSource>();
+            lockedSource.playOnAwake = false;
+            lockedSource.pitch = 0.55f;
+        }
+
+        lockedSource.PlayOneShot(data.clip, data.volume);
+    }
+
+    private AudioSource lockedSource;
+
     // Every UI press in the game already routes through PlaySound, so hooking
     // haptics in here gives the whole interface feedback in one place instead of
     // per button. Gameplay events that already play a sound (kills, base damage)

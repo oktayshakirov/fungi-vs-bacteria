@@ -30,6 +30,23 @@ public class BoosterEffects : MonoBehaviour
   // Read by GameManager.TakeDamage. Scaled time, like Overclock.
   private static float shieldEndsAt;
   public static bool ShieldActive => Time.time < shieldEndsAt;
+  public static float ShieldRemaining => Mathf.Max(0f, shieldEndsAt - Time.time);
+
+  // Frost has no state of its own - the freeze lives on each enemy - but the
+  // HUD still needs to know how long the wave has left to run, so the end time
+  // is recorded here alongside the other two.
+  private static float frostEndsAt;
+  public static float FrostRemaining => Mathf.Max(0f, frostEndsAt - Time.time);
+
+  // How much of a timed booster's effect is still running, 0..1, for the ring
+  // the HUD draws over its button. 0 for the boosters that are instant.
+  public static float ActiveFraction(BoosterKind kind) => kind switch
+  {
+    BoosterKind.FrostWave => FrostRemaining / BoosterCatalog.FreezeSeconds,
+    BoosterKind.Overclock => OverclockRemaining / BoosterCatalog.OverclockSeconds,
+    BoosterKind.Shield => ShieldRemaining / BoosterCatalog.ShieldSeconds,
+    _ => 0f,
+  };
 
   // The wave number each booster was last used on, or -1. A level has at most a
   // handful of waves, so "once per wave" is just "not the wave I used it on".
@@ -44,6 +61,7 @@ public class BoosterEffects : MonoBehaviour
     FireRateMultiplier = 1f;
     overclockEndsAt = 0f;
     shieldEndsAt = 0f;
+    frostEndsAt = 0f;
     OnUsageChanged?.Invoke();
   }
 
@@ -120,6 +138,9 @@ public class BoosterEffects : MonoBehaviour
     {
       if (enemy != null) enemy.ApplyFreeze(BoosterCatalog.FreezeSeconds);
     }
+
+    // Only for the HUD countdown; nothing reads this to decide anything.
+    frostEndsAt = Time.time + BoosterCatalog.FreezeSeconds;
   }
 
   private static void Mend()

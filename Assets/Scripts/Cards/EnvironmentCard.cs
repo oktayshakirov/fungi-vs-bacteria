@@ -176,6 +176,16 @@ public class EnvironmentCard : MonoBehaviour
     label.raycastTarget = false;
   }
 
+  // The answer to tapping a biome that is still locked. The card stays
+  // interactable for this: a dead button reads as a broken screen, whereas a
+  // wobble, a padlock punch and a dull thud read as a door.
+  public void RefuseTap()
+  {
+    AudioManager.Instance?.PlayLocked();
+    UiShake.Nudge((RectTransform)transform, 12f);
+    if (lockIcon != null) UiShake.Punch(lockIcon.transform, 1.25f);
+  }
+
   private void BuildLock(bool isLocked)
   {
     if (lockIcon == null) return;

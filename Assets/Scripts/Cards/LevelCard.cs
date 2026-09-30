@@ -37,6 +37,9 @@ public class LevelCard : MonoBehaviour
   public static float CellHeight => TileSize + 42f;
   private static float EdgeDepth => Mathf.Round(TileSize * 0.041f) + 1f;
 
+  // How far the "next level" glow reaches past the tile, on every side.
+  private const float HaloBleed = 32f;
+
   public static void SetTileSize(float size)
   {
     TileSize = Mathf.Clamp(size, MinTileSize, MaxTileSize);
@@ -135,12 +138,23 @@ public class LevelCard : MonoBehaviour
     if (button != null)
     {
       button.onClick.RemoveAllListeners();
-      button.interactable = !isLocked;
-      if (!isLocked)
-      {
-        button.onClick.AddListener(() => onCardClicked?.Invoke(levelNumber));
-      }
+
+      // A locked tile stays INTERACTABLE and answers the tap with a wobble,
+      // a padlock punch and the locked thud. Left non-interactable it simply
+      // ate the press, which on a grid where the numbers are still readable
+      // looks like the screen has stopped responding rather than like a door.
+      button.interactable = true;
+      button.onClick.AddListener(isLocked
+        ? (UnityEngine.Events.UnityAction)RefuseTap
+        : () => onCardClicked?.Invoke(levelNumber));
     }
+  }
+
+  private void RefuseTap()
+  {
+    AudioManager.Instance?.PlayLocked();
+    UiShake.Nudge((RectTransform)transform);
+    if (lockBadge != null) UiShake.Punch(lockBadge);
   }
 
   private RectTransform BuildFace(bool isLocked, Color accent, bool isNext)
@@ -166,8 +180,14 @@ public class LevelCard : MonoBehaviour
     // eye lands on where you left off without reading a single number.
     if (isNext)
     {
+      // Centred on the VISIBLE block, which is the face plus the darker edge
+      // plate under it - not on the face alone. Sizing the glow off the face
+      // and nudging it up by a hand-picked amount left a fat band of light
+      // below the tile and a thin one above it; the margin is now the same
+      // HaloBleed on all four sides.
+      const float bleed = HaloBleed;
       RectTransform halo = Layer("Halo", transform,
-        new Vector2(TileSize + 64f, TileSize + 64f), -EdgeDepth + 26f);
+        new Vector2(TileSize + bleed * 2f, TileSize + EdgeDepth + bleed * 2f), bleed);
       var haloImage = halo.gameObject.AddComponent<Image>();
       haloImage.sprite = UiSprites.Glow();
       haloImage.type = Image.Type.Sliced;

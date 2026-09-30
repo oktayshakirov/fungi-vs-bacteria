@@ -43,6 +43,8 @@ public static class UiPreview
     Shoot(cam, 1440, 1080, "hud-4x3");
     ShootTowersCollapsed(cam, "hud-towers-collapsed");
     ShootBoosters(cam, "hud-boosters");
+    ShootBoosterTimers(cam, "hud-boosters-timers");
+    ShootBoosterBuy(cam, "hud-boosters-buy");
 
     // The real modal prefabs, themed by the real ScreenTheme
     ShootScreen(cam, "Assets/Prefabs/Screens/PauseGameScreen.prefab", "ResumeGame", "screen-pause");
@@ -387,6 +389,101 @@ public static class UiPreview
     foreach (var entry in saved)
     {
       // Set, not Add: the shot added two of each on top of whatever was there.
+      PlayerPrefs.SetInt("Booster_" + entry.Key, entry.Value);
+    }
+    PlayerPrefs.Save();
+  }
+
+  // The bar with NOTHING owned: five dimmed buttons with no counts, and the
+  // panel offering BUY instead of USE. This is what a player who has spent
+  // everything sees, and it used to be an empty strip of screen.
+  private static void ShootBoosterBuy(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var saved = new System.Collections.Generic.Dictionary<BoosterKind, int>();
+    foreach (BoosterKind kind in BoosterCatalog.All)
+    {
+      saved[kind] = BoosterInventory.Count(kind);
+      PlayerPrefs.SetInt("Booster_" + kind, 0);
+    }
+    BoosterEffects.ResetForLevel();
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+    Transform safeArea = canvasGo.transform.Find("SafeArea");
+    BoosterPanel.Show(BoosterKind.SporeBomb, safeArea);
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    BoosterPanel.Hide();
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+
+    foreach (var entry in saved)
+    {
+      PlayerPrefs.SetInt("Booster_" + entry.Key, entry.Value);
+    }
+    PlayerPrefs.Save();
+  }
+
+  // The bar with all three timed effects RUNNING, which is the only way to see
+  // the countdown dials: they are hidden whenever nothing is active, so the
+  // ordinary hud-boosters shot shows none of them.
+  //
+  // The effects are started through the real BoosterEffects.Use before the bar
+  // is built, because BoosterBar.Build ends in Refresh() and that is what puts
+  // the dials on screen - Update never runs in batch mode. The buttons come out
+  // dimmed as a result, which is correct: a booster whose effect is running has
+  // just been spent.
+  private static void ShootBoosterTimers(Camera cam, string name)
+  {
+    const int width = 1920, height = 1080;
+    ClearCanvases();
+
+    var saved = new System.Collections.Generic.Dictionary<BoosterKind, int>();
+    foreach (BoosterKind kind in BoosterCatalog.All)
+    {
+      saved[kind] = BoosterInventory.Count(kind);
+      BoosterInventory.Add(kind, 2);
+    }
+    BoosterEffects.ResetForLevel();
+
+    BoosterEffects.Use(BoosterKind.FrostWave);
+    BoosterEffects.Use(BoosterKind.Overclock);
+    BoosterEffects.Use(BoosterKind.Shield);
+
+    var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
+    cam.targetTexture = rt;
+
+    GameObject canvasGo = BuildHud(cam, width, height);
+
+    Canvas.ForceUpdateCanvases();
+    LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)canvasGo.transform);
+    cam.Render();
+    Canvas.ForceUpdateCanvases();
+    cam.Render();
+
+    SavePng(rt, width, height, name);
+
+    cam.targetTexture = null;
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(canvasGo);
+
+    // Leaves nothing running for the shots that follow.
+    BoosterEffects.ResetForLevel();
+    foreach (var entry in saved)
+    {
       PlayerPrefs.SetInt("Booster_" + entry.Key, entry.Value);
     }
     PlayerPrefs.Save();
@@ -921,6 +1018,9 @@ public static class UiPreview
     // The real runtime buttons, built by their own code
     GameSpeedButton.Create(safeArea, statsPanel, 0);
     CameraViewButton.Create(safeArea, statsPanel, 1);
+    // Placed beside pause rather than in the left stack, so the preview has to
+    // build it or the top-right corner is a shot short of the real HUD.
+    StoreHudButton.Create(safeArea, statsPanel, 2);
     // Builds nothing unless the player owns boosters, which is why the plain
     // HUD shots show no bar and ShootBoosters stocks the inventory first.
     BoosterBar.Create(safeArea, statsPanel, 2);
@@ -944,6 +1044,15 @@ public static class UiPreview
 
     Canvas.ForceUpdateCanvases();
     LayoutRebuilder.ForceRebuildLayoutImmediate(canvasRect);
+
+    // Same reason as the scrollbar above: these correct themselves from
+    // LateUpdate, which batch mode never calls. Run last, when every rect
+    // they measure has its final size.
+    foreach (HudKeepClear keep in canvasGo.GetComponentsInChildren<HudKeepClear>(true))
+    {
+      keep.Apply();
+    }
+
     return canvasGo;
   }
 

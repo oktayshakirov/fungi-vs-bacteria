@@ -28,11 +28,12 @@ public static class HudTheme
       PullInside((RectTransform)pauseButton.transform);
       InsetFromTop((RectTransform)pauseButton.transform, 62f);
       CompactPause((RectTransform)pauseButton.transform);
+      PauseRect = (RectTransform)pauseButton.transform;
     }
     if (waveText != null) InsetFromTop(waveText.rectTransform, 0f);
     if (timerText != null) InsetFromTop(timerText.rectTransform, 0f);
 
-    StyleWaveReadout(waveText, timerText, pauseButton != null ? (RectTransform)pauseButton.transform : null);
+    StyleWaveReadout(waveText, timerText, statsPanel);
 
     // The rail has to be measured before Start Wave can be placed under it, so
     // the two cannot drift apart the way they did when each carried its own
@@ -180,11 +181,73 @@ public static class HudTheme
     glyphRect.anchoredPosition = Vector2.zero;
   }
 
-  // Minimum clear space to leave between the wave readout and whatever sits
-  // to its right (the pause button in the real HUD).
-  private const float WaveReadoutClearance = 14f;
+  // Gap between the two top-right controls.
+  private const float TopRightGap = 10f;
 
-  private static void StyleWaveReadout(TMP_Text waveText, TMP_Text timerText, RectTransform pauseButton)
+  // The pause button, once Apply has compacted and placed it. Everything else
+  // that wants a spot in the top-right corner measures off this rather than
+  // carrying its own copy of the corner's geometry.
+  public static RectTransform PauseRect { get; private set; }
+
+  // The vertical centre of the pause button in its own anchor space, or null
+  // before Apply has run.
+  private static float? PauseCentreY
+  {
+    get
+    {
+      if (PauseRect == null) return null;
+      float top = PauseRect.anchoredPosition.y + (1f - PauseRect.pivot.y) * PauseRect.rect.height;
+      return top - PauseRect.rect.height * 0.5f;
+    }
+  }
+
+  // Re-anchors a top-edge element to the middle of the screen. `centreY` moves
+  // it onto that line as well; null keeps whatever height it already had, which
+  // is what stacks the countdown under the wave badge.
+  private static void CentreOnTopEdge(RectTransform rect, float? centreY)
+  {
+    if (rect == null) return;
+
+    float y = rect.anchoredPosition.y;
+    rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
+    if (centreY.HasValue)
+    {
+      rect.pivot = new Vector2(0.5f, 0.5f);
+      y = centreY.Value;
+    }
+    else
+    {
+      rect.pivot = new Vector2(0.5f, rect.pivot.y);
+    }
+    rect.anchoredPosition = new Vector2(0f, y);
+  }
+
+  // Sizes a runtime button to match the pause button and parks it immediately
+  // to its left. Used by the store button, which is a sibling control and has
+  // no business being a different shape from the one beside it.
+  //
+  // Falls back to the top-right corner when Apply has not run (no pause button
+  // in the scene), so the caller never has to handle a null.
+  public static void PlaceLeftOfPause(RectTransform rect)
+  {
+    rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
+    rect.pivot = new Vector2(1f, 1f);
+
+    if (PauseRect == null)
+    {
+      rect.sizeDelta = new Vector2(PauseSize + 18f, PauseSize);
+      rect.anchoredPosition = new Vector2(-14f, -EdgeMargin);
+      return;
+    }
+
+    rect.sizeDelta = PauseRect.sizeDelta;
+
+    float pauseLeft = PauseRect.anchoredPosition.x - PauseRect.rect.width;
+    float pauseTop = PauseRect.anchoredPosition.y + (1f - PauseRect.pivot.y) * PauseRect.rect.height;
+    rect.anchoredPosition = new Vector2(pauseLeft - TopRightGap, pauseTop);
+  }
+
+  private static void StyleWaveReadout(TMP_Text waveText, TMP_Text timerText, RectTransform statsPanel)
   {
     if (waveText != null)
     {
@@ -194,31 +257,29 @@ public static class HudTheme
       // padding was added on top. Nudged left of the button's ACTUAL edge
       // (post-PullInside) rather than a second hardcoded offset, so the two
       // cannot drift back out of sync the next time either one changes.
-      if (pauseButton != null)
+      // Centred on the top edge, not tucked beside the pause button. The top
+      // right now carries TWO controls (store and pause), which left the
+      // readout squeezed between them and the stat chips; the middle of the
+      // top edge is the one place nothing else wants, and it is where a wave
+      // counter is looked for anyway.
+      CentreOnTopEdge(waveText.rectTransform, PauseCentreY);
+      if (timerText != null)
       {
-        float pauseLeftEdge = pauseButton.anchoredPosition.x - pauseButton.rect.width;
-        // +9 anticipates the Backdrop() padding added below, which extends
-        // past waveText's own rect on every side.
-        float waveRightEdge = waveText.rectTransform.anchoredPosition.x
-                             + waveText.rectTransform.rect.width * 0.5f + 9f;
-        // Always snapped beside the button now, not only pushed off it: with
-        // the compact pause control a readout left at the scene's -450 would
-        // float in the middle of the top edge.
-        float overlap = waveRightEdge - (pauseLeftEdge - WaveReadoutClearance);
-        {
-          Vector2 pos = waveText.rectTransform.anchoredPosition;
-          waveText.rectTransform.anchoredPosition = new Vector2(pos.x - overlap, pos.y);
-          if (timerText != null)
-          {
-            Vector2 timerPos = timerText.rectTransform.anchoredPosition;
-            timerText.rectTransform.anchoredPosition = new Vector2(timerPos.x - overlap, timerPos.y);
-          }
-        }
+        // Keeps its own vertical offset, so the countdown stays under the
+        // badge rather than on top of it.
+        CentreOnTopEdge(timerText.rectTransform, null);
       }
 
-      // Narrow horizontal padding: even after the nudge above, a wide backdrop
-      // would run back into the pause button.
-      Backdrop(waveText.rectTransform, UiSkin.PanelDark, UiSkin.RadiusChip, new Vector2(9f, 8f));
+      // Roomier now that nothing sits beside it.
+      Image plate = Backdrop(waveText.rectTransform, UiSkin.PanelDark, UiSkin.RadiusChip,
+        new Vector2(16f, 8f));
+
+      // ...but never ONTO the stat chips. A 4:3 canvas is only 960 units wide,
+      // and there the centred badge and the gold chip overlap at the corner.
+      // Measured live rather than nudged once here, because the gold chip's
+      // width follows the number inside it - see HudKeepClear.
+      HudKeepClear.Attach((RectTransform)plate.transform, waveText.rectTransform,
+        statsPanel, EdgeMargin);
       UiSkin.Label(waveText, UiSkin.Role.Heading);
       waveText.alignment = TextAlignmentOptions.Center;
     }

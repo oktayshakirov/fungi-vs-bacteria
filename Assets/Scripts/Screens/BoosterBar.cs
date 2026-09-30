@@ -15,14 +15,19 @@ using TowerDefense.UI;
 // the board is drawn above it, both thumbs reach it, and the buttons can be
 // half as big again as they were.
 //
-// Only boosters the player OWNS get a button, decided once when the level
-// loads. A player who has never bought one sees no bar at all rather than four
-// dead buttons advertising the store, and a button that runs out mid-level
-// stays put (disabled) so the column never reshuffles under a thumb.
+// EVERY booster gets a button, whether it is owned or not. The bar used to be
+// built from the owned ones only, which meant the row changed shape between
+// levels and a player who had spent everything saw no bar at all - and so had
+// no way back in. A booster you do not own is drawn dimmed with no count, and
+// tapping it opens the same panel with BUY on it instead of USE. The row is
+// therefore the same five buttons in the same places all game.
 public class BoosterBar : MonoBehaviour
 {
   private const float MaxButtonSize = 92f;
-  private const float MinButtonSize = 62f;
+  // Low enough that all FIVE buttons fit the free strip on a 4:3 tablet, where
+  // the canvas is only 960 units wide. The bar shows every booster now, so this
+  // is no longer the rare five-owned case it was sized for - it is every level.
+  private const float MinButtonSize = 48f;
   private const float Gap = 12f;
 
   // Kept clear of the furniture at each end of the bottom strip.
@@ -40,6 +45,12 @@ public class BoosterBar : MonoBehaviour
   private readonly Dictionary<BoosterKind, Button> buttons = new Dictionary<BoosterKind, Button>();
   private readonly Dictionary<BoosterKind, TMP_Text> counts = new Dictionary<BoosterKind, TMP_Text>();
   private readonly Dictionary<BoosterKind, Image> icons = new Dictionary<BoosterKind, Image>();
+
+  // The countdown dial over a timed booster's button, and its backing disc.
+  // Only the three timed boosters have one.
+  private readonly Dictionary<BoosterKind, Image> timers = new Dictionary<BoosterKind, Image>();
+  private readonly Dictionary<BoosterKind, GameObject> timerHosts =
+    new Dictionary<BoosterKind, GameObject>();
   private Transform panelHost;
 
   public static BoosterBar Create(Transform parent, RectTransform reference, int slot)
@@ -47,23 +58,18 @@ public class BoosterBar : MonoBehaviour
     // `reference` and `slot` are kept for symmetry with the other two HUD
     // controls, but the bar is positioned from the BOTTOM - see Build.
 
-    var owned = new List<BoosterKind>();
-    foreach (BoosterKind kind in BoosterCatalog.All)
-    {
-      if (BoosterInventory.Has(kind)) owned.Add(kind);
-    }
-    if (owned.Count == 0) return null;
+    var all = new List<BoosterKind>(BoosterCatalog.All);
 
     var go = new GameObject("BoosterBar", typeof(RectTransform));
     go.transform.SetParent(parent, false);
 
     var bar = go.AddComponent<BoosterBar>();
     bar.panelHost = parent;
-    bar.Build(owned, reference, slot);
+    bar.Build(all, reference, slot);
     return bar;
   }
 
-  private void Build(List<BoosterKind> owned, RectTransform reference, int slot)
+  private void Build(List<BoosterKind> kinds, RectTransform reference, int slot)
   {
     // The strip between the info panel and the towers rail, and the row is
     // centred in THAT rather than on the screen: a screen-centred row overlaps
@@ -76,19 +82,18 @@ public class BoosterBar : MonoBehaviour
 
     // Shrink only if the band cannot take the buttons at full size - a smaller
     // button is still tappable, an overlapping one is not.
-    float gaps = Mathf.Max(0, owned.Count - 1) * Gap;
-    buttonSize = Mathf.Clamp((band - gaps) / owned.Count, MinButtonSize, MaxButtonSize);
-    float width = owned.Count * buttonSize + gaps;
+    float gaps = Mathf.Max(0, kinds.Count - 1) * Gap;
+    buttonSize = Mathf.Clamp((band - gaps) / kinds.Count, MinButtonSize, MaxButtonSize);
+    float width = kinds.Count * buttonSize + gaps;
 
-    // If even the minimum size overflows the strip - five boosters on a 4:3
-    // canvas, where the two ends leave ~320 units between them - the row keeps
-    // its size and is kept on SCREEN instead. It then reaches under the info
-    // panel's corner, which is the better failure: that panel is transient and
-    // only open while a tower is selected, whereas an unreachably small or
-    // half-off-screen booster button is broken all level.
-    centre = Mathf.Clamp(centre,
-      width * 0.5f + HudTheme.EdgeMargin,
-      Mathf.Max(width * 0.5f + HudTheme.EdgeMargin, canvas - width * 0.5f - HudTheme.EdgeMargin));
+    // If even the minimum size overflows the strip, the row keeps its size and
+    // grows LEFT, under the tower info panel's corner. That panel is transient
+    // and only open while a tower is selected; Start Wave and the towers rail
+    // on the right are there all level, and the row used to be clamped to the
+    // SCREEN instead, which parked the last booster underneath Start Wave.
+    float minCentre = width * 0.5f + HudTheme.EdgeMargin;
+    float maxCentre = rightBound - width * 0.5f;
+    centre = Mathf.Clamp(centre, minCentre, Mathf.Max(minCentre, maxCentre));
 
     var rect = (RectTransform)transform;
     rect.anchorMin = Vector2.zero;
@@ -105,7 +110,7 @@ public class BoosterBar : MonoBehaviour
     layout.childForceExpandWidth = false;
     layout.childForceExpandHeight = true;
 
-    foreach (BoosterKind kind in owned) BuildButton(kind);
+    foreach (BoosterKind kind in kinds) BuildButton(kind);
     Refresh();
   }
 
@@ -141,6 +146,7 @@ public class BoosterBar : MonoBehaviour
     countRect.offsetMax = new Vector2(-6f, 0f);
 
     UiSkin.AddBorder((RectTransform)go.transform, UiSkin.RadiusChip, 2.5f);
+    BuildTimer(kind, go.transform);
 
     button.onClick.AddListener(() =>
     {
@@ -153,6 +159,77 @@ public class BoosterBar : MonoBehaviour
     icons[kind] = icon;
   }
 
+  // A small dial above the button that empties as the effect runs out. No
+  // numbers on purpose: at five to fifteen seconds the shrinking wedge answers
+  // "how much longer" faster than a digit does, and it costs no glyphs on a
+  // HUD that is already tight.
+  //
+  // Hidden whenever nothing is running, so a button with no active effect looks
+  // exactly as it did before.
+  private void BuildTimer(BoosterKind kind, Transform button)
+  {
+    bool timed = kind == BoosterKind.FrostWave
+                 || kind == BoosterKind.Overclock
+                 || kind == BoosterKind.Shield;
+    if (!timed) return;
+
+    float size = Mathf.Round(buttonSize * 0.42f);
+
+    var host = new GameObject("Timer", typeof(RectTransform));
+    host.transform.SetParent(button, false);
+    var hostRect = (RectTransform)host.transform;
+    // Sitting ON the top edge of the button rather than clear above it: the bar
+    // is already at the bottom margin of the screen, so anything floating free
+    // above it would collide with the board.
+    hostRect.anchorMin = hostRect.anchorMax = new Vector2(0.5f, 1f);
+    hostRect.pivot = new Vector2(0.5f, 0.5f);
+    hostRect.anchoredPosition = new Vector2(0f, 2f);
+    hostRect.sizeDelta = new Vector2(size, size);
+
+    var disc = host.AddComponent<Image>();
+    disc.sprite = UiSprites.Circle();
+    disc.color = new Color(0.04f, 0.05f, 0.09f, 0.92f);
+    disc.raycastTarget = false;
+
+    var dialGo = new GameObject("Dial", typeof(RectTransform));
+    dialGo.transform.SetParent(host.transform, false);
+    var dialRect = UiSkin.Stretch((RectTransform)dialGo.transform);
+    dialRect.offsetMin = new Vector2(3f, 3f);
+    dialRect.offsetMax = new Vector2(-3f, -3f);
+
+    var dial = dialGo.AddComponent<Image>();
+    dial.sprite = UiSprites.Circle();
+    dial.color = BoosterCatalog.Tint(kind);
+    dial.raycastTarget = false;
+    // A filled circle sprite wound as a pie: full at the moment of use,
+    // emptying clockwise from the top.
+    dial.type = Image.Type.Filled;
+    dial.fillMethod = Image.FillMethod.Radial360;
+    dial.fillOrigin = (int)Image.Origin360.Top;
+    dial.fillClockwise = true;
+    dial.fillAmount = 1f;
+
+    timers[kind] = dial;
+    timerHosts[kind] = host;
+    host.SetActive(false);
+  }
+
+  private void RefreshTimers()
+  {
+    foreach (KeyValuePair<BoosterKind, Image> entry in timers)
+    {
+      float fraction = Mathf.Clamp01(BoosterEffects.ActiveFraction(entry.Key));
+      bool running = fraction > 0f;
+
+      if (timerHosts.TryGetValue(entry.Key, out GameObject host)
+          && host.activeSelf != running)
+      {
+        host.SetActive(running);
+      }
+      if (running) entry.Value.fillAmount = fraction;
+    }
+  }
+
   private void Refresh()
   {
     foreach (KeyValuePair<BoosterKind, Button> entry in buttons)
@@ -161,15 +238,20 @@ public class BoosterBar : MonoBehaviour
       int owned = BoosterInventory.Count(kind);
       bool usable = BoosterEffects.CanUse(kind);
 
-      entry.Value.interactable = usable;
+      // Always tappable, even at zero: the panel behind it is the only place
+      // that says what the booster does and what it costs, and an owned-but-
+      // blocked one still has to be able to say "used this wave". The panel
+      // itself decides whether it offers USE or BUY.
+      entry.Value.interactable = true;
       counts[kind].text = owned > 0 ? "x" + owned : string.Empty;
 
-      // Dimmed rather than hidden when it cannot be used, so the column keeps
-      // its shape and the player can still tap it to read WHY (the panel says
-      // "Used this wave" on the button itself).
+      // Dimmed when it cannot be pressed into service right now - either none
+      // are owned, or the per-level/per-wave limit is spent.
       Color tint = BoosterCatalog.Tint(kind);
-      icons[kind].color = usable ? tint : new Color(tint.r, tint.g, tint.b, 0.4f);
+      icons[kind].color = usable ? tint : new Color(tint.r, tint.g, tint.b, 0.35f);
     }
+
+    RefreshTimers();
   }
 
   private void OnEnable()

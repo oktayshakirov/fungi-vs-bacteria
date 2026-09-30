@@ -5,7 +5,12 @@ using UnityEngine.UI;
 using TowerDefense.UI;
 
 // The panel shown when a booster in the HUD bar is tapped: what it does, how
-// many are left, and a USE button.
+// many are left, and a USE button - or, when none are left, a BUY button at
+// the catalog price.
+//
+// The bar shows all five boosters at all times, so this panel is also the
+// shop window for the ones the player does not own yet: a dimmed button that
+// only ever said "none left" would be an advert with no way to act on it.
 //
 // A booster is NOT used by tapping it in the bar. The bomb costs 600 coins and
 // there is no undo, so a single stray tap while dragging a tower past the bar
@@ -23,6 +28,8 @@ public class BoosterPanel : MonoBehaviour
 
   public static void Show(BoosterKind kind, Transform host)
   {
+    if (host != null) canvasHost = host;
+
     if (instance == null)
     {
       if (host == null) return;
@@ -42,6 +49,10 @@ public class BoosterPanel : MonoBehaviour
   {
     if (instance != null) instance.gameObject.SetActive(false);
   }
+
+  // Where to parent the Get Coins screen when a purchase cannot be afforded.
+  // Kept statically: the panel itself is hidden before that screen opens.
+  private static Transform canvasHost;
 
   private BoosterKind current;
   private TMP_Text nameLabel;
@@ -66,7 +77,7 @@ public class BoosterPanel : MonoBehaviour
     Transform actions = TowerInfoPanel.Actions(transform);
 
     useButton = MakeAction(actions, "Use", "USE", UiSkin.Primary, out useLabel);
-    useButton.onClick.AddListener(OnUse);
+    useButton.onClick.AddListener(OnAction);
 
     MakeAction(actions, "Cancel", "CANCEL", UiSkin.Neutral, out _)
       .onClick.AddListener(() =>
@@ -100,7 +111,6 @@ public class BoosterPanel : MonoBehaviour
     current = kind;
 
     nameLabel.text = BoosterCatalog.Name(kind);
-    countLabel.text = "x" + BoosterInventory.Count(kind);
     descriptionLabel.text = BoosterCatalog.Description(kind);
 
     statsLabel.text = BoosterCatalog.Limit(kind) == BoosterLimit.OncePerLevel
@@ -110,17 +120,58 @@ public class BoosterPanel : MonoBehaviour
     Refresh();
   }
 
+  // True when the panel is offering to sell rather than to spend.
+  private bool buying;
+
   private void Refresh()
   {
+    countLabel.text = "x" + BoosterInventory.Count(current);
+    buying = !BoosterInventory.Has(current);
+
+    if (buying)
+    {
+      // Always pressable, even with an empty wallet: it opens Get Coins in
+      // that case, which is the only useful thing left to offer.
+      useButton.interactable = true;
+      useLabel.text = "BUY " + BoosterCatalog.Price(current);
+      UiSkin.StyleButton(useButton, UiSkin.Gold, UiSkin.RadiusButton);
+      return;
+    }
+
     string blocked = BoosterEffects.BlockedReason(current);
     useButton.interactable = blocked == null;
     useLabel.text = blocked ?? "USE";
+    UiSkin.StyleButton(useButton, UiSkin.Primary, UiSkin.RadiusButton);
   }
 
-  private void OnUse()
+  private void OnAction()
   {
+    if (buying) { Buy(); return; }
+
     if (!BoosterEffects.Use(current)) { Refresh(); return; }
     Hide();
+  }
+
+  private void Buy()
+  {
+    if (BoosterInventory.Buy(current))
+    {
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.Sell);
+      // Deliberately stays open, now showing USE: buying one mid-wave is
+      // almost always followed by using it, and closing the panel would make
+      // that two taps and a hunt back through the bar.
+      Refresh();
+      return;
+    }
+
+    // Not enough coins. The refusal is the shake; the way out is Get Coins.
+    AudioManager.Instance?.PlayLocked();
+    UiShake.Nudge((RectTransform)transform, 10f);
+    if (canvasHost != null)
+    {
+      Hide();
+      WalletScreen.OpenCoins(canvasHost);
+    }
   }
 
   private void OnEnable()

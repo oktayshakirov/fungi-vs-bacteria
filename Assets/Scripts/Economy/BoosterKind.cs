@@ -53,7 +53,11 @@ public static class BoosterCatalog
   public static string Description(BoosterKind kind) => kind switch
   {
     BoosterKind.SporeBomb => "Wipes out every bacterium on the board. Pays no gold.",
-    BoosterKind.FrostWave => $"Freezes everything solid for {FreezeSeconds:0} seconds.",
+    // "Everything" was the wrong word and read as a warning: it sounded like
+    // the towers stop too. They never did - only enemies are frozen.
+    BoosterKind.FrostWave =>
+      $"Freezes every bacterium on the board for {FreezeSeconds:0} seconds. " +
+      "Your towers keep firing.",
     BoosterKind.Overclock =>
       $"All towers fire {Mathf.RoundToInt((OverclockMultiplier - 1f) * 100f)}% faster " +
       $"for {OverclockSeconds:0} seconds.",
