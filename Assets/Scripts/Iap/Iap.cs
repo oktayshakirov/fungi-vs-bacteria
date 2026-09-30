@@ -137,6 +137,30 @@ public class Iap : MonoBehaviour
         }
       }
 
+      // Logged on SUCCESS too, and loudly when the list comes back short.
+      // An empty or partial result is the single most common way this
+      // integration fails on a real device - a product not active yet, a
+      // bundle id that does not match the store listing, a build not on a
+      // Play testing track - and none of those raise an `error`. Without this
+      // the only symptom is a store with no prices in it and nothing at all
+      // in the device log to explain why.
+      if (products.Count == IapCatalog.AllProducts.Length)
+      {
+        Debug.Log($"[IAP] All {products.Count} products resolved.");
+      }
+      else
+      {
+        var missing = new List<string>();
+        foreach (string id in IapCatalog.AllProducts)
+        {
+          if (!products.ContainsKey(id)) missing.Add(id);
+        }
+        Debug.LogWarning($"[IAP] Only {products.Count}/{IapCatalog.AllProducts.Length} products " +
+                         $"resolved; the store cannot price: {string.Join(", ", missing)}. " +
+                         "Check that each one is ACTIVE in the store and that this build's " +
+                         "bundle id and track match the listing.");
+      }
+
       OnProductsChanged?.Invoke();
     }, "inapp");
   }
