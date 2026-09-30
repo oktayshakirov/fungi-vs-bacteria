@@ -74,7 +74,11 @@ mid-level is the one flow nothing here has exercised end to end. What changed:**
   buttons: the menu pill, the pause screen and the HUD corner. The shopping
   bag it replaced built its handle out of the same arc as the padlock's
   shackle, so at HUD size the store button read as "locked". `UiSprites.Bag`
-  is gone rather than aliased - nothing should be able to draw it again.
+  is gone rather than aliased - nothing should be able to draw it again. The
+  wallet header carries the same mark beside its title (a plus on Get Coins,
+  matching the menu pills); icon and title ride a centred layout row now,
+  because anything that positions the glyph from a PREDICTED text width drifts
+  as soon as TMP's autosizing shrinks the title on a narrower canvas.
 - **The "next level" halo is centred again.** It was sized off the face alone
   and nudged up 26 units, which left ~46 units of glow below the tile against
   ~18 above. It now measures the face PLUS the edge plate and bleeds an equal

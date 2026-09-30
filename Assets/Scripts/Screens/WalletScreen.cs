@@ -88,7 +88,8 @@ public class WalletScreen : MonoBehaviour
     RectTransform safeArea = ScreenTheme.EnsureSafeArea(transform);
 
     RectTransform card = Panel(safeArea);
-    Header(card, mode == Mode.Store ? "STORE" : "GET COINS");
+    Header(card, mode == Mode.Store ? "STORE" : "GET COINS",
+      mode == Mode.Store ? UiSprites.Store() : UiSprites.Plus());
 
     // The store is one shelf, so it gets no tab bar at all - a single tab is
     // a control that cannot do anything.
@@ -236,22 +237,51 @@ public class WalletScreen : MonoBehaviour
   // full-width row of its own (a coin and three digits in a 92-unit strip that
   // was otherwise empty) and the close button a "BACK" plate outside the card,
   // where it read as part of the screen behind the dialog.
-  private void Header(RectTransform parent, string text)
+  private void Header(RectTransform parent, string text, Sprite glyph)
   {
     var go = new GameObject("Header", typeof(RectTransform));
     go.transform.SetParent(parent, false);
     go.AddComponent<LayoutElement>().preferredHeight = 76f;
 
+    // Icon and title ride a centred row rather than the title being a
+    // stretched label with the icon hung off a measured offset: TMP's width
+    // depends on its own autosizing, so anything that positions the glyph from
+    // a predicted text width drifts the moment the font shrinks on a narrower
+    // canvas. A layout group measures for us, and the pair stays centred as
+    // one unit.
+    var rowGo = new GameObject("TitleRow", typeof(RectTransform));
+    rowGo.transform.SetParent(go.transform, false);
+    var rowRect = UiSkin.Stretch((RectTransform)rowGo.transform);
+    // Clear of the balance chip and the cross on either side.
+    rowRect.offsetMin = new Vector2(230f, 0f);
+    rowRect.offsetMax = new Vector2(-90f, 0f);
+
+    var row = rowGo.AddComponent<HorizontalLayoutGroup>();
+    row.spacing = 16f;
+    row.childAlignment = TextAnchor.MiddleCenter;
+    row.childControlWidth = true;
+    row.childControlHeight = true;
+    row.childForceExpandWidth = false;
+    row.childForceExpandHeight = false;
+
+    // The same shopfront as every button that opens this screen, so the
+    // header answers "which of the two screens is this".
+    Image mark = UiSkin.Icon(rowGo.transform, glyph, UiSkin.Gold, 46f);
+    mark.raycastTarget = false;
+    var markElement = mark.gameObject.AddComponent<LayoutElement>();
+    markElement.preferredWidth = 46f;
+    markElement.preferredHeight = 46f;
+    markElement.flexibleWidth = 0f;
+
     var titleGo = new GameObject("Title", typeof(RectTransform));
-    titleGo.transform.SetParent(go.transform, false);
-    UiSkin.Stretch((RectTransform)titleGo.transform);
+    titleGo.transform.SetParent(rowGo.transform, false);
     var title = titleGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(title, UiSkin.Role.Title);
     title.text = text;
     title.alignment = TextAlignmentOptions.Midline;
     title.fontSizeMax = 64f;
-    // Clear of the balance chip and the cross on either side.
-    title.margin = new Vector4(230f, 0f, 90f, 0f);
+    title.textWrappingMode = TextWrappingModes.NoWrap;
+    title.raycastTarget = false;
 
     // Balance chip
     var chipGo = new GameObject("Balance", typeof(RectTransform));
