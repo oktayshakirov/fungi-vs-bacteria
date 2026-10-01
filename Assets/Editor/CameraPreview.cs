@@ -167,6 +167,86 @@ public static class CameraPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
+  // A close-up of each biome's base, standing in that biome's own light, fog
+  // and ground. RenderBoards shows the whole island, where the base is forty
+  // pixels across in the far corner - and that is exactly how the first pass
+  // at the volcanic and alien bases got as far as a render with a silhouette
+  // that vanished into the ground. Judge a base here, then confirm it in
+  // RenderBoards; the two answer different questions.
+  public static void RenderBases()
+  {
+    var ctx = BoardContext.Open();
+    if (ctx == null) { if (Application.isBatchMode) EditorApplication.Exit(1); return; }
+
+    var shot = new Device { name = "base", width = 760, height = 760 };
+    int written = 0;
+    for (int n = 1; n <= 7; n++)
+    {
+      // No cast: eight enemies in front of the house is the one thing that
+      // would get in the way of the only question this shot is asking.
+      List<GameObject> props = ctx.Build(n, "Level05", withCast: false);
+      if (props == null) continue;
+
+      GameObject house = GameObject.Find("BaseStructure");
+      if (house == null)
+      {
+        Debug.LogError($"BASES FAIL: environment {n} built no BaseStructure");
+        continue;
+      }
+      CaptureCloseUp(ctx.cam, house.transform.position, shot,
+                     $"{OutputDir}/base-env{n}.png");
+      written++;
+      foreach (GameObject go in props) Object.DestroyImmediate(go);
+    }
+
+    Debug.Log($"BASES OK: wrote {written} close-ups to {OutputDir}");
+    if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
+  // Clones the gameplay camera rather than making a bare one, so the shot
+  // keeps the scene's skybox, fog and post-processing - without the bloom the
+  // emissive parts (windows, lava fissures, alien pores) are flat colours, and
+  // those are most of what the dark biomes' bases are read by.
+  private static void CaptureCloseUp(Camera source, Vector3 target, Device device, string path)
+  {
+    var go = Object.Instantiate(source.gameObject);
+    var strayRig = go.GetComponent<CameraRig>();
+    if (strayRig != null) Object.DestroyImmediate(strayRig);
+    var listener = go.GetComponent<AudioListener>();
+    if (listener != null) Object.DestroyImmediate(listener);
+
+    var cam = go.GetComponent<Camera>();
+    cam.fieldOfView = 32f;
+    // The play camera's own pitch, from its own side of the board, so the
+    // overhang of a cap hides what it hides in play.
+    Vector3 eye = target + new Vector3(3.6f, 7.4f, -11.5f);
+    cam.transform.position = eye;
+    cam.transform.LookAt(target + Vector3.up * 2.1f);
+
+    float aspect = (float)device.width / device.height;
+    var rt = new RenderTexture(device.width, device.height, 24, RenderTextureFormat.ARGB32)
+    {
+      antiAliasing = 2
+    };
+    RenderTexture previousActive = RenderTexture.active;
+    cam.targetTexture = rt;
+    cam.aspect = aspect;
+    cam.Render();
+
+    RenderTexture.active = rt;
+    var texture = new Texture2D(device.width, device.height, TextureFormat.RGB24, false);
+    texture.ReadPixels(new Rect(0, 0, device.width, device.height), 0, 0);
+    texture.Apply();
+    File.WriteAllBytes(path, texture.EncodeToPNG());
+
+    RenderTexture.active = previousActive;
+    cam.targetTexture = null;
+    rt.Release();
+    Object.DestroyImmediate(rt);
+    Object.DestroyImmediate(texture);
+    Object.DestroyImmediate(go);
+  }
+
   // MainGame opened in edit mode with the singletons the path code reads wired
   // by hand (-executeMethod never runs Awake), so a level can be built the way
   // the game builds it.

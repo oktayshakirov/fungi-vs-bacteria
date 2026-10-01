@@ -461,25 +461,178 @@ public class LevelDecorator : MonoBehaviour
     });
   }
 
-  // The fungi's base at the path end: a mushroom house with lit windows, the
-  // thing the player is defending. It was a lilac dome on a cylinder, which
-  // nobody could have named.
+  // The fungi's base at the path end: the thing the player is defending, with
+  // lit windows. It was a lilac dome on a cylinder, which nobody could have
+  // named, then one mushroom house recoloured per biome - so a biome changed
+  // hue and never shape. Each environment now has its OWN model, named by
+  // Palette.baseModel and authored in Tools/Blender/structures.py.
   private GameObject BuildBase(Vector3 pos, Vector3 facing)
   {
     EnvironmentTheme.Palette p = EnvironmentTheme.Current;
-    return Landmark("BaseStructure", "Structures/MotherMushroom", pos, facing, part =>
+    // Palettes built before baseModel existed fall back to the original, the
+    // same way EnemyTint guards its own late addition.
+    string model = string.IsNullOrEmpty(p.baseModel) ? "Structures/BaseMeadow" : p.baseModel;
+    BaseSkin skin = SkinFor(model, p);
+    return Landmark("BaseStructure", model, pos, facing, part =>
     {
       switch (part)
       {
-        case "Cap": return Lit(Color.Lerp(new Color(0.86f, 0.20f, 0.19f), p.accentGlow, 0.12f));
-        case "Spots": return Lit(new Color(0.98f, 0.95f, 0.88f));
-        case "Stem": return Lit(new Color(0.94f, 0.87f, 0.74f));
-        case "Door": return Lit(p.woodColor * 1.15f);
-        case "Windows": return Neon(new Color(1f, 0.78f, 0.34f), 0.9f);
-        case "Plinth": return Lit(p.rockColor);
+        case "Cap": return Lit(skin.cap);
+        case "Spots": return Lit(skin.spots);
+        case "Stem": return Lit(skin.stem);
+        case "Door": return Lit(skin.door);
+        case "Windows": return Neon(skin.windows, skin.windowEmission);
+        case "Plinth": return Lit(skin.plinth);
+        case "Trim": return Lit(skin.trim);
+        case "Glow": return Neon(skin.glow, skin.glowEmission);
         default: return structureMat;
       }
     });
+  }
+
+  // All seven bases name their parts from the same vocabulary, so one table
+  // skins every one of them. Trim is whatever structural accent that model
+  // carries - an awning, icicles, tendrils, eaves - and Glow its emissive
+  // biome accent; a model uses them or it does not.
+  private struct BaseSkin
+  {
+    public Color cap, spots, stem, door, windows, plinth, trim, glow;
+    public float windowEmission, glowEmission;
+  }
+
+  // Keyed on the MODEL rather than on the environment, because what a part
+  // means is a property of the model: the marsh's Trim is reeds and the
+  // tundra's is icicles, and they would not take each other's colour.
+  //
+  // The windows are WARM on every biome, including the cold ones and the toxic
+  // one, and that is deliberate: a light on inside is the single cue that says
+  // this end of the path is home, against the nest at the other end. The
+  // biome is carried by the cap, the stem and the glow.
+  private static BaseSkin SkinFor(string model, EnvironmentTheme.Palette p)
+  {
+    switch (model)
+    {
+      // Sand at dusk: a sun-bleached parasol over sandstone, with faded
+      // canvas for the awning - the one woven thing in the set.
+      case "Structures/BaseDunes":
+        return new BaseSkin
+        {
+          cap = Color.Lerp(new Color(0.80f, 0.50f, 0.26f), p.accentGlow, 0.18f),
+          // Weathering, not markings: against a bright ochre cap a cream spot
+          // reads as a white scratch rather than as sun-cracked skin.
+          spots = new Color(0.88f, 0.70f, 0.46f),
+          stem = new Color(0.91f, 0.82f, 0.64f),
+          door = p.woodColor * 1.45f,
+          windows = new Color(1f, 0.76f, 0.36f), windowEmission = 0.95f,
+          plinth = p.rockColor,
+          trim = new Color(0.82f, 0.44f, 0.31f),
+          glow = p.accentGlow, glowEmission = 1f,
+        };
+
+      // Toxic night. The darkest biome in the game, so this base leans hardest
+      // on emission: the hanging pods take the biome's acid green and the
+      // gills are pale, or the underside of the bell closes the silhouette
+      // into one black mass.
+      case "Structures/BaseMarsh":
+        return new BaseSkin
+        {
+          cap = new Color(0.36f, 0.21f, 0.48f),
+          spots = new Color(0.66f, 0.86f, 0.56f),
+          stem = new Color(0.70f, 0.64f, 0.76f),
+          door = p.woodColor * 1.9f,
+          windows = new Color(1f, 0.80f, 0.40f), windowEmission = 1.05f,
+          plinth = p.rockColor,
+          trim = p.plantColor,
+          // Held below 1 for the same reason the volcanic fissures are: the
+          // pods came back pale lime, because emission past the bloom
+          // threshold bleaches a hue toward white instead of deepening it.
+          glow = p.accentGlow, glowEmission = 0.65f,
+        };
+
+      // Snow. The cap is a cold slate so the settled snow on it reads as snow
+      // and not as a toadstool's spots, and the windows are the warmest in the
+      // game against it.
+      case "Structures/BaseTundra":
+        return new BaseSkin
+        {
+          cap = new Color(0.38f, 0.49f, 0.62f),
+          spots = new Color(0.97f, 0.98f, 1f),
+          stem = new Color(0.86f, 0.88f, 0.92f),
+          door = p.woodColor * 1.55f,
+          windows = new Color(1f, 0.78f, 0.38f), windowEmission = 1.1f,
+          plinth = p.rockColor,
+          trim = Color.Lerp(p.accentGlow, Color.white, 0.35f),
+          glow = p.accentGlow, glowEmission = 0.9f,
+        };
+
+      // Volcanic. Nearly black, and lit entirely by what is glowing through
+      // it: the fissures carry the biome and the rock only catches the rim.
+      case "Structures/BaseEmber":
+        return new BaseSkin
+        {
+          // Near black, and cool. The biome's key light is a strong orange, so
+          // a warm dark grey came back mid-brown and sat in the same value as
+          // the boulders around it.
+          cap = new Color(0.13f, 0.12f, 0.14f),
+          spots = new Color(0.62f, 0.26f, 0.13f),
+          stem = new Color(0.24f, 0.22f, 0.24f),
+          door = p.woodColor * 1.9f,
+          windows = new Color(1f, 0.66f, 0.26f), windowEmission = 0.9f,
+          plinth = p.rockColor,
+          trim = new Color(0.34f, 0.30f, 0.30f),
+          // Emission BELOW 1 here, against the instinct that lava should be
+          // the brightest thing on the board: the bloom threshold is just
+          // above white, so pushing an orange past it bleaches the hue out and
+          // the fissures came back as pale yellow streaks.
+          glow = p.accentGlow, glowEmission = 0.7f,
+        };
+
+      // Alien bloom. The pods take the biome's violet foliage pulled toward
+      // its teal ground, and the magenta pores do the work the windows do
+      // elsewhere - which is why the windows here are the smallest.
+      case "Structures/BaseBloom":
+        return new BaseSkin
+        {
+          cap = Color.Lerp(p.plantColor, new Color(0.18f, 0.44f, 0.48f), 0.18f),
+          spots = new Color(0.72f, 0.93f, 0.86f),
+          stem = new Color(0.28f, 0.50f, 0.50f),
+          door = new Color(0.24f, 0.20f, 0.32f),
+          windows = new Color(1f, 0.80f, 0.46f), windowEmission = 0.95f,
+          plinth = p.rockColor,
+          trim = new Color(0.26f, 0.56f, 0.50f),
+          glow = p.accentGlow, glowEmission = 0.8f,
+        };
+
+      // Blossom grove. A deep plum roof over a cream stem: the biome is
+      // already made of soft pink canopies, so a pink base would sink into it.
+      case "Structures/BaseBlossom":
+        return new BaseSkin
+        {
+          cap = new Color(0.58f, 0.28f, 0.36f),
+          spots = new Color(1f, 0.86f, 0.90f),
+          stem = new Color(0.95f, 0.90f, 0.80f),
+          door = p.woodColor * 1.35f,
+          windows = new Color(1f, 0.80f, 0.40f), windowEmission = 0.9f,
+          plinth = p.rockColor,
+          trim = p.woodColor,
+          glow = p.accentGlow, glowEmission = 1f,
+        };
+
+      // The meadow, and the fallback: the original red toadstool cottage,
+      // colour for colour as it was before the other six existed.
+      default:
+        return new BaseSkin
+        {
+          cap = Color.Lerp(new Color(0.86f, 0.20f, 0.19f), p.accentGlow, 0.12f),
+          spots = new Color(0.98f, 0.95f, 0.88f),
+          stem = new Color(0.94f, 0.87f, 0.74f),
+          door = p.woodColor * 1.15f,
+          windows = new Color(1f, 0.78f, 0.34f), windowEmission = 0.9f,
+          plinth = p.rockColor,
+          trim = p.woodColor * 0.95f,
+          glow = p.accentGlow, glowEmission = 1f,
+        };
+    }
   }
 
   // Instances each named part of an authored model as its own renderer, so the
