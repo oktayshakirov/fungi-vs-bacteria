@@ -1,7 +1,8 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
 Last updated 2026-10-01 (phase 29, a distinct base and nest per environment;
-phase 30, the neutral nest mouth and the spawn effect).
+phase 30, the neutral nest mouth and the spawn effect; phase 31, its
+polish pass).
 Render-checked; committed and pushed on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
@@ -11,7 +12,42 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 30 — the nest's mouth went neutral, and enemies now climb out
+**Latest: phase 31 — a polish pass on the nest, all four from one round of
+feedback on phase 30:**
+
+- **The mouth is lighter** - `NestMaw` went from 0.36 to 0.52 grey (and
+  `NestMawLit` with it). It reads as a stone basin now rather than a dark hole.
+- **The mist has three variants**, picked at random per spawn: *billow* (a
+  round mass straight up), *gout* (six big fast puffs, one hard belch) and
+  *creep* (eleven small slow ones spilling sideways). Everything was already
+  jittered per puff, but the SHAPE of the burst was fixed, and a late wave
+  pushing twenty enemies through one mouth read as the same puff stamped
+  twenty times. Puffs are still built once, at the largest variant's count;
+  a variant wanting fewer parks the tail at zero size, so choosing one never
+  allocates.
+- **The pools were leaving gaps** that showed the road underneath. Every ring
+  here is lumpy or broken on purpose, so its inner radius is a RANGE, not a
+  number - the dunes' inner terrace wanders between 1.23 and 1.33, the tundra's
+  slabs between 1.34 and 1.75 - and a pool sized to the nominal inner edge
+  leaks wherever the ring happens to wander outward. Six of the seven pools are
+  now sized to the widest the ring's inner edge gets, plus a margin, and tuck
+  under the rest. Only the meadow already had the margin. The rule is written
+  above `nest_pool()`.
+- **`NestPulse` is new**: the nest heaves up and in when something climbs out
+  of it, the counterpart to `BaseFlinch` at the other end of the path. It is
+  the opposite squash - something pushing out from underneath rather than
+  landing on top - and it runs on SCALED time where BaseFlinch runs on
+  unscaled, because it is tied to a spawn and the spawns come faster at 2x
+  and 3x.
+
+**The trap in that last one: the nest was inside the static batch.**
+`LevelDecorator` built the portal BEFORE `StaticBatchingUtility.Combine` and
+the base after it, because until now only the base moved - and a batched object
+cannot be moved or reparented, so a NestPulse on it would have silently done
+nothing at all. Both landmarks are now built after the merge. Anything new that
+MOVES has to go in that block.
+
+**Previously: phase 30 — the nest's mouth went neutral, and enemies now climb out
 of it.** Two changes that only make sense together.
 
 **The mouth is a neutral grey on every biome** (`EnvironmentTheme.NestMaw`),
@@ -798,7 +834,7 @@ but until then a new file is silently not compiled.
 | `Phase1Validator.Validate` | Level asset QA gate | yes |
 | `CameraPreview.Render` | The 3D board per environment, plus a `-enemies` shot of each with the whole cast standing on the path | **no** |
 | `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art (real level 1 of each biome). **Re-run after any change to how a biome looks** | **no** |
-| `CameraPreview.RenderSpawn` | Six frames across the nest's spawn effect, per biome: the mist and the enemy swelling out of it. `SPAWN_ENVS=35` narrows it. The only render here that shows motion | **no** |
+| `CameraPreview.RenderSpawn` | Six frames across the nest's spawn effect, per biome: the mist, the enemy swelling out of it and the nest heaving. Environment 1 shoots all three mist variants (`spawn-v0..2-*`), the others one each. `SPAWN_ENVS=35` narrows it. The only render here that shows motion | **no** |
 | `CameraPreview.RenderLandmarks` | A close-up of each biome's base AND nest, in that biome's light and fog. Use this to judge either; on `RenderBoards` they are forty pixels across | **no** |
 | `CameraPreview.RenderBoards` | The REAL board of every biome - level path through PathManager, decorator, towers, cast. Env vars `BOARD_ENVS=35` / `BOARD_LEVEL=Level07` narrow it. Use this, not `Render`, to judge maps | **no** |
 | `TowerIconRender.Render` | Re-renders the eight tower icons from their prefabs, transparent | **no** |

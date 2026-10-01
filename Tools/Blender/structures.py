@@ -893,6 +893,15 @@ def nest_ring(major, minor, z, flatten=0.70, segments=14, minor_segments=6,
   return ob
 
 
+# THE POOL MUST REACH PAST THE RING'S INNER EDGE, and by a clear margin, not
+# by a hair. Every ring here is lumpy or broken on purpose, so its inner radius
+# is a range and not a number - the dunes' inner terrace wanders between 1.23
+# and 1.33, and the tundra's slabs between about 1.34 and 1.75. A pool sized to
+# the nominal inner edge therefore leaves gaps wherever the ring happens to
+# wander outward, and the road underneath shows straight through them. Size the
+# pool to the WIDEST the ring's inner edge gets, plus a little, and let it tuck
+# under the rest; it sits lower than the ring everywhere, so overlap never
+# shows as a disc lying on top.
 def nest_pool(radius, z, verts=16):
   pool = disc(radius, 0.12, z, verts=verts)
   apply_all(pool)
@@ -965,7 +974,7 @@ def nest_dunes():
           nest_ring(1.62, 0.34, 0.50, flatten=0.60, segments=12, lump=0.04, seed=72)]
   rim = join(berm, "Rim")
 
-  pool = nest_pool(1.32, 0.12)
+  pool = nest_pool(1.52, 0.12)
 
   crust = []
   for i in range(8):
@@ -1019,7 +1028,7 @@ def nest_marsh():
     mound.append(blob)
   rim = join(mound, "Rim")
 
-  pool = nest_pool(1.62, 0.14)
+  pool = nest_pool(1.74, 0.14)
 
   spikes = []
   rnd = random.Random(82)
@@ -1059,7 +1068,7 @@ def nest_tundra():
                             rnd.uniform(-0.55, -0.22), thickness=0.17))
   rim = join(slabs, "Rim")
 
-  pool = nest_pool(1.42, 0.10, verts=14)
+  pool = nest_pool(1.72, 0.10, verts=14)
 
   # Crust: snow still lying on the heaved slabs, which is what stops the ring
   # reading as bare blue rock on a white board.
@@ -1111,7 +1120,7 @@ def nest_ember():
                            seed=102))
   rim = join(columns, "Rim")
 
-  pool = nest_pool(1.44, 0.14, verts=14)
+  pool = nest_pool(1.74, 0.14, verts=14)
 
   # Crust: cooled scabs floating on the vent's lip.
   crust = []
@@ -1159,7 +1168,7 @@ def nest_bloom():
                         seed=111))
   rim = join(sacs, "Rim")
 
-  pool = nest_pool(1.30, 0.16, verts=14)
+  pool = nest_pool(1.62, 0.16, verts=14)
 
   spikes = []
   rnd = random.Random(112)
@@ -1199,7 +1208,7 @@ def nest_blossom():
   rim = join([nest_ring(1.86, 0.46, 0.16, flatten=0.56, segments=12, lump=0.04,
                         seed=121)], "Rim")
 
-  pool = nest_pool(1.28, 0.14, verts=14)
+  pool = nest_pool(1.60, 0.14, verts=14)
 
   # Crust: the petals. Broad, drooping away from the mouth, and overlapping at
   # two radii so the ring does not read as a cog.

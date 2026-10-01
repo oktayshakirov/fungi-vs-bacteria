@@ -161,6 +161,7 @@ public class EnemySpawner : MonoBehaviour
         // from the frame it spawns.
         enemy.PlayEmergence();
         SpawnEffect.Spawn(spawnPoint, heightOffset * 2f);
+        NestPulse.Pulse();
       }
     }
     else

@@ -81,8 +81,8 @@ public static class EnvironmentTheme
   //
   // Read by LevelDecorator for the Pool and Bubbles parts and by SpawnEffect
   // for the mist, so the two cannot drift apart.
-  public static readonly Color NestMaw = new Color(0.36f, 0.38f, 0.41f);
-  public static readonly Color NestMawLit = new Color(0.56f, 0.58f, 0.62f);
+  public static readonly Color NestMaw = new Color(0.52f, 0.54f, 0.58f);
+  public static readonly Color NestMawLit = new Color(0.72f, 0.74f, 0.78f);
   public static readonly Color NestMist = new Color(0.90f, 0.92f, 0.95f);
 
   private static Material skyMaterial;

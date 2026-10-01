@@ -295,27 +295,39 @@ public static class CameraPreview
 
       GameObject enemy = PlaceOneEnemy(path);
       Vector3 rest = enemy != null ? enemy.transform.localScale : Vector3.one;
+      Vector3 nestRest = nest.transform.localScale;
 
-      for (int i = 0; i < ages.Length; i++)
+      // One biome shows all three burst variants; the rest each show a
+      // different one, so a single run covers every shape at least twice.
+      int variants = n == 1 ? SpawnEffect.VariantCount : 1;
+      for (int v = 0; v < variants; v++)
       {
-        // A fresh effect per frame, stepped from zero to the age wanted, so
-        // each shot is an honest replay rather than one effect photographed
-        // while the stepping accumulates rounding.
-        SpawnEffect effect = SpawnEffect.Spawn(path[0], 1.2f);
-        for (float t = 0f; t < ages[i]; t += 1f / 60f) effect.Step(1f / 60f);
-
-        if (enemy != null)
+        int variant = n == 1 ? v : n % SpawnEffect.VariantCount;
+        for (int i = 0; i < ages.Length; i++)
         {
-          enemy.transform.localScale =
-            rest * Enemy.EmergeScaleAt(ages[i] / 0.34f);   // Enemy.EmergeDuration
-        }
+          // A fresh effect per frame, stepped from zero to the age wanted, so
+          // each shot is an honest replay rather than one effect photographed
+          // while the stepping accumulates rounding.
+          SpawnEffect effect = SpawnEffect.Spawn(path[0], 1.2f, variant);
+          for (float t = 0f; t < ages[i]; t += 1f / 60f) effect.Step(1f / 60f);
 
-        CaptureCloseUp(ctx.cam, path[0], new Vector3(2.0f, 5.4f, -7.0f), 0.8f,
-                       frame, $"{OutputDir}/spawn-env{n}-{i}.png");
-        written++;
-        Object.DestroyImmediate(effect.gameObject);
+          if (enemy != null)
+          {
+            enemy.transform.localScale =
+              rest * Enemy.EmergeScaleAt(ages[i] / 0.34f);   // Enemy.EmergeDuration
+          }
+          // The nest heaves too; NestPulse runs over 0.5s.
+          nest.transform.localScale = NestPulse.PulseScale(nestRest, ages[i] / 0.5f);
+
+          string label = n == 1 ? $"spawn-v{v}-{i}" : $"spawn-env{n}-{i}";
+          CaptureCloseUp(ctx.cam, path[0], new Vector3(2.0f, 5.4f, -7.0f), 0.8f,
+                         frame, $"{OutputDir}/{label}.png");
+          written++;
+          Object.DestroyImmediate(effect.gameObject);
+        }
       }
 
+      nest.transform.localScale = nestRest;
       if (enemy != null) Object.DestroyImmediate(enemy);
       foreach (GameObject go in props) Object.DestroyImmediate(go);
     }

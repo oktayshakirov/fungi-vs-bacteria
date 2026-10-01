@@ -18,7 +18,51 @@ public class SpawnEffect : MonoBehaviour
   // comes back, because the last thing on screen is a full-size enemy
   // appearing as the last puff vanishes.
   private const float Lifetime = 0.62f;
-  private const int PuffCount = 9;
+  // The largest any variant uses. Puffs are built once at this count and the
+  // variants wanting fewer leave the tail hidden, so a variant never allocates.
+  private const int PuffCount = 11;
+
+  // Three shapes of burst, one picked at random per spawn. Everything was
+  // already jittered per puff, but the SHAPE of the burst was fixed, and a
+  // late wave pushing twenty enemies through one mouth made that obvious: it
+  // read as the same puff stamped twenty times. These differ in what the eye
+  // actually reads at a glance - how many pieces, how wide they sit, how fast
+  // they climb.
+  private struct Variant
+  {
+    public int count;
+    public float spread;        // how far off the mouth's centre they start
+    public Vector2 rise;        // vertical drift
+    public float outward;       // horizontal drift
+    public Vector2 startSize;
+    public Vector2 growth;      // multiple of startSize reached by the end
+    public float stagger;
+  }
+
+  public static int VariantCount => Variants.Length;
+
+  private static readonly Variant[] Variants =
+  {
+    // Billow: a round mass that swells straight up. The common case.
+    new Variant { count = 9, spread = 0.50f, rise = new Vector2(2.1f, 3.0f),
+                  outward = 0.85f, startSize = new Vector2(0.42f, 0.62f),
+                  growth = new Vector2(2.6f, 3.8f), stagger = 0.10f },
+    // Gout: fewer, bigger, faster - one hard belch out of the mouth. The
+    // spread is not tighter than this on purpose: at 0.28 the six puffs landed
+    // on top of each other and merged into one flawless sphere, which reads as
+    // a balloon rather than as vapour. It needs just enough offset to keep a
+    // lumpy outline.
+    new Variant { count = 6, spread = 0.46f, rise = new Vector2(3.0f, 4.1f),
+                  outward = 0.50f, startSize = new Vector2(0.50f, 0.82f),
+                  growth = new Vector2(2.1f, 3.2f), stagger = 0.05f },
+    // Creep: more, smaller and slower, spilling sideways and hanging low. Its
+    // puffs are bigger than the first pass's and sit closer in, because spread
+    // that wide left a hole over the middle and the enemy showed through it
+    // while it was still half-size.
+    new Variant { count = 11, spread = 0.60f, rise = new Vector2(1.2f, 1.9f),
+                  outward = 1.45f, startSize = new Vector2(0.36f, 0.54f),
+                  growth = new Vector2(3.0f, 4.4f), stagger = 0.15f },
+  };
 
   private struct Puff
   {
@@ -33,6 +77,7 @@ public class SpawnEffect : MonoBehaviour
   private Material material;
   private Color tint;
   private float age;
+  private int used;
 
   private static readonly Stack<SpawnEffect> pool = new Stack<SpawnEffect>();
 
@@ -42,8 +87,10 @@ public class SpawnEffect : MonoBehaviour
   private static void ResetPool() => pool.Clear();
 
   // Returns the effect so the editor preview can step it by hand; the game
-  // ignores the return value and lets Update drive it.
-  public static SpawnEffect Spawn(Vector3 position, float scale)
+  // ignores the return value and lets Update drive it. `variant` is -1 for the
+  // random pick the game always wants, and 0-2 only so the preview can
+  // photograph each one instead of hoping the dice show all three.
+  public static SpawnEffect Spawn(Vector3 position, float scale, int variant = -1)
   {
     SpawnEffect effect = null;
     while (pool.Count > 0 && effect == null)
@@ -61,7 +108,7 @@ public class SpawnEffect : MonoBehaviour
     // The mouth is at ground level; the mist starts just inside it.
     effect.transform.position = new Vector3(position.x, 0.12f, position.z);
     effect.gameObject.SetActive(true);
-    effect.Setup(scale);
+    effect.Setup(scale, variant);
     return effect;
   }
 
@@ -93,7 +140,7 @@ public class SpawnEffect : MonoBehaviour
     }
   }
 
-  private void Setup(float scale)
+  private void Setup(float scale, int variant)
   {
     // The mouth's own neutral carried a good way toward the biome's own fog, so
     // it belongs to the board it is standing on: ash-orange on the volcano,
@@ -106,29 +153,41 @@ public class SpawnEffect : MonoBehaviour
     float size = Mathf.Max(0.5f, scale);
     age = 0f;
 
+    Variant v = Variants[variant >= 0 ? variant % Variants.Length
+                                      : Random.Range(0, Variants.Length)];
+    used = Mathf.Clamp(v.count, 1, puffs.Count);
+
     for (int i = 0; i < puffs.Count; i++)
     {
       Puff p = puffs[i];
 
-      // Round the rim rather than out of the middle: mist rising from the whole
-      // mouth reads as the mouth venting, where one plume from dead centre
-      // reads as a jet and points straight at the spawn position.
-      // Clustered tightly rather than spread round the rim: puffs that overlap
-      // merge into one mass of vapour, where puffs on a ring stay legible as
-      // nine separate balls and read as a circle of stones.
-      float ang = (i + Random.value * 0.6f) / puffs.Count * Mathf.PI * 2f;
-      float radius = Random.Range(0.10f, 0.50f) * size;
+      // Everything past the chosen variant's count is parked at zero size and
+      // skipped by Update, so picking a six-puff gout costs five fewer
+      // transforms than an eleven-puff creep and never allocates.
+      if (i >= used)
+      {
+        p.transform.localScale = Vector3.zero;
+        puffs[i] = p;
+        continue;
+      }
+
+      // Clustered rather than spread round the rim: puffs that overlap merge
+      // into one mass of vapour, where puffs sitting on a ring stay legible as
+      // separate balls and read as a circle of stones.
+      float ang = (i + Random.value * 0.6f) / used * Mathf.PI * 2f;
+      float radius = Random.Range(0.10f, v.spread) * size;
       p.transform.localPosition = new Vector3(Mathf.Cos(ang) * radius, 0.10f,
                                               Mathf.Sin(ang) * radius);
 
-      // Outward and up, slowly. Fast mist reads as an explosion.
-      p.drift = new Vector3(Mathf.Cos(ang) * Random.Range(0.35f, 0.85f),
-                            Random.Range(2.1f, 3.0f),
-                            Mathf.Sin(ang) * Random.Range(0.35f, 0.85f));
-      p.startScale = size * Random.Range(0.42f, 0.62f);
-      p.endScale = p.startScale * Random.Range(2.6f, 3.8f);
-      // Staggered, so the mist boils rather than appearing as one ring.
-      p.delay = i / (float)puffs.Count * 0.10f;
+      // Outward and up. Fast mist reads as an explosion, which is why even the
+      // gout variant climbs rather than bursts.
+      p.drift = new Vector3(Mathf.Cos(ang) * Random.Range(v.outward * 0.4f, v.outward),
+                            Random.Range(v.rise.x, v.rise.y),
+                            Mathf.Sin(ang) * Random.Range(v.outward * 0.4f, v.outward));
+      p.startScale = size * Random.Range(v.startSize.x, v.startSize.y);
+      p.endScale = p.startScale * Random.Range(v.growth.x, v.growth.y);
+      // Staggered, so the mist boils rather than appearing all at once.
+      p.delay = i / (float)used * v.stagger;
 
       p.transform.localScale = Vector3.zero;
       puffs[i] = p;
@@ -151,7 +210,7 @@ public class SpawnEffect : MonoBehaviour
       return;
     }
 
-    for (int i = 0; i < puffs.Count; i++)
+    for (int i = 0; i < used; i++)
     {
       Puff p = puffs[i];
       float t = (age - p.delay) / (Lifetime - p.delay);
@@ -169,8 +228,8 @@ public class SpawnEffect : MonoBehaviour
       p.transform.localPosition += p.drift * dt;
     }
 
-    // One material for all nine puffs, so the fade is one colour write per
-    // frame rather than nine. They are staggered in SIZE, not in opacity,
+    // One material for every puff, so the fade is one colour write per frame
+    // rather than one per puff. They are staggered in SIZE, not in opacity,
     // which is what the stagger is for.
     if (material != null)
     {

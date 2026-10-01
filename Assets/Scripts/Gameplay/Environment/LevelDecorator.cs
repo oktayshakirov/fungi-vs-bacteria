@@ -66,11 +66,6 @@ public class LevelDecorator : MonoBehaviour
     ScatterProps(p);
     ScatterGrass();
     ScatterNeonOrbs(p);
-    if (pathPoints != null && pathPoints.Length >= 2)
-    {
-      // The nest faces along the path it feeds.
-      BuildPortal(pathPoints[0], pathPoints[0] - pathPoints[1]);
-    }
 
     // ~200 scenery renderers is ~200 draw calls, which dwarfs the rest of the
     // frame on mobile. None of this moves once built, so merge it by material:
@@ -79,10 +74,18 @@ public class LevelDecorator : MonoBehaviour
     // Must run last — combined objects can no longer be moved or reparented.
     StaticBatchingUtility.Combine(gameObject);
 
-    // The house is built AFTER the merge, because it moves: it flinches when
-    // an enemy reaches it (BaseFlinch). Six renderers, a few draw calls.
+    // BOTH LANDMARKS are built after the merge, because both of them move: the
+    // house flinches when an enemy reaches it (BaseFlinch) and the nest heaves
+    // when one climbs out of it (NestPulse). The nest used to be built before
+    // the merge, back when it was scenery - a batched object cannot be moved
+    // or reparented, so leaving it there would have silently done nothing.
+    // A dozen renderers between them, a few draw calls.
     if (pathPoints != null && pathPoints.Length >= 2)
     {
+      // The nest faces along the path it feeds.
+      GameObject nest = BuildPortal(pathPoints[0], pathPoints[0] - pathPoints[1]);
+      if (nest != null && Application.isPlaying) nest.AddComponent<NestPulse>();
+
       int last = pathPoints.Length - 1;
       // Faces back up the path, toward what is coming.
       GameObject house = BuildBase(pathPoints[last], pathPoints[last - 1] - pathPoints[last]);
@@ -442,12 +445,12 @@ public class LevelDecorator : MonoBehaviour
   // and cilia round the rim. Authored in Blender (Tools/Blender/structures.py)
   // because the old ring of primitives - a black disc and white shards - read as
   // a hole in the texture at play distance.
-  private void BuildPortal(Vector3 pos, Vector3 facing)
+  private GameObject BuildPortal(Vector3 pos, Vector3 facing)
   {
     EnvironmentTheme.Palette p = EnvironmentTheme.Current;
     string model = string.IsNullOrEmpty(p.nestModel) ? "Structures/NestMeadow" : p.nestModel;
     NestSkin skin = NestSkinFor(model, p);
-    Landmark("SpawnPortal", model, pos, facing, part =>
+    return Landmark("SpawnPortal", model, pos, facing, part =>
     {
       switch (part)
       {
