@@ -30,10 +30,60 @@ public class LevelDecorator : MonoBehaviour
   // while staying identical each time that level is replayed.
   private int levelSeed;
 
+  // A presentation-only build uses the SAME scenery and landmark code without
+  // installing gameplay singletons or changing GameSession/EnvironmentTheme.
+  private LevelConfig previewLevel;
+  private SelectionBoardSettings previewBoard;
+  private bool isPreview;
+  private readonly List<Object> previewResources = new List<Object>();
+  private EnvironmentTheme.Palette Palette => isPreview
+    ? EnvironmentTheme.PaletteFor(previewLevel.environmentName) : EnvironmentTheme.Current;
+
+  public void BuildPreview(LevelConfig level, SelectionBoardSettings board, Vector3[] points)
+  {
+    enabled = false;
+    isPreview = true;
+    previewLevel = level;
+    previewBoard = board;
+    BuildAt(points);
+  }
+
+  public void BuildBasePreview(LevelConfig level)
+  {
+    enabled=false; isPreview=true; previewLevel=level;
+    structureMat=Lit(Palette.structureColor);
+    BuildBase(Vector3.zero,Vector3.back);
+  }
+
+  public void BuildSceneryPreview(LevelConfig level)
+  {
+    enabled=false; isPreview=true; previewLevel=level;
+    rockMats=Shades(Palette.rockColor,4,.16f);
+    plantMats=Shades(Palette.plantColor,5,.22f);
+    var rng=new System.Random(431);
+    SpawnRock(new Vector3(-1,0,0),rng,.7f);
+    SpawnRock(new Vector3(.7f,0,-.6f),rng,.32f);
+    SpawnBush(new Vector3(.7f,0,.7f),rng,.6f);
+    Piece("Grass",MeshFactory.GrassPatch(0),GrassMat(Palette.grassColor),new Vector3(-.4f,0,-.8f));
+  }
+
+  public void ReleasePreviewResources()
+  {
+    foreach (Object material in previewResources)
+      if (material != null) { if (Application.isPlaying) Destroy(material); else DestroyImmediate(material); }
+    previewResources.Clear();
+  }
+
+  private Material Own(Material material)
+  {
+    if (isPreview) previewResources.Add(material);
+    return material;
+  }
+
   private void Start()
   {
     Vector3[] pts = PathManager.Instance != null ? PathManager.Instance.GetPathPoints() : null;
-    BuildAt(pts);
+    if (!isPreview) BuildAt(pts);
   }
 
   // Path points are passed in so the same build works at runtime (from
@@ -41,9 +91,9 @@ public class LevelDecorator : MonoBehaviour
   public void BuildAt(Vector3[] pathPoints)
   {
     Clear();
-    levelSeed = LevelSeed();
+    levelSeed = LevelSeed(isPreview ? previewLevel : GameSession.SelectedLevel);
 
-    EnvironmentTheme.Palette p = EnvironmentTheme.Current;
+    EnvironmentTheme.Palette p = Palette;
     // Slight per-instance colour jitter, so a scatter of rocks or bushes does
     // not read as one flat block of colour.
     rockMats = Shades(p.rockColor, 4, 0.16f);
@@ -60,9 +110,12 @@ public class LevelDecorator : MonoBehaviour
       : new Vector3[0];
 
     BuildIslandCliff(p);
-    BuildDistantClouds(p);
-    BuildDistantIslands(p);
-    BuildFloatingDebris(p);
+    if (!isPreview)
+    {
+      BuildDistantClouds(p);
+      BuildDistantIslands(p);
+      BuildFloatingDebris(p);
+    }
     ScatterProps(p);
     ScatterGrass();
     ScatterNeonOrbs(p);
@@ -72,7 +125,7 @@ public class LevelDecorator : MonoBehaviour
     // that collapses the scenery to roughly one batch per material.
     //
     // Must run last — combined objects can no longer be moved or reparented.
-    StaticBatchingUtility.Combine(gameObject);
+    if (!isPreview) StaticBatchingUtility.Combine(gameObject);
 
     // BOTH LANDMARKS are built after the merge, because both of them move: the
     // house flinches when an enemy reaches it (BaseFlinch) and the nest heaves
@@ -84,17 +137,23 @@ public class LevelDecorator : MonoBehaviour
     {
       // The nest faces along the path it feeds.
       GameObject nest = BuildPortal(pathPoints[0], pathPoints[0] - pathPoints[1]);
-      if (nest != null && Application.isPlaying) nest.AddComponent<NestPulse>();
+      if (nest != null && Application.isPlaying && !isPreview) nest.AddComponent<NestPulse>();
 
       int last = pathPoints.Length - 1;
       // Faces back up the path, toward what is coming.
       GameObject house = BuildBase(pathPoints[last], pathPoints[last - 1] - pathPoints[last]);
-      if (house != null && Application.isPlaying) house.AddComponent<BaseFlinch>();
+      if (house != null && Application.isPlaying && !isPreview) house.AddComponent<BaseFlinch>();
     }
   }
 
   private void IslandExtent(out float halfW, out float halfD)
   {
+    if (isPreview)
+    {
+      halfW = previewBoard.gridSize.x * previewBoard.cellSize * 0.5f + BoardDecor.Margin;
+      halfD = previewBoard.gridSize.y * previewBoard.cellSize * 0.5f + BoardDecor.Margin;
+      return;
+    }
     GridManager grid = GridManager.Instance;
 #if UNITY_EDITOR
     if (grid == null) grid = FindFirstObjectByType<GridManager>();
@@ -111,8 +170,10 @@ public class LevelDecorator : MonoBehaviour
   {
     IslandExtent(out float halfW, out float halfD);
 
-    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-    mat.SetTexture("_BaseMap", MeshFactory.StrataTexture(p.cliffTop, p.cliffBottom));
+    var mat = Own(new Material(Shader.Find("Universal Render Pipeline/Lit")));
+    Texture2D strata = MeshFactory.StrataTexture(p.cliffTop, p.cliffBottom);
+    if (isPreview) previewResources.Add(strata);
+    mat.SetTexture("_BaseMap", strata);
     mat.SetColor("_BaseColor", Color.white);
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.04f);
 
@@ -300,6 +361,14 @@ public class LevelDecorator : MonoBehaviour
 
   private bool Ring(out float halfW, out float halfD, out float outerW, out float outerD)
   {
+    if (isPreview)
+    {
+      halfW = previewBoard.gridSize.x * previewBoard.cellSize * 0.5f;
+      halfD = previewBoard.gridSize.y * previewBoard.cellSize * 0.5f;
+      outerW = halfW + BoardDecor.Margin;
+      outerD = halfD + BoardDecor.Margin;
+      return true;
+    }
     GridManager grid = GridManager.Instance;
 #if UNITY_EDITOR
     if (grid == null) grid = FindFirstObjectByType<GridManager>();
@@ -447,7 +516,7 @@ public class LevelDecorator : MonoBehaviour
   // a hole in the texture at play distance.
   private GameObject BuildPortal(Vector3 pos, Vector3 facing)
   {
-    EnvironmentTheme.Palette p = EnvironmentTheme.Current;
+    EnvironmentTheme.Palette p = Palette;
     string model = string.IsNullOrEmpty(p.nestModel) ? "Structures/NestMeadow" : p.nestModel;
     NestSkin skin = NestSkinFor(model, p);
     return Landmark("SpawnPortal", model, pos, facing, part =>
@@ -565,7 +634,7 @@ public class LevelDecorator : MonoBehaviour
   // Palette.baseModel and authored in Tools/Blender/structures.py.
   private GameObject BuildBase(Vector3 pos, Vector3 facing)
   {
-    EnvironmentTheme.Palette p = EnvironmentTheme.Current;
+    EnvironmentTheme.Palette p = Palette;
     // Palettes built before baseModel existed fall back to the original, the
     // same way EnemyTint guards its own late addition.
     string model = string.IsNullOrEmpty(p.baseModel) ? "Structures/BaseMeadow" : p.baseModel;
@@ -813,9 +882,8 @@ public class LevelDecorator : MonoBehaviour
   // A stable per-level seed. String.GetHashCode is not guaranteed stable across
   // runtimes, so the environment name is folded in by hand — otherwise a level
   // could re-scatter itself differently between sessions.
-  private static int LevelSeed()
+  private static int LevelSeed(LevelConfig cfg)
   {
-    LevelConfig cfg = GameSession.SelectedLevel;
     if (cfg == null) return 12345;
 
     int h = 17 + cfg.levelNumber * 7919;
@@ -833,7 +901,7 @@ public class LevelDecorator : MonoBehaviour
 
   // A few materials around a base colour, varying brightness and saturation a
   // little so scattered props do not all match exactly.
-  private static Material[] Shades(Color baseColor, int count, float spread)
+  private Material[] Shades(Color baseColor, int count, float spread)
   {
     var mats = new Material[count];
     Color.RGBToHSV(baseColor, out float h, out float s, out float v);
@@ -856,9 +924,9 @@ public class LevelDecorator : MonoBehaviour
     if (Application.isPlaying) Destroy(c); else DestroyImmediate(c);
   }
 
-  private static Material Lit(Color color)
+  private Material Lit(Color color)
   {
-    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+    var mat = Own(new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color });
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.1f);
     // Anything static batching cannot merge can still be instanced
     mat.enableInstancing = true;
@@ -867,7 +935,7 @@ public class LevelDecorator : MonoBehaviour
 
   // Grass blades are flat single-sided geometry, so back faces must render too
   // or half of every tuft disappears depending on the viewing angle.
-  private static Material GrassMat(Color color)
+  private Material GrassMat(Color color)
   {
     Material mat = Lit(color);
     if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Off);
@@ -879,13 +947,13 @@ public class LevelDecorator : MonoBehaviour
   // paper cut-out however lumpy its silhouette is. The key light gives the lobes
   // form, and a baked vertical ramp darkens the underside toward the sky colour
   // the way a real cumulus shades from white top to grey base.
-  private static Material CloudMat(EnvironmentTheme.Palette p)
+  private Material CloudMat(EnvironmentTheme.Palette p)
   {
     Color top = Color.Lerp(p.skyHorizon, Color.white, 0.88f);
     Color bottom = Color.Lerp(p.skyHorizon, p.skyBottom, 0.55f) * 0.82f;
     bottom.a = 1f;
 
-    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+    var mat = Own(new Material(Shader.Find("Universal Render Pipeline/Lit")));
     mat.SetTexture("_BaseMap", MeshFactory.VerticalGradient(bottom, top));
     mat.SetColor("_BaseColor", Color.white);
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0f);
@@ -894,9 +962,9 @@ public class LevelDecorator : MonoBehaviour
 
   // A vibrant emissive material: the albedo carries the hue and a modest
   // emission (kept ~1) gives a coloured bloom halo without blowing out to white.
-  private static Material Neon(Color color, float emission = 1.1f)
+  private Material Neon(Color color, float emission = 1.1f)
   {
-    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+    var mat = Own(new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color });
     if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.4f);
     mat.EnableKeyword("_EMISSION");
     if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", color * emission);

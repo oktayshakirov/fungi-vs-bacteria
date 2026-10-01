@@ -1,317 +1,153 @@
+using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
+using UnityEngine.EventSystems;
 
-public class EnvironmentsScreen : MonoBehaviour
+public class EnvironmentsScreen : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-  public static EnvironmentsScreen Instance;
-
-  [Header("Environment Card Setup")]
-  [SerializeField] private GameObject environmentCardPrefab;
-  [SerializeField] private Transform cardsContainer;
-
-  [Header("Next Screen")]
-  [SerializeField] private GameObject levelsScreenPrefab;
-
-  [System.Serializable]
-  public class EnvironmentData
-  {
-    public Sprite environmentSprite;
-    public string environmentName;
-  }
-
-  [Header("Environments Data")]
-  [SerializeField] private List<EnvironmentData> environments = new List<EnvironmentData>();
-
-  private void Awake()
-  {
-    Instance = this;
-  }
-
-  private GameObject returnTarget;
-  private Button backButton;
-
-  // The main menu hands itself over before deactivating, so Back can restore it.
-  public void SetReturnTarget(GameObject menu)
-  {
-    returnTarget = menu;
-  }
-
-  private void Start()
-  {
-    // This screen carries no Canvas of its own — DisplaySetup's edit-time pass
-    // never finds one to wrap, so its content never got a safe-area inset. On a
-    // notched phone in landscape the environment cards could render right
-    // under the notch. Must run before BuildBackButton, which looks for this.
-    ScreenTheme.EnsureSafeArea(transform);
-
-    // The prefab has no back button — this was the only screen in the game with
-    // no way out except the OS back gesture — so one is built here and then
-    // positioned by the same ApplyListScreen call the levels screen uses.
-    backButton = BuildBackButton();
-    ScreenTheme.ApplyListScreen(transform, backButton);
-    StyleTitle();
-    DimBackdrop();
-    CentreCards();
-    PopulateEnvironmentCards();
-
-    // Start on Environment 1. The content has to be laid out first — setting
-    // the scroll position before the size fitter has run leaves the row parked
-    // half a card left of the viewport.
-    var scroll = GetComponentInChildren<ScrollRect>(true);
-    if (scroll != null)
+    public static EnvironmentsScreen Instance;
+    // Retained so existing prefab GUIDs, serialized fields and editor tools stay valid.
+    [SerializeField] private GameObject environmentCardPrefab;
+    [SerializeField] private Transform cardsContainer;
+    [SerializeField] private GameObject levelsScreenPrefab;
+    [System.Serializable]
+    public class EnvironmentData
     {
-      Canvas.ForceUpdateCanvases();
-      if (scroll.content != null) LayoutRebuilder.ForceRebuildLayoutImmediate(scroll.content);
-      scroll.vertical = false;   // a horizontal strip should not drift vertically
-
-      // Positioned directly rather than via horizontalNormalizedPosition: the
-      // content is anchored left with a left pivot, so zero already means "left
-      // edge against the viewport", and the normalised form kept landing a
-      // fraction of a card short.
-      if (scroll.content != null)
-      {
-        scroll.content.anchoredPosition = new Vector2(StartOffset(scroll), scroll.content.anchoredPosition.y);
-      }
-      // The bar tracks the content and is not updated by moving the rect. It
-      // also rendered as an unstyled strip across the bottom of the screen, so
-      // it is hidden entirely — the strip is dragged, not scrubbed.
-      if (scroll.horizontalScrollbar != null)
-      {
-        scroll.horizontalScrollbar.value = 0f;
-        scroll.horizontalScrollbar.gameObject.SetActive(false);
-        scroll.horizontalScrollbar = null;
-      }
-      if (scroll.verticalScrollbar != null)
-      {
-        scroll.verticalScrollbar.gameObject.SetActive(false);
-        scroll.verticalScrollbar = null;
-      }
+        public Sprite environmentSprite;
+        public string environmentName;
     }
+    [SerializeField] private List<EnvironmentData> environments = new List<EnvironmentData>();
+    GameObject returnTarget;
+    SelectionScreenView view;
+    SelectionIslandPreview island;
+    TMP_Text nameLabel, details, requirement, position;
+    Button explore, previous, next;
+    int selected;
+    bool started;
+    Coroutine transition;
+    CanvasGroup fade;
 
-    ScreenFade.In(transform);
-  }
-
-
-  private int furthestUnlocked;
-
-  // Opens on the furthest biome the player has reached, not always on the
-  // first: someone on the tundra had to drag past three finished biomes every
-  // time they came back. That card lands in the second slot where possible,
-  // so the one before it stays in view for context.
-  private float StartOffset(ScrollRect scroll)
-  {
-    var row = scroll.content.GetComponent<HorizontalLayoutGroup>();
-    float spacing = row != null ? row.spacing : 0f;
-    float step = EnvironmentCard.CardWidth + spacing;
-    float viewWidth = ((RectTransform)scroll.viewport ?? (RectTransform)scroll.transform).rect.width;
-    float maxScroll = Mathf.Max(0f, scroll.content.rect.width - viewWidth);
-    return -Mathf.Clamp((furthestUnlocked - 1) * step, 0f, maxScroll);
-  }
-
-  // The same header plate the levels screen uses, so the two steps of one flow
-  // do not look like two different games.
-  private void StyleTitle()
-  {
-    foreach (var label in GetComponentsInChildren<TMP_Text>(true))
+    void Awake() { Instance = this; }
+    public void SetReturnTarget(GameObject menu) { returnTarget = menu; }
+    public void SetLevelSelectionPrefab(GameObject prefab) { levelsScreenPrefab = prefab; }
+    void Start()
     {
-      if (label.gameObject.name != "ScreenTitle") continue;
-      ScreenTheme.TitleChip(label, UiSkin.Accent);
-      return;
+        if (started) return;
+        started = true;
+        view = new SelectionScreenView(transform, "EXPLORE THE ENVIRONMENTS", OnBack);
+        fade=view.Root.gameObject.AddComponent<CanvasGroup>();
+        island = SelectionScreenView.Island(view.Root, new Vector2(.015f, .16f), new Vector2(.64f, .88f));
+
+        island.transform.parent.gameObject.AddComponent<SelectionIslandFloat>();
+        nameLabel = SelectionScreenView.Label(SelectionScreenView.Rect("Biome", view.Root, new Vector2(.65f, .53f), new Vector2(.96f, .70f)), "", 44, true);
+        details = SelectionScreenView.Label(SelectionScreenView.Rect("Completion", view.Root, new Vector2(.65f, .44f), new Vector2(.96f, .51f)), "", 22);
+        requirement = SelectionScreenView.Label(SelectionScreenView.Rect("Unlock", view.Root, new Vector2(.65f, .30f), new Vector2(.96f, .43f)), "", 19);
+        explore = SelectionScreenView.Button(SelectionScreenView.Rect("Explore", view.Root, new Vector2(.65f, .18f), new Vector2(.96f, .28f)), "EXPLORE", UiSkin.Primary, OpenSelected);
+        previous = SelectionScreenView.Button(SelectionScreenView.Rect("Previous", view.Root, new Vector2(.27f, .035f), new Vector2(.34f, .12f)), "", UiSkin.Neutral, () => Browse(-1));
+        next = SelectionScreenView.Button(SelectionScreenView.Rect("Next", view.Root, new Vector2(.66f, .035f), new Vector2(.73f, .12f)), "", UiSkin.Neutral, () => Browse(1));
+        Arrow(previous, false); Arrow(next, true);
+        position = SelectionScreenView.Label(SelectionScreenView.Rect("Position", view.Root, new Vector2(.36f, .035f), new Vector2(.64f, .12f)), "", 20);
+        position.alignment = TextAlignmentOptions.Center;
+        for (int i = 0; i < environments.Count; i++) if (IsUnlocked(i)) selected = i;
+        Refresh();
+        ScreenFade.In(transform);
     }
-  }
-
-  private Button BuildBackButton()
-  {
-    var go = new GameObject("Back", typeof(RectTransform));
-    // Parented to the SafeArea when there is one, so the button clears a notch.
-    Transform host = transform.Find("SafeArea") ?? transform;
-    go.transform.SetParent(host, false);
-
-    go.AddComponent<Image>();
-    var button = go.AddComponent<Button>();
-
-    var labelGo = new GameObject("Label", typeof(RectTransform));
-    labelGo.transform.SetParent(go.transform, false);
-    var label = labelGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(label, UiSkin.Role.ButtonLabel);
-    label.text = "BACK";
-    label.alignment = TextAlignmentOptions.Center;
-    label.raycastTarget = false;
-    UiSkin.Stretch((RectTransform)labelGo.transform);
-
-    // Above the scroll view, which ApplyListScreen stretches across the screen.
-    go.transform.SetAsLastSibling();
-
-    button.onClick.AddListener(OnBack);
-    return button;
-  }
-
-  private void OnBack()
-  {
-    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-    ReturnToMenu();
-  }
-
-  // This screen holds the only reference to the menu it was opened from, so it
-  // is the only thing that can restore it. The levels screen's Home button
-  // calls this to skip straight past the environment list.
-  public void ReturnToMenu()
-  {
-    if (returnTarget != null) returnTarget.SetActive(true);
-    Destroy(gameObject);
-  }
-
-  // Darkens the menu art so the cards read as the foreground. Done by tinting
-  // the background image itself rather than adding an overlay object, which the
-  // prefab's own draw order kept swallowing.
-  private void DimBackdrop()
-  {
-    foreach (Transform child in GetComponentsInChildren<Transform>(true))
+    void OnEnable() { if (started) Refresh(); }
+    bool IsUnlocked(int index)
     {
-      if (child.name != "Background") continue;
-
-      var image = child.GetComponent<Image>();
-      if (image != null) image.color = new Color(0.42f, 0.46f, 0.54f, 1f);
-      return;
+        if (index < 0 || index >= environments.Count) return false;
+        if (LevelRepository.GetLevelsForEnvironment(environments[index].environmentName).Count == 0) return false;
+        string prior = index > 0 ? environments[index - 1].environmentName : null;
+        int count = prior != null ? LevelRepository.GetLevelsForEnvironment(prior).Count : 0;
+        return LevelProgress.IsEnvironmentUnlocked(prior, count);
     }
-  }
-
-  // Left-aligned, not centred: there are seven environments, so the strip is
-  // wider than the screen and centring pushed the first two off the left edge.
-  // It starts at the left and scrolls right.
-  private void CentreCards()
-  {
-    var content = cardsContainer as RectTransform;
-    if (content == null) return;
-
-    content.anchorMin = new Vector2(0f, 0.5f);
-    content.anchorMax = new Vector2(0f, 0.5f);
-    content.pivot = new Vector2(0f, 0.5f);
-    content.anchoredPosition = Vector2.zero;
-
-    // Cards were nearly half the screen tall. Let the row drive their size so
-    // several fit at once and the art reads as a set of thumbnails.
-    var row = content.GetComponent<HorizontalLayoutGroup>();
-    if (row != null)
+    void Browse(int step)
     {
-      row.spacing = 34f;
-      row.padding = new RectOffset(48, 48, 0, 0);
-      row.childAlignment = TextAnchor.MiddleLeft;
-      // The group drives both axes from each card's LayoutElement; with control
-      // off, the prefab's own stretched rect won and the cards filled the screen.
-      row.childControlWidth = true;
-      row.childControlHeight = true;
-      row.childForceExpandWidth = false;
-      row.childForceExpandHeight = false;
-      row.reverseArrangement = false;
+        int destination=Mathf.Clamp(selected+step,0,Mathf.Max(0,environments.Count-1));
+        if(destination==selected || transition!=null) return;
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+        if(!Application.isPlaying) { selected=destination; Refresh(); return; }
+        transition=StartCoroutine(SwitchEnvironment(destination));
     }
-
-    var fitter = content.GetComponent<ContentSizeFitter>();
-    if (fitter == null) fitter = content.gameObject.AddComponent<ContentSizeFitter>();
-    fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-    fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
-
-    // The prefab's scroll view starts left of the screen edge, so the content —
-    // anchored to it — dragged the first card half off-screen. Frame the view
-    // to the screen, under the title.
-    var scroll = content.GetComponentInParent<ScrollRect>();
-    if (scroll != null)
+    IEnumerator SwitchEnvironment(int destination)
     {
-      var view = (RectTransform)scroll.transform;
-      view.anchorMin = Vector2.zero;
-      view.anchorMax = Vector2.one;
-      view.pivot = new Vector2(0.5f, 0.5f);
-      view.offsetMin = new Vector2(0f, 40f);
-      // Clear of the header band (inset + the title plate + its glow), rather
-      // than a literal that has to be re-guessed whenever the header changes.
-      view.offsetMax = new Vector2(0f, -(ScreenTheme.HeaderInset + 88f + 26f));
+        fade.interactable=false;
+        for(float t=0;t<.12f;t+=Time.unscaledDeltaTime)
+        { fade.alpha=1-.65f*t/.12f; yield return null; }
+        selected=destination; Refresh();
+        for(float t=0;t<.20f;t+=Time.unscaledDeltaTime)
+        { fade.alpha=.35f+.65f*Mathf.SmoothStep(0,1,t/.20f); yield return null; }
+        fade.alpha=1; fade.interactable=true; transition=null;
     }
-  }
-
-  private void PopulateEnvironmentCards()
-  {
-    // The previous entry in this list is what gates the next one, so the list's
-    // ORDER is now load-bearing - it has to stay in difficulty order.
-    string previousName = null;
-    int previousLevelCount = 0;
-
-    foreach (var envData in environments)
+    void OnDisable()
     {
-      // Never enable an environment with no levels yet (would open an empty list)
-      var levels = LevelRepository.GetLevelsForEnvironment(envData.environmentName);
-      bool hasLevels = levels.Count > 0;
-      bool isLocked = !hasLevels ||
-        !LevelProgress.IsEnvironmentUnlocked(previousName, previousLevelCount);
-
-      previousName = envData.environmentName;
-      previousLevelCount = levels.Count;
-
-      int completed = Mathf.Clamp(
-        LevelProgress.GetHighestCompletedLevel(envData.environmentName), 0, levels.Count);
-
-      if (!isLocked) furthestUnlocked = cardsContainer.childCount;
-
-      GameObject cardGO = Instantiate(environmentCardPrefab, cardsContainer);
-      EnvironmentCard card = cardGO.GetComponent<EnvironmentCard>();
-      if (card != null)
-      {
-        card.Setup(envData.environmentName, isLocked, completed, levels.Count);
-      }
-
-      Button cardButton = cardGO.GetComponent<Button>();
-      if (cardButton != null)
-      {
-        string envName = envData.environmentName;
-
-        // Locked cards stay interactable and answer with EnvironmentCard's
-        // refusal (wobble + padlock punch + thud) instead of swallowing the
-        // tap, which looked like the list had stopped responding.
-        cardButton.interactable = true;
-        if (isLocked)
+        if(transition!=null) StopCoroutine(transition);
+        transition=null;
+        if(fade!=null) { fade.alpha=1; fade.interactable=true; }
+    }
+    void Refresh()
+    {
+        if (environments.Count == 0)
         {
-          // No card component means nothing to wobble, so fall back to the old
-          // dead button rather than letting the tap through to a locked biome.
-          if (card != null)
-          {
-            cardButton.onClick.AddListener(card.RefuseTap);
-
-            // An interactable Button tints its target graphic with normalColor
-            // instead of disabledColor, which brightened every locked card the
-            // moment they started accepting taps. Pinning the resting states to
-            // the disabled tint keeps the locked look exactly as it was.
-            ColorBlock colors = cardButton.colors;
-            colors.normalColor = colors.disabledColor;
-            colors.highlightedColor = colors.disabledColor;
-            colors.selectedColor = colors.disabledColor;
-            colors.pressedColor = colors.disabledColor * 0.92f;
-            cardButton.colors = colors;
-          }
-          else cardButton.interactable = false;
+            nameLabel.text = "No biomes yet"; explore.interactable = previous.interactable = next.interactable = false; return;
         }
-        else
+        string env = environments[selected].environmentName;
+        var levels = LevelRepository.GetLevelsForEnvironment(env);
+        int done = 0, stars = 0;
+        foreach (var level in levels)
         {
-          cardButton.onClick.AddListener(() => OnEnvironmentSelected(envName));
+            if (level.levelNumber <= LevelProgress.GetHighestCompletedLevel(env)) done++;
+            stars += Mathf.Clamp(LevelProgress.GetStars(env, level.levelNumber), 0, 3);
         }
-      }
+        view.Theme(env);
+        view.Progress.text = $"{stars} / {levels.Count * 3}";
+        nameLabel.text = EnvironmentInfo.DisplayName(env).ToUpperInvariant();
+        details.text = $"{done} / {levels.Count} levels cleared";
+        bool unlocked = IsUnlocked(selected);
+        requirement.text = levels.Count == 0 ? "Levels coming soon" : unlocked
+          ? "Follow the trail. Protect your fungi." : $"Complete {EnvironmentInfo.DisplayName(environments[selected - 1].environmentName)} to unlock.";
+        SelectionScreenView.ButtonText(explore, unlocked ? "EXPLORE" : "LOCKED");
+        UiSkin.StyleButton(explore, unlocked ? UiSkin.Primary : UiSkin.Neutral);
+        SelectionScreenView.ButtonIcon(explore, unlocked ? UiSprites.Play() : UiSprites.Lock());
+        explore.interactable = levels.Count > 0;
+        previous.interactable = selected > 0;
+        next.interactable = selected < environments.Count - 1;
+        position.text = $"{selected + 1:00}  /  {environments.Count:00}";
+        // The first actual level defines the biome's preview, never a fabricated map.
+        island.Show(levels.Count > 0 ? levels[0] : null);
     }
-  }
-
-  public void SetLevelSelectionPrefab(GameObject prefab)
-  {
-    levelsScreenPrefab = prefab;
-  }
-
-  private void OnEnvironmentSelected(string environmentName)
-  {
-    Debug.Log("Selected Environment: " + environmentName);
-    GameSession.SelectedEnvironment = environmentName;
-    AudioManager.Instance?.PlaySound(AudioManager.SoundType.EnvironmentPicked);
-    if (levelsScreenPrefab != null)
+    void OpenSelected()
     {
-      Instantiate(levelsScreenPrefab, transform.parent);
+        if (!IsUnlocked(selected))
+        {
+            AudioManager.Instance?.PlayLocked(); UiShake.Nudge((RectTransform)explore.transform); return;
+        }
+        if (levelsScreenPrefab == null) { Debug.LogError("Levels screen prefab is not assigned."); return; }
+        GameSession.SelectedEnvironment = environments[selected].environmentName;
+        AudioManager.Instance?.PlaySound(AudioManager.SoundType.EnvironmentPicked);
+        Instantiate(levelsScreenPrefab, transform.parent);
+        gameObject.SetActive(false);
     }
-    gameObject.SetActive(false);
-  }
+    public void ReturnToMenu()
+    {
+        if (returnTarget != null) returnTarget.SetActive(true);
+        Destroy(gameObject);
+    }
+    void OnBack() { AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick); ReturnToMenu(); }
+    void OnDestroy() { view?.Dispose(); if (Instance == this) Instance = null; }
+    public static void Arrow(Button button, bool right)
+    {
+        SelectionScreenView.ButtonIcon(button, UiSprites.Chevron(), right ? 90 : -90, true);
+    }
+    public void OnBeginDrag(PointerEventData data) { }
+    public void OnDrag(PointerEventData data) { }
+    public void OnEndDrag(PointerEventData data)
+    {
+        Vector2 delta = data.position - data.pressPosition;
+        if(Mathf.Abs(delta.x) < Screen.width * .06f || Mathf.Abs(delta.x) < Mathf.Abs(delta.y)) return;
+        data.eligibleForClick = false;
+        Browse(delta.x < 0 ? 1 : -1);
+    }
 }

@@ -8,6 +8,7 @@ public class PathVisualizer : MonoBehaviour
   [SerializeField] private float heightOffset = 0.03f;
 
   private LineRenderer lineRenderer;
+  private bool ownsPathMaterial;
   private float currentPathWidth = 1f;
 
   // A darker, slightly wider band drawn under the road. Without it a 1-unit
@@ -15,7 +16,7 @@ public class PathVisualizer : MonoBehaviour
   // whose ground is close to the path colour (the wetland's sand) it vanished.
   private LineRenderer edgeRenderer;
   private Material edgeMaterial;
-  private const float EdgeExtra = 0.7f;      // world units wider than the road
+  private const float EdgeExtra = 0.18f;      // world units wider than the road
   private const float EdgeDrop = 0.012f;     // sits just under the road surface
 
   private void Awake()
@@ -42,14 +43,14 @@ public class PathVisualizer : MonoBehaviour
       return;
     }
 
-    if (pathMaterial == null)
+    if(!ownsPathMaterial)
     {
-      Debug.Log("Creating default path material...");
-      pathMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-      pathMaterial.color = Color.yellow;
+      pathMaterial = pathMaterial != null ? new Material(pathMaterial) : new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+      ownsPathMaterial=true;
     }
-
-    lineRenderer.material = pathMaterial;
+    lineRenderer.sharedMaterial = pathMaterial;
+    PathSurface.Apply(pathMaterial);
+    lineRenderer.textureMode = LineTextureMode.Tile;
     lineRenderer.useWorldSpace = true;
 
     lineRenderer.startWidth = currentPathWidth;
@@ -98,9 +99,9 @@ public class PathVisualizer : MonoBehaviour
   public void SetColors(Color road, Color edge)
   {
     if (lineRenderer == null) InitializeLineRenderer();
-    Material mat = lineRenderer.material;
-    mat.mainTexture = null;
-    if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", null);
+    Material mat = pathMaterial;
+    PathSurface.Apply(mat);
+    edge=PathSurface.Edge(road);
     mat.color = road;
     if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", road);
     lineRenderer.startColor = Color.white;
@@ -181,7 +182,7 @@ public class PathVisualizer : MonoBehaviour
     }
   }
 
-  private Vector3[] GenerateSmoothPath(Vector3[] points)
+  public static Vector3[] GenerateSmoothPath(Vector3[] points)
   {
     if (points == null || points.Length < 2)
     {
@@ -222,7 +223,7 @@ public class PathVisualizer : MonoBehaviour
     }
   }
 
-  private Vector3 CatmullRomPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+  private static Vector3 CatmullRomPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
   {
     float t2 = t * t;
     float t3 = t2 * t;
@@ -234,4 +235,12 @@ public class PathVisualizer : MonoBehaviour
         (t3 - t2) * p3
     );
   }
+  void OnDestroy()
+  {
+    if(ownsPathMaterial && pathMaterial!=null)
+    { if(Application.isPlaying) Destroy(pathMaterial); else DestroyImmediate(pathMaterial); }
+    if(edgeMaterial!=null)
+    { if(Application.isPlaying) Destroy(edgeMaterial); else DestroyImmediate(edgeMaterial); }
+  }
+
 }
