@@ -445,20 +445,115 @@ public class LevelDecorator : MonoBehaviour
   private void BuildPortal(Vector3 pos, Vector3 facing)
   {
     EnvironmentTheme.Palette p = EnvironmentTheme.Current;
-    // Deep, and only softly emissive: at full Neon strength the bloom washed the
-    // pool out to pastel pink.
-    var ooze = new Color(0.78f, 0.10f, 0.42f);
-    Landmark("SpawnPortal", "Structures/BacteriaNest", pos, facing, part =>
+    string model = string.IsNullOrEmpty(p.nestModel) ? "Structures/NestMeadow" : p.nestModel;
+    NestSkin skin = NestSkinFor(model, p);
+    Landmark("SpawnPortal", model, pos, facing, part =>
     {
       switch (part)
       {
-        case "Rim": return Lit(Color.Lerp(p.soilColor, new Color(0.36f, 0.10f, 0.24f), 0.6f));
-        case "Pool": return Neon(ooze, 0.55f);
-        case "Spikes": return Lit(new Color(0.72f, 0.22f, 0.44f));
-        case "Bubbles": return Neon(Color.Lerp(ooze, new Color(1f, 0.55f, 0.8f), 0.5f), 0.7f);
+        case "Rim": return Lit(skin.rim);
+        case "Pool": return Neon(skin.pool, skin.poolEmission);
+        case "Spikes": return Lit(skin.spikes);
+        case "Bubbles": return Neon(skin.bubbles, skin.bubbleEmission);
+        case "Crust": return Lit(skin.crust);
+        case "Glow": return Neon(skin.glow, skin.glowEmission);
         default: return structureMat;
       }
     });
+  }
+
+  // The nest's counterpart to BaseSkin. Same arrangement, same reason for
+  // keying it on the model: the tundra's Crust is snow lying on heaved ice and
+  // the blossom grove's is a ring of petals, and neither would take the
+  // other's colour.
+  private struct NestSkin
+  {
+    public Color rim, pool, spikes, bubbles, crust, glow;
+    public float poolEmission, bubbleEmission, glowEmission;
+  }
+
+  // The OOZE IS THE SAME MAGENTA ON EVERY BIOME, and that is the point. It
+  // mirrors the bases' warm windows: one colour that never takes the
+  // environment, so the two ends of the path always read as home and not-home
+  // however far the rest of the board moves. The ring around it - the rim, the
+  // shards, the crust - is where the biome goes.
+  //
+  // Deep, and only softly emissive: at full Neon strength the bloom washes the
+  // pool out to pastel pink.
+  private static readonly Color Ooze = new Color(0.78f, 0.10f, 0.42f);
+
+  private static NestSkin NestSkinFor(string model, EnvironmentTheme.Palette p)
+  {
+    // Shared by every nest, so a biome can override only what it needs to.
+    var skin = new NestSkin
+    {
+      rim = Color.Lerp(p.soilColor, new Color(0.36f, 0.10f, 0.24f), 0.6f),
+      pool = Ooze, poolEmission = 0.55f,
+      spikes = new Color(0.72f, 0.22f, 0.44f),
+      bubbles = Color.Lerp(Ooze, new Color(1f, 0.55f, 0.8f), 0.5f), bubbleEmission = 0.7f,
+      crust = Color.Lerp(p.rockColor, new Color(0.40f, 0.14f, 0.26f), 0.35f),
+      glow = Ooze, glowEmission = 0.6f,
+    };
+
+    switch (model)
+    {
+      // Sand drifted into a berm. The crust plates are bleached dry sand -
+      // the one biome where the ring is paler than the ground it sits on.
+      case "Structures/NestDunes":
+        // Stained sand, not mud: lerped toward a lighter sand than the biome's
+        // own soil, which came back the colour of chocolate on a pale board.
+        skin.rim = Color.Lerp(p.soilColor, new Color(0.66f, 0.50f, 0.32f), 0.6f);
+        skin.crust = new Color(0.80f, 0.68f, 0.48f);
+        return skin;
+
+      // The bog vent, on the darkest board in the game: the ooze running over
+      // its lip is doing the work the pool alone could not.
+      case "Structures/NestMarsh":
+        skin.rim = Color.Lerp(p.soilColor, new Color(0.30f, 0.12f, 0.30f), 0.65f);
+        skin.spikes = new Color(0.62f, 0.26f, 0.46f);
+        skin.glowEmission = 0.75f;
+        return skin;
+
+      // Heaved pack ice with snow still on it. The shards stay ICE coloured
+      // rather than taking the ooze: magenta showing up through cracked white
+      // is nastier than a ring that is already the colour of the thing in it.
+      case "Structures/NestTundra":
+        skin.rim = Color.Lerp(p.rockColor, new Color(0.46f, 0.58f, 0.72f), 0.6f);
+        skin.crust = new Color(0.95f, 0.97f, 1f);
+        skin.spikes = new Color(0.72f, 0.87f, 0.97f);
+        return skin;
+
+      // Basalt columns round the vent, lava in the gaps. The columns echo the
+      // ember base's footing, so both landmarks read as the same geology.
+      case "Structures/NestEmber":
+        skin.rim = new Color(0.17f, 0.14f, 0.15f);
+        skin.crust = new Color(0.30f, 0.24f, 0.23f);
+        skin.spikes = new Color(0.13f, 0.11f, 0.13f);
+        // Lava, not ooze - and below 1, for the reason the ember base's
+        // fissures are.
+        skin.glow = p.accentGlow; skin.glowEmission = 0.7f;
+        return skin;
+
+      // Egg sacs, built the way the bloom base's pods are.
+      case "Structures/NestBloom":
+        skin.rim = Color.Lerp(p.plantColor, new Color(0.18f, 0.44f, 0.48f), 0.30f);
+        skin.spikes = new Color(0.26f, 0.56f, 0.50f);
+        skin.glow = p.accentGlow; skin.glowEmission = 0.8f;
+        return skin;
+
+      // A carrion flower. The petals are a sickly flesh pink: near enough the
+      // biome's blossom to belong to it, far enough off to be wrong.
+      case "Structures/NestBlossom":
+        skin.rim = new Color(0.46f, 0.24f, 0.30f);
+        skin.crust = new Color(0.82f, 0.48f, 0.56f);
+        skin.spikes = new Color(0.92f, 0.82f, 0.64f);
+        return skin;
+
+      // The meadow crater, and the fallback: colour for colour as it was
+      // before the other six existed.
+      default:
+        return skin;
+    }
   }
 
   // The fungi's base at the path end: the thing the player is defending, with

@@ -33,6 +33,10 @@ public static class EnvironmentTheme
     // Resources and skins its named parts (see LevelDecorator.SkinFor).
     public string baseModel;
 
+    // And which nest stands at the start of it. Same arrangement as baseModel:
+    // one authored model per environment, skinned by LevelDecorator.NestSkinFor.
+    public string nestModel;
+
     // Decoration (used by LevelDecorator for path, props, base and portal)
     public Color pathColor;
     public Color rockColor;
@@ -121,6 +125,7 @@ public static class EnvironmentTheme
           starStrength = 0f,
           ground = "SAND",
           baseModel = "Structures/BaseDunes",
+          nestModel = "Structures/NestDunes",
           groundTint = Color.white,
           soilColor = C(0.40f, 0.26f, 0.16f),
           // Pale packed sand: the old mid-brown was the same value as the
@@ -157,6 +162,7 @@ public static class EnvironmentTheme
           starStrength = 1.1f,
           ground = "MARSH",
           baseModel = "Structures/BaseMarsh",
+          nestModel = "Structures/NestMarsh",
           groundTint = Color.white,
           soilColor = C(0.20f, 0.14f, 0.26f),
           groundTiling = 2f,
@@ -193,6 +199,7 @@ public static class EnvironmentTheme
           starStrength = 0f,
           ground = "SNOW",
           baseModel = "Structures/BaseTundra",
+          nestModel = "Structures/NestTundra",
           groundTint = Color.white,
           groundTiling = 4f,
           soilColor = C(0.44f, 0.48f, 0.56f),
@@ -229,6 +236,7 @@ public static class EnvironmentTheme
           starStrength = 0f,
           ground = "ASH",
           baseModel = "Structures/BaseEmber",
+          nestModel = "Structures/NestEmber",
           groundTint = Color.white,
           groundTiling = 3f,
           soilColor = C(0.20f, 0.13f, 0.11f),
@@ -264,6 +272,7 @@ public static class EnvironmentTheme
           starStrength = 0.7f,
           ground = "DARK",
           baseModel = "Structures/BaseBloom",
+          nestModel = "Structures/NestBloom",
           // Above 1 deliberately: the neutral dark ground is built for a night
           // scene, and this lifts it to a readable mid teal
           groundTint = C(1.5f, 2.1f, 2.0f),
@@ -301,6 +310,7 @@ public static class EnvironmentTheme
           starStrength = 0f,
           ground = "MEADOW",
           baseModel = "Structures/BaseBlossom",
+          nestModel = "Structures/NestBlossom",
           groundTint = C(1f, 0.90f, 0.86f),      // warms the grass toward autumn
           groundTiling = 4f,
           soilColor = C(0.42f, 0.28f, 0.24f),
@@ -336,6 +346,7 @@ public static class EnvironmentTheme
           starStrength = 0f,
           ground = "MEADOW",
           baseModel = "Structures/BaseMeadow",
+          nestModel = "Structures/NestMeadow",
           groundTint = Color.white,
           groundTiling = 4f,
           soilColor = C(0.40f, 0.28f, 0.17f),

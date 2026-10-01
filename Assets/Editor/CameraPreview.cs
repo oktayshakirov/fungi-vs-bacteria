@@ -167,13 +167,14 @@ public static class CameraPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
-  // A close-up of each biome's base, standing in that biome's own light, fog
-  // and ground. RenderBoards shows the whole island, where the base is forty
-  // pixels across in the far corner - and that is exactly how the first pass
-  // at the volcanic and alien bases got as far as a render with a silhouette
-  // that vanished into the ground. Judge a base here, then confirm it in
+  // A close-up of each biome's two landmarks - the base at the end of the path
+  // and the nest at the start - standing in that biome's own light, fog and
+  // ground. RenderBoards shows the whole island, where either is forty pixels
+  // across in a far corner, and that is exactly how the first pass at the
+  // volcanic and alien bases got as far as a render with a silhouette that
+  // vanished into the ground. Judge a landmark here, then confirm it in
   // RenderBoards; the two answer different questions.
-  public static void RenderBases()
+  public static void RenderLandmarks()
   {
     var ctx = BoardContext.Open();
     if (ctx == null) { if (Application.isBatchMode) EditorApplication.Exit(1); return; }
@@ -187,19 +188,27 @@ public static class CameraPreview
       List<GameObject> props = ctx.Build(n, "Level05", withCast: false);
       if (props == null) continue;
 
-      GameObject house = GameObject.Find("BaseStructure");
-      if (house == null)
+      // The nest is a flat ring on the ground, so it wants a steeper, closer
+      // look than a four-metre house does - at the base's angle a scenery
+      // mushroom standing between it and the camera covers most of it.
+      foreach ((string name, string label, Vector3 eye, float aim) in new[]
+               { ("BaseStructure", "base", new Vector3(3.2f, 6.6f, -10.2f), 2.1f),
+                 ("SpawnPortal", "nest", new Vector3(2.0f, 8.2f, -6.6f), 0.3f) })
       {
-        Debug.LogError($"BASES FAIL: environment {n} built no BaseStructure");
-        continue;
+        GameObject landmark = GameObject.Find(name);
+        if (landmark == null)
+        {
+          Debug.LogError($"LANDMARKS FAIL: environment {n} built no {name}");
+          continue;
+        }
+        CaptureCloseUp(ctx.cam, landmark.transform.position, eye, aim, shot,
+                       $"{OutputDir}/{label}-env{n}.png");
+        written++;
       }
-      CaptureCloseUp(ctx.cam, house.transform.position, shot,
-                     $"{OutputDir}/base-env{n}.png");
-      written++;
       foreach (GameObject go in props) Object.DestroyImmediate(go);
     }
 
-    Debug.Log($"BASES OK: wrote {written} close-ups to {OutputDir}");
+    Debug.Log($"LANDMARKS OK: wrote {written} close-ups to {OutputDir}");
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
@@ -207,7 +216,8 @@ public static class CameraPreview
   // keeps the scene's skybox, fog and post-processing - without the bloom the
   // emissive parts (windows, lava fissures, alien pores) are flat colours, and
   // those are most of what the dark biomes' bases are read by.
-  private static void CaptureCloseUp(Camera source, Vector3 target, Device device, string path)
+  private static void CaptureCloseUp(Camera source, Vector3 target, Vector3 eyeOffset,
+                                     float aimHeight, Device device, string path)
   {
     var go = Object.Instantiate(source.gameObject);
     var strayRig = go.GetComponent<CameraRig>();
@@ -217,11 +227,10 @@ public static class CameraPreview
 
     var cam = go.GetComponent<Camera>();
     cam.fieldOfView = 32f;
-    // The play camera's own pitch, from its own side of the board, so the
-    // overhang of a cap hides what it hides in play.
-    Vector3 eye = target + new Vector3(3.6f, 7.4f, -11.5f);
-    cam.transform.position = eye;
-    cam.transform.LookAt(target + Vector3.up * 2.1f);
+    // From the play camera's own side of the board, so a cap's overhang hides
+    // what it hides in play.
+    cam.transform.position = target + eyeOffset;
+    cam.transform.LookAt(target + Vector3.up * aimHeight);
 
     float aspect = (float)device.width / device.height;
     var rt = new RenderTexture(device.width, device.height, 24, RenderTextureFormat.ARGB32)

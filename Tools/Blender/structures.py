@@ -838,7 +838,79 @@ def base_blossom():
   return [plinth, trunk, cap_ob, spots_ob, trim_ob, door_ob, win_ob]
 
 
-# ---------------------------------------------------------------- bacteria nest
+# ---------------------------------------------------------------- the nests
+#
+# SEVEN NESTS as well, on the same principle as the bases, and with one hard
+# constraint the bases do not have: EnemySpawner puts every enemy at
+# pathPoints[0] at ground height, which is the nest's exact centre. So a nest
+# may not close over or build up in the middle - a cone with the pool on top
+# would spawn the wave inside itself. Every one of them keeps a ground-level
+# pool and a clear mouth of radius 1.3 or more, and does its distinguishing
+# work in the RING around that mouth.
+#
+# The pool stays the same hostile magenta on every biome, the way the bases'
+# windows stay warm on every biome: it is the one cue that says this end of the
+# path is theirs. The ring, the shards and the crust take the environment.
+#
+# Part vocabulary, shared by all seven: Rim, Pool, Spikes, Bubbles, plus Crust
+# (the biome-matched plates, slabs or petals around the mouth) and Glow (a
+# secondary emissive, where a nest has one).
+
+
+def nest_shard(ang, radius, z, width, length, tilt, thickness=0.14):
+  """A flat slab standing on the ring and tilted outward: broken pack ice, dry
+  crust plates, the petals of the blossom biome's flower."""
+  bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0))
+  ob = bpy.context.object
+  ob.scale = (length, width, thickness)
+  ob.rotation_euler = (0, tilt, ang)
+  ob.location = (math.cos(ang) * radius, math.sin(ang) * radius, z)
+  apply_all(ob)
+  return ob
+
+
+def nest_ring(major, minor, z, flatten=0.70, segments=14, minor_segments=6,
+              lump=0.0, lobes=3.0, seed=0):
+  """A flattened ring sitting on the ground, open in the middle. Every nest's
+  surround has to be an ANNULUS and not a disc: the pool is at ground level in
+  the centre, so a solid disc of any height caps it and the mouth disappears -
+  which is what happened to the dunes, ember, bloom and blossom nests on the
+  first pass, all four of which came back as a lid."""
+  bpy.ops.mesh.primitive_torus_add(major_segments=segments, minor_segments=minor_segments,
+                                   major_radius=major, minor_radius=minor,
+                                   location=(0, 0, 0))
+  ob = bpy.context.object
+  rnd = random.Random(seed)
+  for v in ob.data.vertices:
+    v.co.z *= flatten
+    if lump > 0.0:
+      ang = math.atan2(v.co.y, v.co.x)
+      w = 1.0 + lump * math.sin(ang * lobes + 1.1) + rnd.uniform(-lump * 0.4, lump * 0.4)
+      v.co.x *= w
+      v.co.y *= w
+    v.co.z = max(v.co.z, -0.05) + z
+  apply_all(ob)
+  return ob
+
+
+def nest_pool(radius, z, verts=16):
+  pool = disc(radius, 0.12, z, verts=verts)
+  apply_all(pool)
+  return finish(pool, "Pool")
+
+
+def nest_bubbles(places):
+  bubbles = []
+  for (x, y, r, z) in places:
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=r, location=(x, y, z))
+    bubbles.append(bpy.context.object)
+  return join(bubbles, "Bubbles")
+
+
+# ------------------------------------------- Environment 1: the meadow crater
+#
+# The original, and the reference the other six are read against: left exactly
+# as it was.
 
 def bacteria_nest():
   # Rim: a lumpy crater ring.
@@ -881,6 +953,278 @@ def bacteria_nest():
   return [rim, pool, spikes_ob, bubbles_ob]
 
 
+# --------------------------------------------- Environment 2: the sand funnel
+#
+# A berm of drifted sand round the mouth, terraced in two steps and broken by
+# cracked crust plates. Low and wide where the marsh's is lumpy, and the only
+# nest whose ring is tidy - wind-built rather than grown.
+
+def nest_dunes():
+  # Two terraces, both open in the middle, so the berm steps down to the pool.
+  berm = [nest_ring(2.12, 0.50, 0.20, flatten=0.62, segments=13, lump=0.05, seed=71),
+          nest_ring(1.62, 0.34, 0.50, flatten=0.60, segments=12, lump=0.04, seed=72)]
+  rim = join(berm, "Rim")
+
+  pool = nest_pool(1.32, 0.12)
+
+  crust = []
+  for i in range(8):
+    ang = i / 8.0 * math.pi * 2 + 0.3
+    crust.append(nest_shard(ang, 2.16 + 0.14 * math.sin(ang * 3.0), 0.50,
+                            0.42, 0.62, -0.34, thickness=0.11))
+  crust_ob = join(crust, "Crust")
+
+  spikes = []
+  rnd = random.Random(73)
+  for i in range(6):
+    ang = i / 6.0 * math.pi * 2 + rnd.uniform(-0.2, 0.2)
+    spikes.append(spike(ang, 1.62, 0.62, rnd.uniform(0.9, 1.5), 0.20,
+                        rnd.uniform(0.45, 0.70)))
+  spikes_ob = join(spikes, "Spikes")
+
+  bubbles = nest_bubbles(((0.44, 0.26, 0.26, 0.20), (-0.52, -0.18, 0.19, 0.20),
+                          (0.08, -0.60, 0.16, 0.20), (-0.16, 0.64, 0.13, 0.20)))
+  return [rim, pool, crust_ob, spikes_ob, bubbles]
+
+
+# ----------------------------------------------- Environment 3: the bog vent
+#
+# The wettest of the seven: a lumpy mound with ooze spilling over its lip and a
+# thicket of thin cilia. Tall and unruly where the dunes' is low and tidy.
+
+def nest_marsh():
+  bpy.ops.mesh.primitive_torus_add(major_segments=18, minor_segments=7,
+                                   major_radius=1.98, minor_radius=0.66,
+                                   location=(0, 0, 0))
+  ring = bpy.context.object
+  rnd = random.Random(81)
+  for v in ring.data.vertices:
+    v.co.z *= 0.80
+    ang = math.atan2(v.co.y, v.co.x)
+    lump = 1.0 + 0.13 * math.sin(ang * 3.0 + 0.4) + rnd.uniform(-0.05, 0.05)
+    v.co.x *= lump
+    v.co.y *= lump
+    v.co.z = max(v.co.z, -0.05) + 0.26
+  apply_all(ring)
+  mound = [ring]
+  # Blisters swelling off the ring, so it reads as grown rather than piled.
+  for ang, r, size, z in ((0.5, 2.05, 0.62, 0.42), (2.1, 1.95, 0.52, 0.50),
+                          (3.5, 2.10, 0.70, 0.38), (5.0, 1.90, 0.46, 0.54)):
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=size,
+                                          location=(math.cos(ang) * r,
+                                                    math.sin(ang) * r, z))
+    blob = bpy.context.object
+    blob.scale = (1.0, 1.0, 0.72)
+    apply_all(blob)
+    mound.append(blob)
+  rim = join(mound, "Rim")
+
+  pool = nest_pool(1.62, 0.14)
+
+  spikes = []
+  rnd = random.Random(82)
+  for i in range(13):
+    ang = i / 13.0 * math.pi * 2 + rnd.uniform(-0.12, 0.12)
+    spikes.append(spike(ang, 1.96, 0.50, rnd.uniform(1.3, 2.0), 0.14,
+                        rnd.uniform(0.12, 0.30)))
+  spikes_ob = join(spikes, "Spikes")
+
+  bubbles = nest_bubbles(((0.52, 0.34, 0.32, 0.22), (-0.64, -0.22, 0.26, 0.22),
+                          (0.12, -0.74, 0.21, 0.22), (-0.22, 0.80, 0.18, 0.22),
+                          (0.86, -0.34, 0.16, 0.22), (-0.90, 0.42, 0.14, 0.22),
+                          (0.30, 0.92, 0.13, 0.22)))
+
+  # Glow: ooze running over the lip and down the outside. The marsh biome is
+  # the darkest board in the game, and the pool alone sits too flat on it.
+  runs = []
+  for ang, length in ((0.9, 1.1), (2.6, 0.9), (4.1, 1.2), (5.4, 0.8)):
+    runs.append(nest_shard(ang, 2.28, 0.30, 0.24, length, 1.15, thickness=0.09))
+  glow_ob = join(runs, "Glow")
+  return [rim, pool, spikes_ob, bubbles, glow_ob]
+
+
+# --------------------------------------------- Environment 4: the ice breach
+#
+# Something came up through the sheet: flat slabs of pack ice heaved and tilted
+# round a dark hole, with shards driven up between them. The only nest built
+# out of straight edges.
+
+def nest_tundra():
+  slabs = []
+  rnd = random.Random(91)
+  for i in range(9):
+    ang = i / 9.0 * math.pi * 2 + rnd.uniform(-0.1, 0.1)
+    slabs.append(nest_shard(ang, 1.98 + rnd.uniform(-0.12, 0.12), 0.26,
+                            rnd.uniform(0.55, 0.80), rnd.uniform(0.70, 1.05),
+                            rnd.uniform(-0.55, -0.22), thickness=0.17))
+  rim = join(slabs, "Rim")
+
+  pool = nest_pool(1.42, 0.10, verts=14)
+
+  # Crust: snow still lying on the heaved slabs, which is what stops the ring
+  # reading as bare blue rock on a white board.
+  crust = []
+  rnd = random.Random(92)
+  for i in range(7):
+    ang = i / 7.0 * math.pi * 2 + 0.4
+    r = 2.05
+    pos = Vector((math.cos(ang) * r, math.sin(ang) * r, 0.52))
+    crust.append(plate(pos, Vector((0, 0, 1)), rnd.uniform(0.30, 0.46),
+                       thickness=0.30))
+  crust_ob = join(crust, "Crust")
+
+  spikes = []
+  rnd = random.Random(93)
+  for i in range(7):
+    ang = i / 7.0 * math.pi * 2 + 0.25
+    spikes.append(spike(ang, 1.62, 0.22, rnd.uniform(1.0, 1.7), 0.22,
+                        rnd.uniform(0.12, 0.34), verts=4))
+  spikes_ob = join(spikes, "Spikes")
+
+  bubbles = nest_bubbles(((0.42, 0.28, 0.24, 0.18), (-0.50, -0.16, 0.19, 0.18),
+                          (0.06, -0.58, 0.15, 0.18), (-0.18, 0.62, 0.13, 0.18)))
+  return [rim, pool, crust_ob, spikes_ob, bubbles]
+
+
+# --------------------------------------------- Environment 5: the lava vent
+#
+# A collar of hexagonal basalt columns stood round the mouth, lava showing in
+# the gaps between them. The columns echo the ones round the ember base's
+# footing, so the two landmarks read as the same geology.
+
+def nest_ember():
+  columns = []
+  rnd = random.Random(101)
+  for i in range(11):
+    ang = i / 11.0 * math.pi * 2
+    h = rnd.uniform(0.70, 1.55)
+    r = 1.86 + rnd.uniform(-0.10, 0.10)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=rnd.uniform(0.30, 0.44),
+                                        depth=h,
+                                        location=(math.cos(ang) * r,
+                                                  math.sin(ang) * r, h * 0.5))
+    col = bpy.context.object
+    col.rotation_euler = (0, rnd.uniform(-0.18, -0.04), ang)
+    apply_all(col)
+    columns.append(col)
+  columns.append(nest_ring(2.04, 0.52, 0.15, flatten=0.52, segments=12, lump=0.06,
+                           seed=102))
+  rim = join(columns, "Rim")
+
+  pool = nest_pool(1.44, 0.14, verts=14)
+
+  # Crust: cooled scabs floating on the vent's lip.
+  crust = []
+  for i in range(6):
+    ang = i / 6.0 * math.pi * 2 + 0.5
+    crust.append(nest_shard(ang, 1.52, 0.30, 0.34, 0.46, -0.20, thickness=0.13))
+  crust_ob = join(crust, "Crust")
+
+  spikes = []
+  rnd = random.Random(103)
+  for i in range(6):
+    ang = i / 6.0 * math.pi * 2 + 0.35
+    spikes.append(spike(ang, 2.22, 0.18, rnd.uniform(0.8, 1.3), 0.20,
+                        rnd.uniform(0.35, 0.60), verts=4))
+  spikes_ob = join(spikes, "Spikes")
+
+  bubbles = nest_bubbles(((0.44, 0.28, 0.26, 0.22), (-0.52, -0.18, 0.20, 0.22),
+                          (0.08, -0.60, 0.16, 0.22), (-0.18, 0.64, 0.14, 0.22)))
+
+  # Glow: lava in the gaps between the columns, at ground level round the ring.
+  seams = []
+  for i in range(11):
+    ang = (i + 0.5) / 11.0 * math.pi * 2
+    seams.append(nest_shard(ang, 1.80, 0.22, 0.17, 0.52, 0.0, thickness=0.22))
+  glow_ob = join(seams, "Glow")
+  return [rim, pool, crust_ob, spikes_ob, bubbles, glow_ob]
+
+
+# ---------------------------------------------- Environment 6: the egg sacs
+#
+# Bulbous sacs crowded round the mouth with tendrils reaching off them: the
+# nest answering the bloom biome's base, which is built the same way. The only
+# one whose ring has no ground plane at all - it is all body.
+
+def nest_bloom():
+  sacs = []
+  for ang, r, radius, stretch in ((0.4, 1.94, 0.76, 0.92), (1.5, 2.00, 0.60, 1.05),
+                                  (2.6, 1.90, 0.84, 0.86), (3.7, 2.02, 0.58, 1.02),
+                                  (4.7, 1.92, 0.72, 0.95), (5.7, 1.98, 0.54, 1.08)):
+    sac = teardrop(radius, stretch, pinch=0.46, segments=10, rings=5)
+    sac.location = (math.cos(ang) * r, math.sin(ang) * r, 0.06)
+    apply_all(sac)
+    sacs.append(sac)
+  sacs.append(nest_ring(1.88, 0.46, 0.13, flatten=0.48, segments=12, lump=0.05,
+                        seed=111))
+  rim = join(sacs, "Rim")
+
+  pool = nest_pool(1.30, 0.16, verts=14)
+
+  spikes = []
+  rnd = random.Random(112)
+  for i in range(7):
+    ang = i / 7.0 * math.pi * 2 + 0.3
+    spikes.append(spike(ang, 1.80, 0.26, rnd.uniform(1.1, 1.6), 0.13,
+                        rnd.uniform(0.40, 0.62)))
+  spikes_ob = join(spikes, "Spikes")
+
+  bubbles = nest_bubbles(((0.40, 0.26, 0.25, 0.24), (-0.46, -0.16, 0.20, 0.24),
+                          (0.06, -0.54, 0.16, 0.24), (-0.16, 0.58, 0.14, 0.24)))
+
+  # Glow: pores on the sacs, placed on each sac's own surface the way the
+  # bloom base's are - on_dome would put them inside.
+  pores = []
+  for ang, r, radius, stretch, places in (
+      (0.4, 1.94, 0.76, 0.92, ((0.4, 0.58, 0.17), (3.0, 0.48, 0.14))),
+      (2.6, 1.90, 0.84, 0.86, ((1.2, 0.62, 0.18), (4.2, 0.50, 0.15))),
+      (4.7, 1.92, 0.72, 0.95, ((2.0, 0.56, 0.16), (5.0, 0.46, 0.13)))):
+    for pang, t, size in places:
+      pos, normal = on_teardrop(radius, stretch, 0.06, pang, t, pinch=0.46)
+      pores.append(plate(Vector((pos.x + math.cos(ang) * r,
+                                 pos.y + math.sin(ang) * r, pos.z)) + normal * 0.04,
+                         normal, size, thickness=0.40))
+  glow_ob = join(pores, "Glow")
+  return [rim, pool, spikes_ob, bubbles, glow_ob]
+
+
+# -------------------------------------------- Environment 7: the rot blossom
+#
+# A ring of broad petals opened round the mouth with filaments standing up out
+# of it - a carrion flower. The nastiest shape of the seven, and deliberately
+# so: it is the prettiest biome, and the thing at the start of the path should
+# not get to blend into it.
+
+def nest_blossom():
+  rim = join([nest_ring(1.86, 0.46, 0.16, flatten=0.56, segments=12, lump=0.04,
+                        seed=121)], "Rim")
+
+  pool = nest_pool(1.28, 0.14, verts=14)
+
+  # Crust: the petals. Broad, drooping away from the mouth, and overlapping at
+  # two radii so the ring does not read as a cog.
+  petals = []
+  for i in range(7):
+    ang = i / 7.0 * math.pi * 2
+    petals.append(nest_shard(ang, 2.00, 0.46, 0.64, 1.05, -0.52, thickness=0.10))
+  for i in range(7):
+    ang = (i + 0.5) / 7.0 * math.pi * 2
+    petals.append(nest_shard(ang, 1.74, 0.56, 0.48, 0.80, -0.70, thickness=0.09))
+  crust_ob = join(petals, "Crust")
+
+  spikes = []
+  rnd = random.Random(122)
+  for i in range(9):
+    ang = i / 9.0 * math.pi * 2 + 0.2
+    spikes.append(spike(ang, 1.30, 0.22, rnd.uniform(1.0, 1.6), 0.10,
+                        rnd.uniform(0.04, 0.18)))
+  spikes_ob = join(spikes, "Spikes")
+
+  bubbles = nest_bubbles(((0.38, 0.24, 0.24, 0.22), (-0.44, -0.16, 0.19, 0.22),
+                          (0.06, -0.52, 0.15, 0.22), (-0.16, 0.56, 0.13, 0.22)))
+  return [rim, pool, crust_ob, spikes_ob, bubbles]
+
+
 def export(parts, name):
   os.makedirs(OUT, exist_ok=True)
   path = os.path.join(OUT, name + ".obj")
@@ -916,12 +1260,23 @@ BASES = (
 )
 
 
+# The nest at the other end of the same path, one per environment, keyed the
+# same way. Read this table against BASES above.
+NESTS = (
+  ("NestMeadow", bacteria_nest),   # Environment 1 - the original crater
+  ("NestDunes", nest_dunes),       # Environment 2 - a sand funnel
+  ("NestMarsh", nest_marsh),       # Environment 3 - a bog vent
+  ("NestTundra", nest_tundra),     # Environment 4 - a breach in the ice
+  ("NestEmber", nest_ember),       # Environment 5 - a lava vent
+  ("NestBloom", nest_bloom),       # Environment 6 - a cluster of egg sacs
+  ("NestBlossom", nest_blossom),   # Environment 7 - a carrion flower
+)
+
+
 def main():
-  for name, build in BASES:
+  for name, build in BASES + NESTS:
     fresh()
     export(build(), name)
-  fresh()
-  export(bacteria_nest(), "BacteriaNest")
   print("STRUCTURES_DONE")
 
 

@@ -1,6 +1,6 @@
 # Blender 5.2.1 LTS
 # www.blender.org
-mtllib BacteriaNest.mtl
+mtllib NestMeadow.mtl
 o Rim
 v 2.781415 0.220000 0.000000
 v 2.496440 0.559315 0.000000
