@@ -105,9 +105,8 @@ public class MainMenu : MonoBehaviour
     rect.sizeDelta = new Vector2(PillWidth, PillHeight);
 
     Button button = UiSkin.IconButton(go, icon, tint, out TMP_Text label,
-      UiSkin.RadiusChip, textColor);
+      UiSkin.RadiusChip, textColor, centered: true);
     label.text = text;
-    label.alignment = TextAlignmentOptions.MidlineLeft;
     return button;
   }
 

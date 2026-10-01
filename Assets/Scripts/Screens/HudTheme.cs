@@ -43,6 +43,7 @@ public static class HudTheme
     if (startWaveButton != null)
     {
       UiSkin.StyleButton(startWaveButton, UiSkin.Primary, UiSkin.RadiusButton);
+      UiSkin.AddButtonIcon(startWaveButton, UiSprites.Play(), null, 26f);
       PlaceStartWave((RectTransform)startWaveButton.transform, rail);
     }
   }

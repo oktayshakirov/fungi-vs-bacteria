@@ -195,8 +195,11 @@ public static class UiSkin
   // iconColor overrides the automatic light-on-dark choice. The coin glyph is
   // recognisable by its colour more than its shape at this size, so a gold coin
   // on a green button reads better than the dark ink the contrast rule picks.
+  // centered pulls the glyph and the label together as one pair in the middle
+  // of the button, instead of the glyph sitting against the left padding with
+  // the label stretched across everything left over.
   public static Button IconButton(GameObject host, Sprite icon, Color tint, out TMP_Text label,
-    int radius = RadiusChip, Color? iconColor = null)
+    int radius = RadiusChip, Color? iconColor = null, bool centered = false)
   {
     host.AddComponent<Image>();
     var button = host.AddComponent<Button>();
@@ -221,11 +224,95 @@ public static class UiSkin
     label = textGo.AddComponent<TextMeshProUGUI>();
     label.alignment = TextAlignmentOptions.MidlineLeft;
     label.raycastTarget = false;
-    textGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+    textGo.AddComponent<LayoutElement>().flexibleWidth = centered ? 0f : 1f;
 
     StyleButton(button, tint, radius);
     glyph.color = iconColor ?? LabelColorFor(tint);
+    if (centered) IconLabelRow(host, glyph, textGo.transform, label, 26f);
     return button;
+  }
+
+  // Gives an ALREADY-BUILT button - one authored in a prefab, with its own
+  // label child - the same centred icon-and-label pair IconButton builds from
+  // scratch. The pause screen's buttons come from a prefab and cannot be
+  // rebuilt here without dropping their serialized onClick wiring.
+  //
+  // Idempotent: called twice with different sprites, the second call re-tints
+  // and re-points the existing glyph rather than stacking a second one.
+  public static Image AddButtonIcon(Button button, Sprite icon, Color? iconColor = null, float size = 30f)
+  {
+    if (button == null || icon == null) return null;
+
+    TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+    if (label == null) return null;
+
+    // A layout group only places its DIRECT children, so the column the row has
+    // to size is the label's own top-level ancestor - which is the label itself
+    // in every prefab here, but need not be.
+    Transform column = label.transform;
+    while (column.parent != null && column.parent != button.transform) column = column.parent;
+    if (column.parent == null) return null;
+
+    Transform existing = button.transform.Find("Icon");
+    Image glyph = existing != null ? existing.GetComponent<Image>()
+      : Icon(button.transform, icon, label.color, size);
+    if (glyph == null) return null;
+    glyph.sprite = icon;
+    glyph.color = iconColor ?? label.color;
+
+    // Anything that is neither the glyph nor the label's column - a border
+    // plate, a glow, a prefab decoration - sits this layout out rather than
+    // being laid in as a third column.
+    foreach (Transform child in button.transform)
+    {
+      if (child == glyph.transform || child == column) continue;
+      var ignored = child.GetComponent<LayoutElement>();
+      if (ignored == null) ignored = child.gameObject.AddComponent<LayoutElement>();
+      ignored.ignoreLayout = true;
+    }
+
+    // Before the label, so the glyph reads as leading the word.
+    glyph.transform.SetAsFirstSibling();
+    IconLabelRow(button.gameObject, glyph, column, label, size);
+    return glyph;
+  }
+
+  // Icon and label as one tight pair, centred in the button.
+  //
+  // The label is deliberately NOT given flexibleWidth. A stretched label takes
+  // every unit of leftover width, so a centred text drifts to the middle of
+  // that leftover space while the glyph stays pinned against the left padding -
+  // the two stop reading as one label and start reading as two elements at
+  // opposite ends of the button.
+  private static void IconLabelRow(GameObject host, Image glyph, Transform column, TMP_Text label, float size)
+  {
+    var layout = host.GetComponent<HorizontalLayoutGroup>();
+    if (layout == null) layout = host.AddComponent<HorizontalLayoutGroup>();
+    layout.padding = new RectOffset(12, 12, 8, 8);
+    layout.spacing = 10f;
+    layout.childAlignment = TextAnchor.MiddleCenter;
+    layout.childControlWidth = true;
+    layout.childControlHeight = true;
+    layout.childForceExpandWidth = false;
+    layout.childForceExpandHeight = true;
+
+    var glyphElement = glyph.GetComponent<LayoutElement>();
+    if (glyphElement == null) glyphElement = glyph.gameObject.AddComponent<LayoutElement>();
+    glyphElement.preferredWidth = size;
+    glyphElement.preferredHeight = size;
+    glyphElement.minWidth = size;
+    glyphElement.flexibleWidth = 0f;
+
+    var labelElement = column.GetComponent<LayoutElement>();
+    if (labelElement == null) labelElement = column.gameObject.AddComponent<LayoutElement>();
+    labelElement.flexibleWidth = 0f;
+
+    label.alignment = TextAlignmentOptions.Midline;
+    label.textWrappingMode = TextWrappingModes.NoWrap;
+    // StyleButton pads the label 14 units clear of the rounded corners. With the
+    // pair centred there is no corner to clear, and that padding would only
+    // reopen the gap to the glyph this layout exists to close.
+    label.margin = new Vector4(0f, 2f, 0f, 2f);
   }
 
   // A slim, always-legible vertical scrollbar for runtime-built scroll views.

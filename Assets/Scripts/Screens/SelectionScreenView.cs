@@ -107,16 +107,30 @@ public sealed class SelectionScreenView
         icon.sprite = sprite; icon.color = tint; icon.preserveAspect = true; icon.raycastTarget = false;
         return icon;
     }
+    // An icon-only button keeps its anchored glyph: there is no word to pair it
+    // with, so it is simply centred on the plate.
+    //
+    // A button that has BOTH pins the glyph to the left quarter and centres the
+    // text in what is left, which reads as two separate elements at opposite
+    // ends of a wide button rather than as one label - the EXPLORE and PLAY
+    // LEVEL buttons were the worst of it. UiSkin lays the pair out as one
+    // centred unit, and owns that rule for every icon button in the game.
     public static void ButtonIcon(Button button, Sprite sprite, float rotation = 0, bool only = false)
     {
+        if (!only)
+        {
+            Image glyph = UiSkin.AddButtonIcon(button, sprite, null, 34f);
+            if (glyph != null) glyph.rectTransform.localRotation = Quaternion.Euler(0, 0, rotation);
+            return;
+        }
         var existing = button.transform.Find("Icon");
         var rect = existing != null ? (RectTransform)existing : Rect("Icon", button.transform, Vector2.zero, Vector2.one);
-        rect.anchorMin = only ? new Vector2(.3f,.24f) : new Vector2(.08f,.25f);
-        rect.anchorMax = only ? new Vector2(.7f,.76f) : new Vector2(.25f,.75f);
+        rect.anchorMin = new Vector2(.3f,.24f);
+        rect.anchorMax = new Vector2(.7f,.76f);
         var label = button.GetComponentInChildren<TMP_Text>();
-        label.rectTransform.anchorMin = new Vector2(only ? 0 : .3f,.06f);
+        label.rectTransform.anchorMin = new Vector2(0,.06f);
         label.rectTransform.anchorMax = new Vector2(.94f,.94f);
-        if(only) label.text = "";
+        label.text = "";
         var icon = rect.GetComponent<Image>();
         if(icon == null) icon = Icon(rect, sprite, label.color);
         icon.sprite = sprite; icon.color = label.color;
