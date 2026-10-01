@@ -472,27 +472,26 @@ public class LevelDecorator : MonoBehaviour
     public float poolEmission, bubbleEmission, glowEmission;
   }
 
-  // The OOZE IS THE SAME MAGENTA ON EVERY BIOME, and that is the point. It
-  // mirrors the bases' warm windows: one colour that never takes the
-  // environment, so the two ends of the path always read as home and not-home
-  // however far the rest of the board moves. The ring around it - the rim, the
-  // shards, the crust - is where the biome goes.
+  // The MOUTH IS THE SAME NEUTRAL GREY ON EVERY BIOME, and the ring around it -
+  // rim, shards, crust - is where the biome goes. It was a hot magenta ooze,
+  // which made the nest the loudest thing on the board and left the colour
+  // carrying the whole idea on its own; SpawnEffect's mist does that now, and
+  // a neutral mouth reads as depth on light ground and dark alike.
   //
-  // Deep, and only softly emissive: at full Neon strength the bloom washes the
-  // pool out to pastel pink.
-  private static readonly Color Ooze = new Color(0.78f, 0.10f, 0.42f);
+  // Only softly emissive: enough that it never dies on the ash or the marsh,
+  // not so much that it glows.
 
   private static NestSkin NestSkinFor(string model, EnvironmentTheme.Palette p)
   {
     // Shared by every nest, so a biome can override only what it needs to.
     var skin = new NestSkin
     {
-      rim = Color.Lerp(p.soilColor, new Color(0.36f, 0.10f, 0.24f), 0.6f),
-      pool = Ooze, poolEmission = 0.55f,
-      spikes = new Color(0.72f, 0.22f, 0.44f),
-      bubbles = Color.Lerp(Ooze, new Color(1f, 0.55f, 0.8f), 0.5f), bubbleEmission = 0.7f,
-      crust = Color.Lerp(p.rockColor, new Color(0.40f, 0.14f, 0.26f), 0.35f),
-      glow = Ooze, glowEmission = 0.6f,
+      rim = Color.Lerp(p.soilColor, new Color(0.30f, 0.26f, 0.28f), 0.6f),
+      pool = EnvironmentTheme.NestMaw, poolEmission = 0.30f,
+      spikes = new Color(0.52f, 0.46f, 0.47f),
+      bubbles = EnvironmentTheme.NestMawLit, bubbleEmission = 0.40f,
+      crust = Color.Lerp(p.rockColor, new Color(0.34f, 0.30f, 0.31f), 0.35f),
+      glow = EnvironmentTheme.NestMawLit, glowEmission = 0.45f,
     };
 
     switch (model)
@@ -509,8 +508,8 @@ public class LevelDecorator : MonoBehaviour
       // The bog vent, on the darkest board in the game: the ooze running over
       // its lip is doing the work the pool alone could not.
       case "Structures/NestMarsh":
-        skin.rim = Color.Lerp(p.soilColor, new Color(0.30f, 0.12f, 0.30f), 0.65f);
-        skin.spikes = new Color(0.62f, 0.26f, 0.46f);
+        skin.rim = Color.Lerp(p.soilColor, new Color(0.26f, 0.20f, 0.30f), 0.65f);
+        skin.spikes = new Color(0.46f, 0.42f, 0.50f);
         skin.glowEmission = 0.75f;
         return skin;
 
@@ -544,8 +543,8 @@ public class LevelDecorator : MonoBehaviour
       // A carrion flower. The petals are a sickly flesh pink: near enough the
       // biome's blossom to belong to it, far enough off to be wrong.
       case "Structures/NestBlossom":
-        skin.rim = new Color(0.46f, 0.24f, 0.30f);
-        skin.crust = new Color(0.82f, 0.48f, 0.56f);
+        skin.rim = new Color(0.44f, 0.30f, 0.33f);
+        skin.crust = new Color(0.80f, 0.52f, 0.58f);
         skin.spikes = new Color(0.92f, 0.82f, 0.64f);
         return skin;
 

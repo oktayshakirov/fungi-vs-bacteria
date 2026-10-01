@@ -86,6 +86,19 @@ public class Enemy : MonoBehaviour
   public const float WaddleSpeed = 7.5f;
   public const float WaddleRollDegrees = 3.5f;
 
+  // The other half of the spawn illusion; SpawnEffect is the first half. An
+  // enemy swells up out of nothing inside the nest's mist instead of appearing
+  // at full size. Starts well above zero because a speck is as noticeable as a
+  // pop, and runs on scaled time so it keeps pace at 2x and 3x.
+  //
+  // Scale only, never position: the pathing reads transform.position and
+  // decides it has arrived when the distance to the waypoint drops under 0.1,
+  // so lifting the root out of the ground would feed straight back into the
+  // arrival test (the same trap the waddle avoids, see ApplyMotion).
+  private const float EmergeDuration = 0.34f;
+  private const float EmergeFrom = 0.10f;
+  private float emergeStartedAt = -1f;
+
   private static readonly Color DamageColor = new Color(1f, 0.85f, 0.2f);
   private static readonly Color GoldColor = new Color(1f, 0.9f, 0.35f);
   private static readonly Color ShieldColor = new Color(0.55f, 0.8f, 1f);
@@ -167,6 +180,9 @@ public class Enemy : MonoBehaviour
     // visible reason. The comment above says "full reset" - this is part of it.
     frozenUntil = 0f;
     hitPunch = 0f;
+    // Pooled instances come back mid-emergence otherwise, and the next enemy
+    // out of the pool would start at a third of its size for no reason.
+    emergeStartedAt = -1f;
     // A per-enemy offset, or a whole wave waddles in lockstep and reads as one
     // object. Seeded from the instance id so a pooled enemy is stable rather
     // than re-randomising every time it is reused.
@@ -285,6 +301,41 @@ public class Enemy : MonoBehaviour
     }
   }
 
+  // Called by EnemySpawner straight after Initialize, for enemies arriving out
+  // of the nest. Splitter children deliberately do NOT get it: they are already
+  // introduced by the parent's death burst, and swelling them as well read as
+  // the burst stuttering.
+  public void PlayEmergence() => emergeStartedAt = Time.time;
+
+  private float EmergeScale()
+  {
+    if (emergeStartedAt < 0f) return 1f;
+    float t = (Time.time - emergeStartedAt) / EmergeDuration;
+    if (t >= 1f)
+    {
+      emergeStartedAt = -1f;
+      return 1f;
+    }
+    return EmergeScaleAt(t);
+  }
+
+  // Public and static for the same reason WaddleScale is: it is the shape of
+  // the motion, and CameraPreview poses it to photograph a spawn rather than
+  // guessing at what a batch render cannot show. `t` runs 0 to 1.
+  public static float EmergeScaleAt(float t)
+  {
+    t = Mathf.Clamp01(t);
+    // Smoothstep, NOT an ease-out. An ease-out is fastest at the start, so the
+    // enemy was already a third of its size in the first frame - visible
+    // before the mist had built up to anything, which is the one thing this is
+    // supposed to prevent. Smoothstep holds it small while the mist thickens
+    // and does most of the growing underneath it.
+    float eased = t * t * (3f - 2f * t);
+    // Overshoots a little at the end, so it lands with a bounce rather than
+    // easing silently into its final size.
+    return Mathf.Lerp(EmergeFrom, 1.04f, eased) - 0.04f * eased * eased;
+  }
+
   // The walk: a squash-and-stretch waddle and a small roll, plus whatever each
   // composed part does.
   //
@@ -300,7 +351,7 @@ public class Enemy : MonoBehaviour
   private void ApplyMotion(float time)
   {
     Vector3 scale = WaddleScale(currentScale, time, motionPhase);
-    transform.localScale = scale * (1f + hitPunch * 0.18f);
+    transform.localScale = scale * (1f + hitPunch * 0.18f) * EmergeScale();
 
     transform.rotation = yawRotation * WaddleRoll(time, motionPhase);
 

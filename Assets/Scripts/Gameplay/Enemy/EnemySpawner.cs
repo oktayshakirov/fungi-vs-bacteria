@@ -154,6 +154,13 @@ public class EnemySpawner : MonoBehaviour
           enemyGroup.healthMultiplier,
           enemyGroup.rewardMultiplier
         );
+
+        // Climbing out of the nest rather than appearing on top of it: mist out
+        // of the mouth, and the enemy swelling up inside it. Both are purely
+        // visual - the enemy is on the path, at full health, and targetable
+        // from the frame it spawns.
+        enemy.PlayEmergence();
+        SpawnEffect.Spawn(spawnPoint, heightOffset * 2f);
       }
     }
     else

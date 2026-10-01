@@ -256,6 +256,100 @@ public static class CameraPreview
     Object.DestroyImmediate(go);
   }
 
+  // Photographs a spawn: the nest's mist and the enemy swelling out of it,
+  // caught at six points across the half second it lasts and written as one
+  // strip per biome.
+  //
+  // This exists because the effect is NOTHING BUT MOTION, and every other
+  // render in this file is a single frame at t=0, where a spawn effect has by
+  // definition not happened yet. SpawnEffect.Step and Enemy.EmergeScaleAt are
+  // public so this can drive both by hand instead of waiting on an engine
+  // Update that -executeMethod never runs.
+  public static void RenderSpawn()
+  {
+    var ctx = BoardContext.Open();
+    if (ctx == null) { if (Application.isBatchMode) EditorApplication.Exit(1); return; }
+
+    string only = System.Environment.GetEnvironmentVariable("SPAWN_ENVS");
+    var frame = new Device { name = "spawn", width = 420, height = 420 };
+    // Across SpawnEffect.Lifetime (0.62s). The first is deliberately BEFORE
+    // the enemy is visible at all, because the question this shot answers is
+    // whether the mist covers the moment it arrives.
+    float[] ages = { 0.05f, 0.12f, 0.22f, 0.34f, 0.46f, 0.60f };
+    int written = 0;
+
+    for (int n = 1; n <= 7; n++)
+    {
+      if (!string.IsNullOrEmpty(only) && !only.Contains(n.ToString())) continue;
+      List<GameObject> props = ctx.Build(n, "Level05", withCast: false);
+      if (props == null) continue;
+
+      GameObject nest = GameObject.Find("SpawnPortal");
+      Vector3[] path = ctx.PathPoints();
+      if (nest == null || path == null || path.Length < 2)
+      {
+        Debug.LogError($"SPAWN FAIL: environment {n} has no nest or no path");
+        foreach (GameObject go in props) Object.DestroyImmediate(go);
+        continue;
+      }
+
+      GameObject enemy = PlaceOneEnemy(path);
+      Vector3 rest = enemy != null ? enemy.transform.localScale : Vector3.one;
+
+      for (int i = 0; i < ages.Length; i++)
+      {
+        // A fresh effect per frame, stepped from zero to the age wanted, so
+        // each shot is an honest replay rather than one effect photographed
+        // while the stepping accumulates rounding.
+        SpawnEffect effect = SpawnEffect.Spawn(path[0], 1.2f);
+        for (float t = 0f; t < ages[i]; t += 1f / 60f) effect.Step(1f / 60f);
+
+        if (enemy != null)
+        {
+          enemy.transform.localScale =
+            rest * Enemy.EmergeScaleAt(ages[i] / 0.34f);   // Enemy.EmergeDuration
+        }
+
+        CaptureCloseUp(ctx.cam, path[0], new Vector3(2.0f, 5.4f, -7.0f), 0.8f,
+                       frame, $"{OutputDir}/spawn-env{n}-{i}.png");
+        written++;
+        Object.DestroyImmediate(effect.gameObject);
+      }
+
+      if (enemy != null) Object.DestroyImmediate(enemy);
+      foreach (GameObject go in props) Object.DestroyImmediate(go);
+    }
+
+    Debug.Log($"SPAWN OK: wrote {written} frames to {OutputDir}");
+    if (Application.isBatchMode) EditorApplication.Exit(0);
+  }
+
+  // One Basic enemy standing in the nest's mouth, posed and coloured the way
+  // the game would have it.
+  private static GameObject PlaceOneEnemy(Vector3[] path)
+  {
+    var cfg = AssetDatabase.LoadAssetAtPath<EnemyConfig>(
+      "Assets/Settings/Enemies/BasicEnemy.asset");
+    if (cfg == null || cfg.prefab == null) return null;
+
+    var go = (GameObject)PrefabUtility.InstantiatePrefab(cfg.prefab);
+    PrefabUtility.UnpackPrefabInstance(go, PrefabUnpackMode.Completely,
+                                      InteractionMode.AutomatedAction);
+    go.transform.localScale *= UnitScale.Enemy * Mathf.Max(0.01f, cfg.scaleMultiplier);
+
+    MeshRenderer body = Enemy.FindBodyRenderer(cfg.prefab);
+    float y = body != null ? body.bounds.size.y * 0.5f : 0.5f;
+    Vector3 dir = path[1] - path[0];
+    dir.y = 0f;
+    if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
+    go.transform.position = new Vector3(path[0].x, y, path[0].z);
+    go.transform.rotation = Quaternion.LookRotation(dir.normalized);
+
+    EnemyPreview.TintBody(go, cfg);
+    EnemyPreview.TintTraits(go);
+    return go;
+  }
+
   // MainGame opened in edit mode with the singletons the path code reads wired
   // by hand (-executeMethod never runs Awake), so a level can be built the way
   // the game builds it.
@@ -325,6 +419,8 @@ public static class CameraPreview
       if (withCast) created.AddRange(PlaceRealEnemies(grid, level));
       return created;
     }
+
+    public Vector3[] PathPoints() => pathManager.GetPathPoints();
   }
 
   // Renders each environment into Assets/Resources/EnvPreviews as a Sprite, so

@@ -1,6 +1,7 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-10-01 (phase 29, a distinct base AND nest per environment).
+Last updated 2026-10-01 (phase 29, a distinct base and nest per environment;
+phase 30, the neutral nest mouth and the spawn effect).
 Render-checked; committed and pushed on `main`.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
@@ -10,7 +11,54 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 29 — seven bases and seven nests, one of each per
+**Latest: phase 30 — the nest's mouth went neutral, and enemies now climb out
+of it.** Two changes that only make sense together.
+
+**The mouth is a neutral grey on every biome** (`EnvironmentTheme.NestMaw`),
+where it was a hot magenta ooze. The ooze was the loudest thing on the board
+and it was carrying the whole "something lives down there" idea by itself,
+because nothing ever moved. The ring around it - rim, shards, crust - still
+takes the biome, so each nest keeps its identity; only the pool, the bubbles
+and the secondary glow went neutral.
+
+**`SpawnEffect` is new**: a burst of mist out of the mouth whenever the spawner
+places an enemy, paired with an emergence ramp on the enemy itself
+(`Enemy.PlayEmergence`), so a wave reads as something climbing out of the
+ground instead of models blinking into existence on top of a ring.
+- Pooled, exactly like `DeathEffect` and for the same reason - it fires once
+  per enemy and a late wave spawns dozens.
+- **Unlit**, not Lit. A lit sphere takes the key light and a terminator across
+  its surface, which is what makes a ball of vapour read as a grey pebble; the
+  first pass used Lit and the puffs looked like gravel piled in the mouth.
+- Tinted 40% toward the biome's own `fogColor`, so it is ash-orange on the
+  volcano and bruised mauve on the marsh rather than the same stark white
+  everywhere, which read as a flashbulb on the dark biomes.
+- Purely visual: the enemy is on the path, at full health and targetable from
+  the frame it spawns. Targeting is distance-based (`TowerTargeting` measures
+  `transform.position`), so the scale ramp cannot affect acquisition.
+- **Splitter children deliberately do NOT get it.** They are already introduced
+  by the parent's death burst, and swelling them as well read as that burst
+  stuttering.
+
+**Two things this cost:**
+- **The emergence curve has to be a smoothstep, not an ease-out.** An ease-out
+  is fastest at the start, so the enemy was already a third of its size in the
+  first frame - fully visible before the mist had built to anything, which is
+  the one thing the effect exists to prevent.
+- **The mist has to thicken fast and then thin, not decay from full.** Starting
+  at its most opaque puts peak alpha at the one moment the puffs are still too
+  small to hide anything, and by the time they had grown over the enemy they
+  were already half gone. Peak is now a quarter of the way in.
+
+**`CameraPreview.RenderSpawn` is new and is the only render in this file that
+can show an effect made of nothing but motion** - every other one is a single
+frame at t=0, where a spawn effect has by definition not happened yet.
+`SpawnEffect.Step` and `Enemy.EmergeScaleAt` are public so it can drive both by
+hand, the same way `WaddleScale` is public so the cast can be posed mid-walk.
+`SPAWN_ENVS=35` narrows it. **Still never seen in motion on a device** - six
+stills across half a second is as close as a batch render gets.
+
+**Previously: phase 29 — seven bases and seven nests, one of each per
 environment.** Until now one mushroom house stood at the end of every path and
 one crater at the start of it, both recoloured from the palette, so a biome
 changed hue and never shape. Both ends are now per-environment: fourteen
@@ -360,7 +408,7 @@ device-run table below:
 | Area | What to check |
 |---|---|
 | Path | The road is now ~2.8 units wide with a dark rim (was a 1-unit line). Does it still read as "unbuildable" at the cell edges, and does drag-placement next to it feel right? |
-| Base + nest | Each biome has its OWN Blender-authored base at the path end and nest at the path start (phase 29). Does each base read as the thing you are defending at play distance, and are its lit windows visible in the hand? Does a wave spawning out of the nest's mouth look right - that is the one thing a still frame cannot show. The base flinches when an enemy gets through - never seen in motion |
+| Base + nest | Each biome has its OWN Blender-authored base at the path end and nest at the path start (phase 29). Does each base read as the thing you are defending at play distance, and are its lit windows visible in the hand? Does a wave spawning out of the nest's mouth look right in motion - the mist and the enemy swelling inside it (phase 30)? That is the one thing a still frame cannot really answer, and `RenderSpawn`'s six stills are only an approximation of it. Watch especially whether the mist is too thick at 2x and 3x speed, where the same 0.6s covers much more of a wave. The base flinches when an enemy gets through - never seen in motion |
 | Environment screen | Card art is now a render of each biome's level 1; the strip opens on the furthest unlocked biome and the next card peeks in |
 | Store | Rebuilt layout: balance + close cross in the title bar, section headers, two-line buy buttons with the bundle saving |
 | Victory | Stars and coin payout used to overlap the buttons - check it on a real win |
@@ -750,6 +798,7 @@ but until then a new file is silently not compiled.
 | `Phase1Validator.Validate` | Level asset QA gate | yes |
 | `CameraPreview.Render` | The 3D board per environment, plus a `-enemies` shot of each with the whole cast standing on the path | **no** |
 | `CameraPreview.RenderEnvironmentCards` | Regenerates the environment card art (real level 1 of each biome). **Re-run after any change to how a biome looks** | **no** |
+| `CameraPreview.RenderSpawn` | Six frames across the nest's spawn effect, per biome: the mist and the enemy swelling out of it. `SPAWN_ENVS=35` narrows it. The only render here that shows motion | **no** |
 | `CameraPreview.RenderLandmarks` | A close-up of each biome's base AND nest, in that biome's light and fog. Use this to judge either; on `RenderBoards` they are forty pixels across | **no** |
 | `CameraPreview.RenderBoards` | The REAL board of every biome - level path through PathManager, decorator, towers, cast. Env vars `BOARD_ENVS=35` / `BOARD_LEVEL=Level07` narrow it. Use this, not `Render`, to judge maps | **no** |
 | `TowerIconRender.Render` | Re-renders the eight tower icons from their prefabs, transparent | **no** |
