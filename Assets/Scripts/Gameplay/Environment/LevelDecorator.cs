@@ -30,6 +30,11 @@ public class LevelDecorator : MonoBehaviour
   // while staying identical each time that level is replayed.
   private int levelSeed;
 
+  // Cached once after building; the camera includes distant scenery in its
+  // clipping range without scanning renderers during every animation frame.
+  public Bounds VisualBounds { get; private set; }
+  public bool HasVisualBounds { get; private set; }
+
   // A presentation-only build uses the SAME scenery and landmark code without
   // installing gameplay singletons or changing GameSession/EnvironmentTheme.
   private LevelConfig previewLevel;
@@ -91,6 +96,7 @@ public class LevelDecorator : MonoBehaviour
   public void BuildAt(Vector3[] pathPoints)
   {
     Clear();
+    HasVisualBounds = false;
     levelSeed = LevelSeed(isPreview ? previewLevel : GameSession.SelectedLevel);
 
     EnvironmentTheme.Palette p = Palette;
@@ -116,9 +122,7 @@ public class LevelDecorator : MonoBehaviour
       BuildDistantIslands(p);
       BuildFloatingDebris(p);
     }
-    ScatterProps(p);
-    ScatterGrass();
-    ScatterNeonOrbs(p);
+    ScatterBiome(p);
 
     // ~200 scenery renderers is ~200 draw calls, which dwarfs the rest of the
     // frame on mobile. None of this moves once built, so merge it by material:
@@ -143,6 +147,12 @@ public class LevelDecorator : MonoBehaviour
       // Faces back up the path, toward what is coming.
       GameObject house = BuildBase(pathPoints[last], pathPoints[last - 1] - pathPoints[last]);
       if (house != null && Application.isPlaying && !isPreview) house.AddComponent<BaseFlinch>();
+    }
+    foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
+    {
+      if (!renderer.gameObject.activeInHierarchy) continue;
+      if (!HasVisualBounds) { VisualBounds = renderer.bounds; HasVisualBounds = true; }
+      else { var bounds = VisualBounds; bounds.Encapsulate(renderer.bounds); VisualBounds = bounds; }
     }
   }
 
@@ -213,7 +223,7 @@ public class LevelDecorator : MonoBehaviour
 
   // Small grass-topped islets floating in the distance around the play island —
   // the strongest "we are high in a sky full of floating lands" cue. Each is a
-  // low mound of turf on a tapering shard of rock.
+  // closed turf cap on a matching, tapering shell of rock.
   private void BuildDistantIslands(EnvironmentTheme.Palette p)
   {
     IslandExtent(out float halfW, out float halfD);
@@ -240,16 +250,15 @@ public class LevelDecorator : MonoBehaviour
       float w = 6f + (float)rng.NextDouble() * 10f;
       int v = rng.Next(Variants);
 
-      GameObject turf = Piece("Turf", MeshFactory.Mound(v), turfMat, pos, root.transform);
+      GameObject turf = Piece("Turf", MeshFactory.FloatingIsland(v, true), turfMat, pos, root.transform);
       turf.transform.localPosition = Vector3.zero;
-      turf.transform.localScale = new Vector3(w, w * 0.5f, w * 0.8f);
+      turf.transform.localScale = new Vector3(w, w, w * 0.8f);
 
-      // A crystal shard upside down makes a good island underside: wide where it
-      // meets the turf, tapering to a point below.
-      GameObject rock = Piece("Rock", MeshFactory.Crystal(v), stoneMat, pos, root.transform);
+      // A closed rock shell shares the turf rim so the island is solid at every angle.
+      GameObject rock = Piece("Rock", MeshFactory.FloatingIsland(v, false), stoneMat, pos, root.transform);
       rock.transform.localPosition = Vector3.zero;
-      rock.transform.localRotation = Quaternion.Euler(180f, 0f, 0f);
-      rock.transform.localScale = new Vector3(w * 1.5f, w * 1.1f, w * 1.2f);
+      rock.transform.localRotation = Quaternion.identity;
+      rock.transform.localScale = new Vector3(w, w, w * 0.8f);
     }
   }
 
@@ -279,6 +288,104 @@ public class LevelDecorator : MonoBehaviour
 
   // Props live only in the border ring outside the play grid, so they never
   // interfere with tower placement.
+  // Biome composition: planted or mineral pockets separated by open terrain.
+  // Only the decorative margin is used, including every prop's footprint.
+  // The same seeded layout is used by gameplay and the environment preview.
+  private void ScatterBiome(EnvironmentTheme.Palette palette)
+  {
+    if(!Ring(out float halfW,out float halfD,out float outerW,out float outerD)) return;
+    bool sand = palette.ground == "SAND";
+    bool snow = palette.ground == "SNOW";
+    bool ash = palette.ground == "ASH";
+    bool marsh = palette.ground == "MARSH";
+    bool alien = palette.ground == "DARK";
+    int tufts = snow || ash ? 0 : sand ? 2 : marsh ? 5 : 4;
+    int firstProp=spawned.Count;
+    var rng=Rng(12);
+    var anchors=new List<Vector3>();
+    // Back and front pockets are staggered instead of a continuous hedge.
+    for(int i=0;i<5;i++)
+      anchors.Add(new Vector3(Mathf.Lerp(-halfW+2,halfW-2,(i+.5f)/5f),0,halfD+3));
+    for(int i=0;i<3;i++)
+      anchors.Add(new Vector3(Mathf.Lerp(-halfW+2,halfW-2,(i+.5f)/3f),0,-halfD-3));
+    for(int side=-1;side<=1;side+=2)
+      for(int i=0;i<2;i++)
+        anchors.Add(new Vector3(side*(halfW+3),0,Mathf.Lerp(-halfD+3,halfD-3,(i+.5f)/2f)));
+
+    bool Clear(Vector3 position,float radius)
+    {
+      if(Mathf.Abs(position.x)+radius>outerW-.25f || Mathf.Abs(position.z)+radius>outerD-.25f) return false;
+      if(Mathf.Abs(position.x)<halfW+radius+.35f && Mathf.Abs(position.z)<halfD+radius+.35f) return false;
+      foreach(var landmark in landmarks)
+      {
+        Vector2 d=new Vector2(position.x-landmark.x,position.z-landmark.z);
+        if(d.sqrMagnitude<(LandmarkClearance+radius)*(LandmarkClearance+radius)) return false;
+      }
+      return true;
+    }
+    foreach(var anchor in anchors)
+    {
+      var center=anchor+new Vector3(((float)rng.NextDouble()-.5f)*1.4f,0,((float)rng.NextDouble()-.5f)*.7f);
+      if(!Clear(center,1.3f)) continue;
+      float depth=Mathf.InverseLerp(-outerD,outerD,center.z);
+      float scale=depth<ShortBand ? .34f : .5f;
+      SpawnRock(center,rng,scale * (ash ? 1.35f : snow ? 1.15f : 1f));
+      // A smaller companion stone, then shrubs offset from the rock group.
+      var pebble=center+new Vector3(-.85f,0,-.45f);
+      if(Clear(pebble,.55f)) SpawnRock(pebble,rng,.18f);
+      var bush=center+new Vector3(1.15f,0,.55f);
+      if(!ash && !snow && Clear(bush,1.1f))
+        SpawnBush(bush,rng,(depth<ShortBand ? .4f : .58f) * (sand ? .75f : 1f));
+      // Small mineral accents belong to their rock pockets, not the play grid.
+      if(snow || ash || alien || marsh)
+      {
+        var shard = center + new Vector3(-.9f,0,.7f);
+        if(Clear(shard,.9f) && (snow || alien || center.x>0))
+          SpawnCrystal(shard,rng,depth<ShortBand ? .32f : .58f);
+      }
+      for(int tuft=0;tuft<tufts;tuft++)
+      {
+        float angle=(float)rng.NextDouble()*Mathf.PI*2;
+        Vector3 position=center+new Vector3(Mathf.Cos(angle)*1.6f,0,Mathf.Sin(angle)*1.2f);
+        if(!Clear(position,.7f)) continue;
+        var grass=Piece("SceneryGrass",MeshFactory.GrassPatch(rng.Next(Variants)),grassMat,position);
+        float size=.8f+(float)rng.NextDouble()*.35f;
+        grass.transform.localScale=new Vector3(size,size*.75f,size);
+        grass.transform.rotation=Quaternion.Euler(0,(float)rng.NextDouble()*360,0);
+        grass.GetComponent<MeshRenderer>().shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off;
+      }
+      // Tall silhouettes stay behind the board; their crowns also clear the grid.
+      if(center.z>halfD && !ash && (!sand || center.x>0))
+      {
+        Vector3 tree=new Vector3(center.x-1.3f,0,halfD+3.15f);
+        if(Clear(tree,2.4f)) SpawnTree(tree,rng,.76f);
+        var companion=tree+new Vector3(2.7f,0,-.2f);
+        if(!sand && !snow && rng.NextDouble()<.65 && Clear(companion,2.2f)) SpawnTree(companion,rng,.60f);
+      }
+    }
+    // Validate real mesh bounds too: future edits to the shared prop meshes
+    // must not silently put scenery onto buildable cells or over the cliff.
+    for(int i=spawned.Count-1;i>=firstProp;i--)
+    {
+      var go=spawned[i]; var renderers=go.GetComponentsInChildren<MeshRenderer>();
+      if(renderers.Length==0) continue;
+      Bounds bounds=renderers[0].bounds;
+      for(int r=1;r<renderers.Length;r++) bounds.Encapsulate(renderers[r].bounds);
+      bool overlaps=bounds.min.x<halfW+.15f && bounds.max.x>-halfW-.15f && bounds.min.z<halfD+.15f && bounds.max.z>-halfD-.15f;
+      bool outside=bounds.min.x < -outerW || bounds.max.x>outerW || bounds.min.z < -outerD || bounds.max.z>outerD;
+      foreach(var landmark in landmarks)
+      {
+        float dx=Mathf.Max(bounds.min.x-landmark.x,0,landmark.x-bounds.max.x);
+        float dz=Mathf.Max(bounds.min.z-landmark.z,0,landmark.z-bounds.max.z);
+        if(dx*dx+dz*dz<LandmarkClearance*LandmarkClearance) overlaps=true;
+      }
+      if(!overlaps && !outside) continue;
+      go.SetActive(false);
+      if(Application.isPlaying) Destroy(go); else DestroyImmediate(go);
+      spawned.RemoveAt(i);
+    }
+  }
+
   private void ScatterProps(EnvironmentTheme.Palette p)
   {
     if (!Ring(out float halfW, out float halfD, out float outerW, out float outerD)) return;
@@ -479,7 +586,7 @@ public class LevelDecorator : MonoBehaviour
   }
 
   // Trunk and canopy are separate children so each takes its own material.
-  private void SpawnTree(Vector3 pos, System.Random rng)
+  private void SpawnTree(Vector3 pos, System.Random rng, float scale = 1f)
   {
     var root = new GameObject("Tree");
     root.transform.SetParent(transform, false);
@@ -499,6 +606,7 @@ public class LevelDecorator : MonoBehaviour
     // The trunk bends as it rises, so the crown follows its tip
     crown.transform.localPosition = new Vector3(0f, height * 0.94f, 0f);
     crown.transform.localScale = Vector3.one * (height * (0.52f + (float)rng.NextDouble() * 0.18f));
+    root.transform.localScale = Vector3.one * scale;
   }
 
   private void SpawnCrystal(Vector3 pos, System.Random rng, float scale)

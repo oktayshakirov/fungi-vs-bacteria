@@ -105,8 +105,6 @@ public class SelectionIslandPreview : MonoBehaviour, IBeginDragHandler, IEndDrag
             Vector3[] smooth = PathVisualizer.GenerateSmoothPath(points);
             if (smooth != null)
             {
-                Color rim = PathSurface.Edge(p.pathColor);
-                Road(root.transform, smooth, board.cellSize * .56f + .18f, board.groundHeight + .018f, Material(rim, true, owned));
                 Road(root.transform, smooth, board.cellSize * .56f, board.groundHeight + .03f, Material(p.pathColor, true, owned));
             }
             }
@@ -140,10 +138,7 @@ public class SelectionIslandPreview : MonoBehaviour, IBeginDragHandler, IEndDrag
             // Fit actual renderer bounds, so replacing a base with a taller
             // model cannot crop it. No biome-specific camera guesses.
             Frame(camera, root);
-            RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = p.ambient;
-            RenderSettings.ambientEquatorColor = p.ambient * .8f;
-            RenderSettings.ambientGroundColor = p.ambient * .55f;
+            EnvironmentTheme.ApplyAmbient(p);
             RenderSettings.fog = false;
             camera.Render();
             RenderCount++;
@@ -209,12 +204,13 @@ public class SelectionIslandPreview : MonoBehaviour, IBeginDragHandler, IEndDrag
         var line = go.AddComponent<LineRenderer>();
         line.useWorldSpace = false;
         line.alignment = LineAlignment.TransformZ;
-        PathSurface.Apply(material);
+        PathSurface.ApplyRoad(material);
         line.textureMode=LineTextureMode.Tile;
         line.sharedMaterial = material;
+        line.sortingOrder = -10;
         line.numCornerVertices = 10;
         line.numCapVertices = 5;
-        line.startWidth = line.endWidth = width;
+        PathSurface.ApplyWidth(line,points,width);
         line.positionCount = points.Length;
         for (int i = 0; i < points.Length; i++)
             line.SetPosition(i, go.transform.InverseTransformPoint(new Vector3(points[i].x, height, points[i].z)));

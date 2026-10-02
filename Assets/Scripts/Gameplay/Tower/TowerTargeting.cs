@@ -4,10 +4,15 @@ public class TowerTargeting : MonoBehaviour
 {
   public Transform CurrentTarget { get; private set; }
   private float range;
+  private float nextSearch;
+  private Enemy targetEnemy;
+  private uint targetSpawn;
 
   public void Initialize(float range)
   {
     this.range = range;
+    CurrentTarget=null; targetEnemy=null;
+    nextSearch=Time.time+(GetInstanceID()&15)*.006f;
   }
 
   private float GetDistanceToTarget(Transform target)
@@ -24,7 +29,7 @@ public class TowerTargeting : MonoBehaviour
       // A pooled enemy is deactivated, not destroyed, so the reference stays
       // non-null. Without this check the tower keeps firing at a dead (or
       // reused) enemy's position — shooting at "nothing".
-      if (!CurrentTarget.gameObject.activeInHierarchy)
+      if (!CurrentTarget.gameObject.activeInHierarchy || targetEnemy == null || targetEnemy.SpawnVersion != targetSpawn)
       {
         CurrentTarget = null;
       }
@@ -34,30 +39,28 @@ public class TowerTargeting : MonoBehaviour
       }
     }
 
-    if (CurrentTarget == null)
+    if (CurrentTarget == null && Time.time >= nextSearch)
     {
+      nextSearch = Time.time + .10f;
       FindNewTarget();
     }
   }
 
   private void FindNewTarget()
   {
-    GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
-    float shortestDistance = Mathf.Infinity;
-    GameObject nearestEnemy = null;
-
-    foreach (GameObject enemy in enemies)
+    float shortestDistance = range*range;
+    Enemy nearest = null;
+    var enemies = Enemy.Active;
+    for(int i=0;i<enemies.Count;i++)
     {
-      float distanceToEnemy = GetDistanceToTarget(enemy.transform);
-
-      if (distanceToEnemy < shortestDistance && distanceToEnemy <= range)
-      {
-        shortestDistance = distanceToEnemy;
-        nearestEnemy = enemy;
-      }
+      Enemy enemy=enemies[i];
+      if(enemy==null || !enemy.gameObject.activeInHierarchy) continue;
+      float distance=(transform.position-enemy.transform.position).sqrMagnitude;
+      if(distance<=shortestDistance){shortestDistance=distance;nearest=enemy;}
     }
-
-    CurrentTarget = nearestEnemy?.transform;
+    targetEnemy=nearest;
+    targetSpawn=nearest!=null?nearest.SpawnVersion:0;
+    CurrentTarget=nearest!=null?nearest.transform:null;
   }
 
   public void DrawRangeGizmo()

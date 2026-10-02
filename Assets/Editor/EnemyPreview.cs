@@ -103,13 +103,22 @@ public static class EnemyPreview
           cam.transform.LookAt(at);
           Capture(cam, 560, 560, $"close-{p.name}");
 
-          // The carapace hides while the shield pool is empty, which is the
-          // only in-world cue that the regen delay is running. Worth rendering
-          // rather than assuming: with the shell off, a Shielded enemy has to
-          // still be distinguishable from a plain Armored one, and that is
-          // exactly what the recoloured body is for.
+          // The body goes from plated to bare while the shield pool is empty,
+          // which is the only in-world cue that the regen delay is running.
+          // Worth rendering rather than assuming: with the plating off, a
+          // Shielded enemy has to still be distinguishable from a plain
+          // Armored one.
+          //
+          // Both cues are checked. ShieldSkin is the current one (a material
+          // swap on the body); hideWhileShieldDown is the older trait-hiding
+          // one, still used by anything that keeps a separate shell. Checking
+          // only the trait is how this shot went stale for three weeks after
+          // the orb was deleted: nothing had a hideable trait any more, so the
+          // capture was skipped and an old PNG sat there looking current.
           EnemyTrait[] hideable = p.go.GetComponentsInChildren<EnemyTrait>(true);
-          bool any = false;
+          var skin = p.go.GetComponent<ShieldSkin>();
+          bool any = skin != null;
+          if (skin != null) skin.Apply(false);
           foreach (EnemyTrait t in hideable)
           {
             if (!t.hideWhileShieldDown) continue;
@@ -119,6 +128,7 @@ public static class EnemyPreview
           if (any)
           {
             Capture(cam, 560, 560, $"close-{p.name}-shielddown");
+            if (skin != null) skin.Apply(true);
             foreach (EnemyTrait t in hideable) t.SetShieldUp(true);
           }
         }

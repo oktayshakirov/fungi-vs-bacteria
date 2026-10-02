@@ -1,9 +1,14 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-10-01 (phase 29, a distinct base and nest per environment;
+Last updated 2026-10-03 (phase 32, combat allocations, enemy mesh cost and the
+three tower roles). Phase 29 was a distinct base and nest per environment;
 phase 30, the neutral nest mouth and the spawn effect; phase 31, its
-polish pass).
+polish pass.
 Render-checked; committed and pushed on `main`.
+
+**`LevelProgress.UnlockAll` is TRUE right now, deliberately** - phase 32 is
+going onto a device and nearly everything it changed is late-game. **Turn it off
+before any store build.**
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -12,7 +17,133 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 31 — a polish pass on the nest, all four from one round of
+**Latest: phase 32 — the combat code stopped allocating, the two heavy enemy
+bodies stopped costing five million triangles, and three towers that were the
+same tower became three different towers.**
+
+**Allocation, in the three places a busy wave felt it:**
+- **Targeting no longer searches the scene.** `TowerTargeting` called
+  `GameObject.FindGameObjectsWithTag("Enemy")` every frame it had no target -
+  one array allocated per idle tower per frame, which is worst exactly when the
+  board is full of towers and the wave has not arrived yet. It reads
+  `Enemy.Active` now, and a tower that finds nothing waits 0.10s before looking
+  again, staggered off its instance id so thirty towers do not all search on
+  the same frame.
+- **Projectiles and impacts are pooled** (`CombatPool`). Every shot used to be
+  an `Instantiate` and every impact another, both `Destroy`d - at the Shock
+  tower's two shots a second, per tower.
+- **`Physics.OverlapSphere` became `OverlapSphereNonAlloc`** in the splash path,
+  with the buffer grown and kept rather than reallocated.
+
+**The enemy bodies are 20x and 31x cheaper.** Basic was **161,280 triangles**
+and Armored **245,760**, against 4,078 for the Boss and 6,361 for Fast. A late
+wave holds 30+ enemies, so those two models alone were on the order of **five
+million triangles** against an environment of 56,000. Both are now **8,000**,
+decimated by `Tools/Blender/optimize_enemies.py`; the originals are untouched
+in `Assets/Meshes/Enemies` and the prefabs point at new mesh assets in
+`Assets/Models/OptimizedEnemies`. It propagates to Shielded, Splitter, Healer
+and Swarm, which are prefab variants of Basic and Armored.
+
+8,000 is **measured, not guessed**: at 4,000 the trumpet mouths and the eye
+whites facet badly enough to read as broken art, and 12,000 is indistinguishable
+from 8,000 even in `EnemyPreview`'s close-up, which is far nearer than the play
+camera ever gets. Before and after are indistinguishable in the lineup too. The
+decimated Armored is actually CLEANER than the original, whose 171k-vertex
+surface shows a visible ripple under the key light.
+
+**Three towers were the same tower.** Ice, Shock and Poison were all
+splash-plus-slow with different numbers, so Shock was a strictly better Ice at a
+higher price and Poison was an Ice with a smaller radius. Shock's card said it
+"chains" and it did not; Poison's never mentioned poison and `TowerConfig` had
+carried a `//TODO: Add Damage over time effect (PoisonTower)` the whole time.
+
+| Tower | Role now |
+|---|---|
+| Ice | splash + slow — the only slower, unchanged |
+| Shock | **chain** — hits 1 + 3, each hop within 3 units of the LAST enemy, -25% damage per hop |
+| Poison | **damage over time** — 15/s for 4s, refreshes rather than stacks, **ignores armour** |
+| Inferno | splash burst — unchanged |
+
+Poison ignoring armour is the point of it: damage arriving in many small pieces
+is exactly what a flat percentage reduction punishes hardest, so without that
+Poison was a worse Inferno against the one enemy type it should answer. Shields
+still absorb it, so Shielded stays a counter to chip damage.
+
+**`ChainArc` is new**: a pooled `LineRenderer` bolt, additive and unlit, 0.11s.
+It is the only thing that tells the player chaining happened at all - the splash
+it replaced was invisible, which is why the card's "chains" was never believed.
+Pooled for a harder reason than `DeathEffect`: a chain of three fires three per
+SHOT, and Shock is the fastest-firing tower in the game.
+
+**`CombatCheck` is new, and it is the first real assertion suite in the project**
+(`-executeMethod CombatCheck.RunBatch`, exits non-zero on failure). Nine checks
+over the REAL `Projectile` and `Enemy` - chain walks the line, chain never hits
+the same enemy twice, chain stops at its reach, splash hits each enemy once,
+splash counts an enemy with child colliders once, poison ignores armour, poison
+expires, poison does not survive a pooled enemy's reuse, and an old shot does
+not hit a recycled enemy. All of that is logic that fails SILENTLY: it does not
+show in a render and it does not fail a compile.
+
+**It found two things on its first run:**
+- **The spawn-version guard was in the wrong place.** It lived in
+  `Projectile.Update`, so any path that resolved an impact without going through
+  the movement code would damage a recycled enemy. It is now in
+  `ResolveImpact`, where the guarantee is about.
+- **A poison dose always delivered one point less than it promised.** Ten
+  tenth-second ticks of 10/s accumulate to 9.999... in float, so the last whole
+  point was never reached and was thrown away with the carry. The leftover
+  fraction is now rounded and spent when the dose ends. Poison's duration also
+  moved from an absolute `Time.time` deadline to seconds counted down by the
+  same `dt` that meters the dose, so the whole mechanic runs off one clock -
+  which is what makes it checkable at all.
+
+**Two things in the visual pass that was sitting uncommitted were half-done,
+and the render loop found both:**
+
+- **The Shielded enemy had lost its shield cue entirely.** The phase replaced
+  the translucent orb with an opaque plated carapace baked into the body texture
+  (right call - a transparent sphere over a detailed body read as a lump of
+  glass), but `EnemySurfaceSetup` DESTROYS the orb's `EnemyTrait`, and that
+  trait was the only thing `Enemy.SyncShieldCue` had to act on. So shield-up and
+  shield-down looked identical, and the 4-second regen delay became invisible.
+  `ShieldSkin` is new: a material swap on the body, plated while the absorb pool
+  holds and bare once it is empty. The bare skin is the same hue but **dimmer**,
+  and the brightness lives in the TEXTURE rather than in `_BaseColor`, because
+  `Enemy` writes the type colour and biome tint into a MaterialPropertyBlock on
+  the renderer and would erase any difference authored into the colour. First
+  attempt had shield-DOWN reading brighter than shield-up, which is backwards.
+- **The victory screen's payout chip was mislaid.** The coin was anchored to the
+  left edge of a 300-wide pill while the number was centred in what was left of
+  it, so they sat about a hundred units apart with the coin floating off on its
+  own. Both are now one centred group in the same `HorizontalLayoutGroup` shape
+  `HudTheme` uses for the HUD stat chips. The pill keeps its 300 width - that is
+  deliberate, it matches the buttons under it.
+
+**`BalanceSim.AuditTowers` is new, and it exists because of a trap.** Changing
+Shock and Poison left all 70 verdicts AND the entire CSV byte-identical. That is
+not evidence the change was harmless: the player proxy is greedy on
+value-per-gold, so it buys Archer and Inferno and **had never built either tower
+in the first place**. The audit plays eight levels across the range with exactly
+ONE tower type on the board, so each tower is measured against the same enemies
+rather than against the proxy's shopping preferences:
+
+| Tower | cost | won | health left | kill depth |
+|---|---|---|---|---|
+| Archer | 100 | 6/8 | 73% | 48% |
+| Ice | 150 | 3/8 | 7% | 66% |
+| Inferno | 175 | 5/8 | 45% | 58% |
+| Sniper | 175 | 7/8 | 81% | 48% |
+| Poison | 200 | 6/8 | 74% | 51% |
+| Shock | 225 | 8/8 | 83% | 56% |
+
+Read it as "can this tower hold a level alone, and how does that compare",
+**never as the difficulty curve** - a one-type board is not how the game is
+played, which is also why Ice's 7% is not a bug. Before the change Shock sat at
+8/8 and **100% health**, i.e. it simply trivialised every level it was given;
+Poison's numbers were tuned against this table to land between Inferno and
+Shock, where its cost puts it. The 70-level curve is untouched.
+
+**Previously: phase 31 — a polish pass on the nest, all four from one round of
 feedback on phase 30:**
 
 - **The mouth is lighter** - `NestMaw` went from 0.36 to 0.52 grey (and
@@ -850,6 +981,9 @@ but until then a new file is silently not compiled.
 | `SceneCost.Report` | Draw calls / triangles / materials | **no** |
 | `SceneCost.RenderCliff` | The island underside | **no** |
 | `BalanceSim.RunBatch` | Plays all 70 levels, writes `Builds/Balance/balance.csv` | yes |
+| `BalanceSim.AuditBatch` | Eight levels with ONE tower type on the board, per tower. The only way to see an individual tower - the proxy never builds most of them | yes |
+| `CombatCheck.RunBatch` | Nine assertions over the real Projectile/Enemy: chaining, splash, poison, pooled-enemy reuse. **Exits non-zero on failure** | yes |
+| `EnemyMeshOptimization.Export` / `.Import` | Writes the two heavy bodies out as OBJ / reads the decimated ones back in. Blender runs between them | yes |
 
 `CameraPreview` **cannot** capture the HUD — a ScreenSpaceOverlay canvas draws
 straight to the backbuffer and never lands in a RenderTexture. That is why
@@ -929,14 +1063,24 @@ further, note the real player enters richer than the sim models (the wallet
 carries between levels, and there is a continue mechanic) — so playtest these
 three first and only tune if a human also loses them.
 
-**Priority 3 — Confirm the performance fixes.** The user measured 60fps steady,
+**Priority 3 — Confirm the performance fixes. This is now the single most
+valuable thing anyone can do with the project.** The user measured 60fps steady,
 dipping to ~20 only past ~25 enemies. That was diagnosed as per-enemy
-allocation, and `FloatingText` + enemy health bars have been pooled since — but
-**the fix has not been re-measured on device**. `DeathEffect` is now pooled too
-(phase 17) — it was the last unpooled per-kill allocation, and the heaviest:
-a GameObject, seven sphere primitives and a Material per kill, all destroyed
-0.45s later. **So the whole per-enemy allocation story is now fixed in code and
-none of it is measured.** One device run with a busy wave settles all three.
+allocation. Since then, and **none of it measured on a device**:
+- `FloatingText` and enemy health bars pooled.
+- `DeathEffect` pooled (phase 17) — a GameObject, seven sphere primitives and a
+  Material per kill, all destroyed 0.45s later.
+- `SpawnEffect` pooled (phase 30).
+- Targeting off `FindGameObjectsWithTag` and onto `Enemy.Active`, staggered;
+  projectiles and impacts pooled; splash off `OverlapSphere` (phase 32).
+- The two heavy enemy bodies cut 20x and 31x (phase 32) — on the numbers this
+  is the biggest single change of the lot, and it is a GPU/triangle win rather
+  than a GC one, so it should show up as a different symptom.
+
+**Every known cause of that dip is now addressed in code and not one of them has
+been measured.** One device run with a busy late wave settles all of it, and
+would say whether the remaining dip is allocation, triangles or neither. Do this
+before optimising anything else.
 
 Pooling it also exposed a latent bug worth knowing about: `Fragment` is a
 struct, and the old `Update` never wrote the copy back to the list, so the
@@ -1318,6 +1462,58 @@ scaler's reference height. Never add a fresh `rect.width` read in a Start().
 ## 6. Things that will bite you
 
 These each cost real debugging time. They are not obvious from the code.
+
+**A sim that reports no change may not have exercised your change at all**
+`BalanceSim`'s player proxy is greedy on value-per-gold-per-covered-path, so it
+buys the top one or two tower types and never touches the rest. Rewriting Shock
+from splash to chaining and Poison from a slow to damage over time left all 70
+verdicts and the whole CSV **byte-identical**, because neither tower had ever
+been built. A null result from the sim is only evidence about the towers it
+actually buys. Use `BalanceSim.AuditTowers` to see one tower on its own, and
+treat its one-type boards as a comparison between towers, never as the
+difficulty curve.
+
+**Pooled enemies and anything that outlives a single spawn**
+An enemy coming out of `EnemyPool` is the SAME instance and the same
+`Transform`, so every reference to the dead one is still non-null and every
+field still holds its last value. Three separate bugs have come from this:
+`frozenUntil` (phase 20), poison (phase 32) and projectiles homing onto a
+reused enemy. The rules:
+- Every status field must be reset in `Enemy.Initialize`. "Full reset" in that
+  method means it.
+- Anything holding an enemy across frames must hold its `SpawnVersion` too and
+  compare, not just null-check. `Enemy.Initialize` bumps it.
+- Put that comparison in the code that ACTS, not in the code that happens to
+  run first. The guard was in `Projectile.Update` and so did not cover
+  `ResolveImpact`; `CombatCheck` caught it the first time it ran.
+
+**A render that is captured CONDITIONALLY can go stale and still look current**
+`EnemyPreview` only captured `close-ShieldedEnemy-shielddown.png` if it found a
+trait with `hideWhileShieldDown`. When the orb was deleted nothing had one any
+more, so the capture was silently skipped and a **three-week-old PNG sat in
+`Builds/EnemyPreview` looking like the current art** - which is how the missing
+shield cue went unnoticed. Two habits follow: check the file's mtime before
+trusting a render, and when a capture is behind an `if`, make the condition
+cover every cue that can satisfy it (that shot now checks `ShieldSkin` as well
+as the trait).
+
+**A per-frame rate accumulated in a float loses its last whole unit**
+Ten tenth-second ticks of 10/s sum to 9.999... , so `(int)carry` never reaches
+the tenth point and it is discarded when the effect ends. Poison now rounds and
+spends the leftover fraction on its final tick. Anything else that meters a rate
+into whole points has the same hole.
+
+**A status driven by `Time.time` cannot be checked headless**
+Edit-mode `Time.time` does not advance, so an absolute deadline never expires
+and `Time.deltaTime` is zero. Poison's duration is counted down by the same
+`dt` that meters its dose for exactly this reason - one clock, passed in, and
+the mechanic becomes testable. Prefer that shape for anything new.
+
+**`OverlapSphere` returns COLLIDERS, not enemies**
+Shielded, Splitter, Healer and Swarm all carry extra geometry, so an enemy can
+be in the results several times and take splash damage once per collider. Go
+`GetComponentInParent<Enemy>()` and de-duplicate through a set — `Projectile.Explode`
+does, and `CombatCheck` holds it to it.
 
 **Platform settings that only show up on a real device**
 - iOS audio is silenced by the **ringer switch** unless

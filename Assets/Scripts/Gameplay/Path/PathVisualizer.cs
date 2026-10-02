@@ -11,14 +11,6 @@ public class PathVisualizer : MonoBehaviour
   private bool ownsPathMaterial;
   private float currentPathWidth = 1f;
 
-  // A darker, slightly wider band drawn under the road. Without it a 1-unit
-  // line on a 5-unit cell read as a string lying on the grass, and on biomes
-  // whose ground is close to the path colour (the wetland's sand) it vanished.
-  private LineRenderer edgeRenderer;
-  private Material edgeMaterial;
-  private const float EdgeExtra = 0.18f;      // world units wider than the road
-  private const float EdgeDrop = 0.012f;     // sits just under the road surface
-
   private void Awake()
   {
     InitializeLineRenderer();
@@ -32,6 +24,8 @@ public class PathVisualizer : MonoBehaviour
       Debug.Log("Adding LineRenderer component...");
       lineRenderer = gameObject.AddComponent<LineRenderer>();
     }
+    var legacyEdge = transform.Find("PathEdge");
+    if (legacyEdge != null) legacyEdge.gameObject.SetActive(false);
     SetupLineRenderer();
   }
 
@@ -49,7 +43,7 @@ public class PathVisualizer : MonoBehaviour
       ownsPathMaterial=true;
     }
     lineRenderer.sharedMaterial = pathMaterial;
-    PathSurface.Apply(pathMaterial);
+    PathSurface.ApplyRoad(pathMaterial);
     lineRenderer.textureMode = LineTextureMode.Tile;
     lineRenderer.useWorldSpace = true;
 
@@ -65,57 +59,33 @@ public class PathVisualizer : MonoBehaviour
     lineRenderer.positionCount = 0;
     lineRenderer.generateLightingData = true;
 
-    lineRenderer.sortingOrder = 1;
+    // Keep the translucent road below enemy shields and other world effects.
+    lineRenderer.sortingOrder = -10;
     lineRenderer.allowOcclusionWhenDynamic = false;
     lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-    EnsureEdge();
   }
 
-  private void EnsureEdge()
-  {
-    if (edgeRenderer != null) return;
-    Transform existing = transform.Find("PathEdge");
-    GameObject go = existing != null ? existing.gameObject : new GameObject("PathEdge");
-    go.transform.SetParent(transform, false);
-    edgeRenderer = go.GetComponent<LineRenderer>();
-    if (edgeRenderer == null) edgeRenderer = go.AddComponent<LineRenderer>();
-
-    edgeMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-    edgeMaterial.color = new Color(0.2f, 0.14f, 0.08f);
-    edgeRenderer.sharedMaterial = edgeMaterial;
-    edgeRenderer.useWorldSpace = true;
-    edgeRenderer.numCornerVertices = lineRenderer.numCornerVertices;
-    edgeRenderer.numCapVertices = lineRenderer.numCapVertices;
-    edgeRenderer.alignment = LineAlignment.TransformZ;
-    edgeRenderer.positionCount = 0;
-    edgeRenderer.sortingOrder = 0;
-    edgeRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-    edgeRenderer.startColor = Color.white;
-    edgeRenderer.endColor = Color.white;
-  }
-
-  // The road and its rim. Called by EnvironmentTheme once per level.
+  // Called by EnvironmentTheme once per level. The legacy edge argument is
+  // retained for callers; the new ribbon blends directly into the ground.
   public void SetColors(Color road, Color edge)
   {
     if (lineRenderer == null) InitializeLineRenderer();
     Material mat = pathMaterial;
-    PathSurface.Apply(mat);
-    edge=PathSurface.Edge(road);
+    PathSurface.ApplyRoad(mat);
+
     mat.color = road;
     if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", road);
     lineRenderer.startColor = Color.white;
     lineRenderer.endColor = Color.white;
 
-    EnsureEdge();
-    edgeMaterial.color = edge;
-    if (edgeMaterial.HasProperty("_BaseColor")) edgeMaterial.SetColor("_BaseColor", edge);
   }
 
   public void UpdatePath(Vector3[] points, float pathWidth)
   {
     if (points == null || points.Length < 2)
     {
+      if (lineRenderer != null) lineRenderer.positionCount = 0;
       Debug.LogWarning("Not enough points to create path!");
       return;
     }
@@ -153,7 +123,7 @@ public class PathVisualizer : MonoBehaviour
 
       for (int i = 0; i < smoothedPoints.Length; i++)
       {
-        float groundHeight = GroundManager.Instance.GetGroundHeight(smoothedPoints[i]);
+        float groundHeight = GroundManager.Instance != null ? GroundManager.Instance.GetGroundHeight(smoothedPoints[i]) : smoothedPoints[i].y;
         smoothedPoints[i] = new Vector3(
           smoothedPoints[i].x,
           groundHeight + heightOffset,
@@ -163,17 +133,7 @@ public class PathVisualizer : MonoBehaviour
 
       lineRenderer.SetPositions(smoothedPoints);
 
-      EnsureEdge();
-      var edgePoints = new Vector3[smoothedPoints.Length];
-      for (int i = 0; i < smoothedPoints.Length; i++)
-      {
-        edgePoints[i] = smoothedPoints[i] - Vector3.up * EdgeDrop;
-      }
-      edgeRenderer.transform.rotation = transform.rotation;
-      edgeRenderer.startWidth = currentPathWidth + EdgeExtra;
-      edgeRenderer.endWidth = currentPathWidth + EdgeExtra;
-      edgeRenderer.positionCount = edgePoints.Length;
-      edgeRenderer.SetPositions(edgePoints);
+      PathSurface.ApplyWidth(lineRenderer,smoothedPoints,currentPathWidth);
       Debug.Log("Successfully set positions in LineRenderer");
     }
     catch (System.Exception e)
@@ -206,7 +166,7 @@ public class PathVisualizer : MonoBehaviour
         Vector3 p2 = points[i + 1];
         Vector3 p3 = i < points.Length - 2 ? points[i + 2] : p2;
 
-        for (int j = 0; j < pointsPerSegment && currentIndex < totalPoints; j++)
+        for (int j = 1; j <= pointsPerSegment && currentIndex < totalPoints; j++)
         {
           float t = j / (float)pointsPerSegment;
           smoothedPoints[currentIndex] = CatmullRomPoint(p0, p1, p2, p3, t);
@@ -239,8 +199,7 @@ public class PathVisualizer : MonoBehaviour
   {
     if(ownsPathMaterial && pathMaterial!=null)
     { if(Application.isPlaying) Destroy(pathMaterial); else DestroyImmediate(pathMaterial); }
-    if(edgeMaterial!=null)
-    { if(Application.isPlaying) Destroy(edgeMaterial); else DestroyImmediate(edgeMaterial); }
+
   }
 
 }

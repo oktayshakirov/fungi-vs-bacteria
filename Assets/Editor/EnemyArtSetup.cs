@@ -100,39 +100,12 @@ public static class EnemyArtSetup
 
   private static readonly Composition[] Compositions =
   {
-    // SHIELDED - a full bubble around the Armored body.
-    //
-    // The shield has to read as protection on EVERY side. A partial shell,
-    // which is what the first attempt used, reads as damage or as a hat, and
-    // the review said so. A closed translucent bubble is symmetric by
-    // construction, needs no orientation, and gives the clearest possible cue
-    // when it pops: the enemy is visibly naked afterwards.
+    // Shield identity is an opaque patterned carapace; no enclosing orb.
     new Composition
     {
       configName = "ShieldedEnemy", baseName = "ArmoredEnemy",
-      // Dark body under a pale bubble. Armored and Shielded were both
-      // saturated blue spheres, so the body is recoloured too - and it stays
-      // recoloured with the bubble gone, which is what keeps the two types
-      // apart while the shield is regenerating.
-      // Mint, chosen in review over cyan, violet and gold: cyan sat too close
-      // to the Armored enemy's blue, violet to the splitter's purple and the
-      // boss's magenta, and gold to the splitter's amber orbs.
-      setBodyColor = true, bodyColor = new Color(0.20f, 0.40f, 0.40f),
-      parts = new[]
-      {
-        new Part
-        {
-          sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
-          materialName = "ShieldBubble",
-          offsetShare = new Vector3(0f, 0.5f, 0f),
-          // Round, and a little wider than the body so it encloses the spikes.
-          scaleShare = new Vector3(1.22f, 1.22f, 1.22f),
-          euler = Vector3.zero,
-          color = new Color(0.62f, 1f, 0.86f, 0.28f),
-          hideWhileShieldDown = true,
-          motion = EnemyTrait.Motion.Breathe, motionSpeed = 0.55f,
-        },
-      },
+      setBodyColor = true, bodyColor = new Color(.38f,.70f,.60f),
+      parts = new Part[0],
     },
 
     // SPLITTER - a shoal of glowing daughter cells orbiting the parent.
@@ -375,6 +348,8 @@ public static class EnemyArtSetup
         Object.DestroyImmediate(instance);
         continue;
       }
+
+      if(comp.configName == "ShieldedEnemy") body.sharedMaterial = EnemySurfaceSetup.ShieldMaterial();
 
       Bounds local = LocalBounds(instance.transform, body);
       float width = (local.size.x + local.size.z) * 0.5f;

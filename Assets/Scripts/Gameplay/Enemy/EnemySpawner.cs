@@ -3,6 +3,7 @@ using System.Collections;
 
 public class EnemySpawner : MonoBehaviour
 {
+  public static event System.Action<int> OnWaveStarted;
   [SerializeField] private WaveConfig waveConfig;
 
   // Splitter children are spawned from Enemy when a parent dies, which needs a
@@ -71,6 +72,7 @@ public class EnemySpawner : MonoBehaviour
     {
       StartCoroutine(SpawnWave(waveConfig.waves[currentWave]));
       currentWave++;
+      OnWaveStarted?.Invoke(currentWave);
 
       HUDManager.Instance.UpdateWaveText(currentWave, waveConfig.waves.Length);
       HUDManager.Instance.ShowWaveBanner(currentWave, waveConfig.waves.Length);

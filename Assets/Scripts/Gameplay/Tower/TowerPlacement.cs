@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 public class TowerPlacement : MonoBehaviour
 {
+  public static event System.Action<TowerConfig> OnTowerPlaced;
   [SerializeField] private LayerMask placementLayer;
   [SerializeField] private TowerFactory towerFactory;
   [SerializeField] private GridVisualizer gridLineVisualizer;
@@ -255,6 +256,7 @@ public class TowerPlacement : MonoBehaviour
       // of the three grounds, plus a spring-up on the tower itself
       PlacementEffect.Spawn(worldPosition, EnvironmentTheme.Current.accentGlow);
       TowerPopIn.Play(createdTower.gameObject);
+      OnTowerPlaced?.Invoke(config);
       CameraRig.Instance?.Shake(0.25f);
     }
     else

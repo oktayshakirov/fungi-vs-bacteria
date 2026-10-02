@@ -14,7 +14,10 @@ public class EnemyHealthBar : MonoBehaviour
   private static Material[] fillMaterials;
 
   private Transform barRoot;
-  private Transform fill;
+  private Transform fill, shieldFill;
+  private static Material shieldMaterial;
+  private float currentHealth=1;
+  private bool shieldPresent;
   private MeshRenderer fillRenderer;
   private Camera mainCamera;
   private float verticalOffset;
@@ -45,6 +48,7 @@ public class EnemyHealthBar : MonoBehaviour
     fillRenderer.sharedMaterial = FillMaterial(1f);
     fill.localPosition = new Vector3(0f, 0f, -0.01f);
     fill.localScale = new Vector3(BarWidth, BarHeight * 0.7f, 1f);
+
   }
 
   // Banded, not interpolated: three shared materials keep every health bar in
@@ -95,12 +99,31 @@ public class EnemyHealthBar : MonoBehaviour
     if (fill == null) return;
 
     percent = Mathf.Clamp01(percent);
+    currentHealth=percent;
     fill.localScale = new Vector3(BarWidth * percent, BarHeight * 0.7f, 1f);
     fill.localPosition = new Vector3(-BarWidth * (1f - percent) * 0.5f, 0f, -0.01f);
     fillRenderer.sharedMaterial = FillMaterial(percent);
 
     // Only show the bar once the enemy has taken damage
-    barRoot.gameObject.SetActive(percent < 1f);
+    barRoot.gameObject.SetActive(percent < 1f || shieldPresent);
+  }
+
+  // Separate cyan strip: damage to a shield no longer looks like healing health.
+  public void SetShield(float percent, bool hasShield)
+  {
+    shieldPresent=hasShield;
+    if(shieldFill==null && hasShield)
+    {
+      shieldFill = CreateQuad("Shield",barRoot);
+      if(shieldMaterial==null) shieldMaterial=new Material(GetBackgroundMaterial()) { color=new Color(.35f,.76f,1f), enableInstancing=true };
+      shieldFill.GetComponent<MeshRenderer>().sharedMaterial=shieldMaterial;
+    }
+    if(shieldFill==null) return;
+    percent=Mathf.Clamp01(percent);
+    shieldFill.gameObject.SetActive(hasShield && percent>0);
+    shieldFill.localScale=new Vector3(BarWidth*percent,.08f,1);
+    shieldFill.localPosition=new Vector3(-BarWidth*(1-percent)*.5f,.19f,-.01f);
+    barRoot.gameObject.SetActive(currentHealth<1 || hasShield);
   }
 
   private void LateUpdate()

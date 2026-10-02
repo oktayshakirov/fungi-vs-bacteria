@@ -100,9 +100,15 @@ public static class MeshFactory
         Vector3 a1 = Shard(s + 1, sides, levels[l], radii[l], twist, lean);
         Vector3 b0 = Shard(s, sides, levels[l + 1], radii[l + 1], twist, lean);
         Vector3 b1 = Shard(s + 1, sides, levels[l + 1], radii[l + 1], twist, lean);
-        if (radii[l + 1] <= 0f) b.Face(a0, a1, b0, UV(a0), UV(a1), UV(b0));
-        else b.Quad(a0, a1, b1, b0, UV(a0), UV(a1), UV(b1), UV(b0));
+        if (radii[l + 1] <= 0f) b.Face(a0, b0, a1, UV(a0), UV(b0), UV(a1));
+        else b.Quad(a0, b0, b1, a1, UV(a0), UV(b0), UV(b1), UV(a1));
       }
+    }
+    for (int s = 0; s < sides; s++)
+    {
+      Vector3 a = Shard(s, sides, 0f, radii[0], twist, lean);
+      Vector3 c = Shard(s + 1, sides, 0f, radii[0], twist, lean);
+      b.Face(Vector3.zero, a, c, UV(Vector3.zero), UV(a), UV(c));
     }
     return b.ToMesh();
   });
@@ -133,8 +139,18 @@ public static class MeshFactory
         Vector3 a1 = Trunk(s + 1, sides, t0, bendX, bendZ, seed);
         Vector3 c0 = Trunk(s, sides, t1, bendX, bendZ, seed);
         Vector3 c1 = Trunk(s + 1, sides, t1, bendX, bendZ, seed);
-        b.Quad(a0, a1, c1, c0, new Vector2(0f, t0), new Vector2(1f, t0), new Vector2(1f, t1), new Vector2(0f, t1));
+        b.Quad(a0, c0, c1, a1, new Vector2(0f, t0), new Vector2(0f, t1), new Vector2(1f, t1), new Vector2(1f, t0));
       }
+    }
+    for (int s = 0; s < sides; s++)
+    {
+      var a = Trunk(s, sides, 0f, bendX, bendZ, seed);
+      var c = Trunk(s + 1, sides, 0f, bendX, bendZ, seed);
+      b.Face(Vector3.zero, a, c, UV(Vector3.zero), UV(a), UV(c));
+      a = Trunk(s, sides, 1f, bendX, bendZ, seed);
+      c = Trunk(s + 1, sides, 1f, bendX, bendZ, seed);
+      var top = new Vector3(bendX, 1f, bendZ);
+      b.Face(top, c, a, UV(top), UV(c), UV(a));
     }
     return b.ToMesh();
   });
@@ -338,6 +354,42 @@ public static class MeshFactory
       pts[i] = v;
     }
     return FlatShade(pts, idx, false);
+  });
+
+  // Floating scenery needs a solid silhouette from below as well as above.
+  // Both halves share the exact rim; unlike a ground mound on a narrow crystal,
+  // this leaves no exposed gap beneath the turf during the camera orbit.
+  public static Mesh FloatingIsland(int variant, bool turf) => Cached("islet" + variant + turf, () =>
+  {
+    const int sides = 20;
+    var b = new Builder();
+    Vector3 Rim(int side)
+    {
+      float angle = (side % sides) * Mathf.PI * 2f / sides;
+      float radius = .9f + .07f * Mathf.Sin(angle * 3f + variant) + .03f * Mathf.Cos(angle * 7f + variant);
+      return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+    }
+    for (int s = 0; s < sides; s++)
+    {
+      Vector3 a = Rim(s), c = Rim(s + 1);
+      if (turf)
+      {
+        var top = new Vector3(.06f, .16f, -.04f);
+        b.Face(top, c, a, UV(top), UV(c), UV(a));
+        b.Face(Vector3.zero, a, c, UV(Vector3.zero), UV(a), UV(c));
+      }
+      else
+      {
+        // Close the top, then taper two faceted rings to the underside tip.
+        b.Face(Vector3.zero, c, a, UV(Vector3.zero), UV(c), UV(a));
+        Vector3 lowerA = a * .78f + Vector3.down * .3f;
+        Vector3 lowerC = c * .78f + Vector3.down * .3f;
+        b.Quad(a, c, lowerC, lowerA, UV(a), UV(c), UV(lowerC), UV(lowerA));
+        var tip = new Vector3(.12f, -.9f, -.06f);
+        b.Face(lowerA, lowerC, tip, UV(lowerA), UV(lowerC), UV(tip));
+      }
+    }
+    return b.ToMesh();
   });
 
   // ---------------------------------------------------------------- cliff

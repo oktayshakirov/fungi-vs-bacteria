@@ -204,8 +204,16 @@ namespace TowerDefense.UI
         return $"Range {config.range:0.#}   {boost}";
       }
 
-      string line = $"Damage {config.damage}   Range {config.range:0.#}   {config.fireRate:0.#}/s";
+      // Poison is quoted as "dart + dose", not folded into one number: the
+      // dart lands now and the dose lands over the next few seconds, and a
+      // single total would make Poison look like a burst tower it is not.
+      string damage = config.Poisons
+        ? $"Damage {config.damage}+{config.PoisonDamageAt(1)}"
+        : $"Damage {config.damage}";
+      string line = $"{damage}   Range {config.range:0.#}   {config.fireRate:0.#}/s";
       if (config.isAoE) line += "   Splash";
+      if (config.Chains) line += $"   Chains {config.chainTargets + 1}";
+      if (config.Poisons) line += "   Poison";
       if (config.slowsEnemies) line += "   Slow";
       return line;
     }

@@ -36,11 +36,21 @@ public class SelectionTrailGraphic : MaskableGraphic
             Vector2 normal=new Vector2(-direction.y,direction.x)*width*.5f;
             if(i>0) distance+=Vector2.Distance(samples[i],samples[i-1]);
             Color tint = i<=completedSegments*20 && completedSegments>0 ? completedColor : color;
-            vh.AddVert(samples[i]-normal,tint,new Vector2(distance/100,0));
-            vh.AddVert(samples[i]+normal,tint,new Vector2(distance/100,1));
+            // Transparent shoulders soften the trail into the terrain without an
+            // extra material, texture or per-frame work. UVs retain the real grain.
+            Color shoulder = tint; shoulder.a = 0;
+            Vector2 inset = normal * Mathf.Max(0, 1f - 4f / width);
+            vh.AddVert(samples[i]-normal,shoulder,new Vector2(distance/100,0));
+            vh.AddVert(samples[i]-inset,tint,new Vector2(distance/100,.12f));
+            vh.AddVert(samples[i]+inset,tint,new Vector2(distance/100,.88f));
+            vh.AddVert(samples[i]+normal,shoulder,new Vector2(distance/100,1));
             if(i==0) continue;
-            int n=i*2;
-            vh.AddTriangle(n-2,n-1,n); vh.AddTriangle(n,n-1,n+1);
+            int n=i*4;
+            for(int strip=0;strip<3;strip++)
+            {
+                vh.AddTriangle(n-4+strip,n-3+strip,n+strip);
+                vh.AddTriangle(n+strip,n-3+strip,n+strip+1);
+            }
         }
     }
 }

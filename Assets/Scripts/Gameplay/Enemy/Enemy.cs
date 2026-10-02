@@ -33,6 +33,7 @@ public class Enemy : MonoBehaviour
 
   public float speed { get; private set; } = 5f;
   public int health { get; private set; } = 100;
+  public uint SpawnVersion { get; private set; }
   public int damage { get; private set; } = 10;
   private int goldReward;
   private float armorDamageReduction = 0f;
@@ -43,9 +44,45 @@ public class Enemy : MonoBehaviour
 
   private float slowAmount = 0f;
   private float slowDuration = 2f;
+  private float slowedUntil;
+  private Color slowTint;
+  private int statusAppearance;
+
+  // Poison: the Poison tower's whole mechanic. See ApplyPoison.
+  private float poisonPerSecond;
+  // Seconds LEFT, counted down by the same dt that meters the dose, rather than
+  // an absolute Time.time deadline. Both halves of the mechanic then run off
+  // one clock, which is what makes it checkable at all - see CombatCheck.
+  private float poisonRemaining;
+  private Color poisonTint;
+  private float poisonCarry;
+
+  public bool IsPoisoned => poisonPerSecond > 0f && poisonRemaining > 0f;
+
+  // Frozen outranks slowed outranks poisoned, because that is the order the
+  // player needs to read: being stopped matters more than being slow, and
+  // either matters more than taking damage they can already see in the numbers.
+  private void RefreshStatusAppearance()
+  {
+    int state = IsFrozen ? 3 : slowAmount > 0 ? 2 : IsPoisoned ? 1 : 0;
+    if(state == statusAppearance) return;
+    statusAppearance = state;
+    if(bodyRenderer == null) return;
+    propertyBlock ??= new MaterialPropertyBlock();
+    bodyRenderer.GetPropertyBlock(propertyBlock);
+    Color color = state == 3 ? Color.Lerp(bodyColor,new Color(.65f,.9f,1f),.7f)
+      : state == 2 ? Color.Lerp(bodyColor,slowTint,.55f)
+      : state == 1 ? Color.Lerp(bodyColor,poisonTint,.5f) : bodyColor;
+    propertyBlock.SetColor(BaseColorId,color);
+    propertyBlock.SetColor(ColorId,color);
+    bodyRenderer.SetPropertyBlock(propertyBlock);
+  }
+
   private float normalSpeed;
   private bool isRemoved = false;
   private int maxHealth;
+  private int pendingDamage, pendingShield;
+  private float nextDamagePopup;
   private EnemyHealthBar healthBar;
 
   [SerializeField] private float rotationOffset = 0f;
@@ -68,6 +105,7 @@ public class Enemy : MonoBehaviour
 
   private MeshRenderer bodyRenderer;
   private EnemyTrait[] traits;
+  private ShieldSkin shieldSkin;
   private bool shieldWasUp = true;
   // Yaw is tracked separately from transform.rotation because the body's waddle
   // writes a roll on top of it. Slerping towards the target FROM the rotation
@@ -118,6 +156,7 @@ public class Enemy : MonoBehaviour
     currentScale = baseScale;
 
     traits = GetComponentsInChildren<EnemyTrait>(true);
+    shieldSkin = GetComponent<ShieldSkin>();
     bodyRenderer = FindBodyRenderer(gameObject);
     if (bodyRenderer != null && bodyRenderer.sharedMaterial != null &&
         bodyRenderer.sharedMaterial.HasProperty("_BaseColor"))
@@ -169,11 +208,21 @@ public class Enemy : MonoBehaviour
     SpawnOverride ov = overrideOrNull ?? SpawnOverride.Default;
     spawnOverride = ov;
     config = enemyConfig;
+    unchecked { SpawnVersion++; }
 
     // Full reset: instances come back from the pool with stale state
     StopAllCoroutines();
     isRemoved = false;
+    pendingDamage=pendingShield=0; nextDamagePopup=0;
     slowAmount = 0f;
+    slowedUntil = 0f;
+    // Same trap as frozenUntil below: a poisoned enemy that died mid-dose would
+    // otherwise hand the rest of that dose to the next enemy out of the pool,
+    // which would then bleed to death on the way out of the nest.
+    poisonPerSecond = 0f;
+    poisonRemaining = 0f;
+    poisonCarry = 0f;
+    statusAppearance = 0;
     // Pooled instances come back with this still set: a Frost Wave that caught
     // an enemy just before it died would otherwise hand the next enemy out of
     // the pool the rest of that freeze, standing still on the path for no
@@ -222,7 +271,7 @@ public class Enemy : MonoBehaviour
       healthBar = gameObject.GetComponent<EnemyHealthBar>();
       if (healthBar == null) healthBar = gameObject.AddComponent<EnemyHealthBar>();
     }
-    healthBar.SetHealth(1f);
+    UpdateHealthBar();
 
     transform.position = waypoints[currentWaypointIndex];
 
@@ -275,10 +324,14 @@ public class Enemy : MonoBehaviour
   // blue even in the biome that pushes every body towards blue.
   private void ApplyTraitAppearance()
   {
-    if (traits == null) return;
     Color tint = EnvironmentTheme.EnemyTint;
     bool up = shield > 0f;
     shieldWasUp = up;
+    // Before the trait loop and outside its null guard: ShieldedEnemy carries a
+    // ShieldSkin and NO traits at all, so a return above this would leave a
+    // pooled enemy wearing whichever skin the last one it was died in.
+    shieldSkin?.Apply(up);
+    if (traits == null) return;
     foreach (EnemyTrait t in traits)
     {
       if (t == null) continue;
@@ -291,10 +344,11 @@ public class Enemy : MonoBehaviour
   // walks the trait's renderers.
   private void SyncShieldCue()
   {
-    if (traits == null) return;
     bool up = shield > 0f;
     if (up == shieldWasUp) return;
     shieldWasUp = up;
+    shieldSkin?.Apply(up);
+    if (traits == null) return;
     foreach (EnemyTrait t in traits)
     {
       if (t != null) t.SetShieldUp(up);
@@ -392,6 +446,10 @@ public class Enemy : MonoBehaviour
 
   private void Update()
   {
+    if(Time.time>=nextDamagePopup) FlushDamageText();
+    if(slowAmount > 0 && Time.time >= slowedUntil) { slowAmount=0; speed=normalSpeed; }
+    TickPoison(Time.deltaTime);
+    RefreshStatusAppearance();
     if (waypoints == null) return;
 
     // Move towards the next path point
@@ -478,20 +536,33 @@ public class Enemy : MonoBehaviour
     }
   }
 
-  // Shield sits in front of health on the same bar, so the fill drains through
-  // the shield and on into health without EnemyHealthBar needing a second bar.
+  // Health and shield have separate fills so regeneration is unambiguous.
   private void UpdateHealthBar()
   {
-    float total = maxHealth + shieldMax;
-    healthBar?.SetHealth(total > 0f ? (health + shield) / total : 0f);
+    healthBar?.SetHealth(maxHealth > 0 ? (float)health / maxHealth : 0);
+    healthBar?.SetShield(shieldMax > 0 ? shield / shieldMax : 0, shieldMax > 0);
   }
 
-  public void TakeDamage(int damageAmount)
+  private void FlushDamageText()
+  {
+    if(pendingDamage==0 && pendingShield==0) return;
+    Vector3 position=transform.position+Vector3.up*(currentScale.y+.5f);
+    if(pendingDamage>0) FloatingText.Spawn(position,pendingDamage.ToString(),DamageColor);
+    if(pendingShield>0) FloatingText.Spawn(position+Vector3.up*.35f,pendingShield.ToString(),ShieldColor,4f);
+    pendingDamage=pendingShield=0;
+    nextDamagePopup=Time.time+.2f;
+  }
+
+  public void TakeDamage(int damageAmount) => TakeDamage(damageAmount, false);
+
+  public void TakeDamage(int damageAmount, bool ignoreArmor)
   {
     if (isRemoved) return;
 
     // Apply armor damage reduction if any
-    float reducedDamage = damageAmount * (1f - armorDamageReduction);
+    float reducedDamage = ignoreArmor
+      ? damageAmount
+      : damageAmount * (1f - armorDamageReduction);
     int dealt = Mathf.RoundToInt(reducedDamage);
     lastDamagedAt = Time.time;
 
@@ -503,14 +574,15 @@ public class Enemy : MonoBehaviour
       float absorbed = Mathf.Min(shield, dealt);
       shield -= absorbed;
       dealt -= Mathf.RoundToInt(absorbed);
-      FloatingText.Spawn(popupPos, Mathf.RoundToInt(absorbed).ToString(), ShieldColor);
+      pendingShield += Mathf.RoundToInt(absorbed);
+      if(shield<=0) FloatingText.Spawn(popupPos+Vector3.up*.7f,"SHIELD BROKEN",ShieldColor,3f);
       SyncShieldCue();
     }
 
     if (dealt > 0)
     {
       health -= dealt;
-      FloatingText.Spawn(popupPos, dealt.ToString(), DamageColor);
+      pendingDamage += dealt;
     }
 
     UpdateHealthBar();
@@ -518,6 +590,7 @@ public class Enemy : MonoBehaviour
 
     if (health <= 0)
     {
+      FlushDamageText();
       GameManager.Instance?.AddGold(goldReward);
       FloatingText.Spawn(popupPos + Vector3.up * 0.4f, $"+{goldReward}", GoldColor, 6f);
       DeathEffect.Spawn(transform.position + Vector3.up * currentScale.y * 0.5f, bodyColor, currentScale.y);
@@ -577,27 +650,88 @@ public class Enemy : MonoBehaviour
 
   // Frozen solid: movement stops entirely until the timer runs out. Kept apart
   // from ApplySlow, which is the Ice tower's percentage slow on its own
-  // coroutine - stacking a 100% slow through that path would fight the
-  // coroutine that resets it and leave enemies stopped forever.
+  // timer; each status expires independently.
   public void ApplyFreeze(float seconds)
   {
     frozenUntil = Mathf.Max(frozenUntil, Time.time + seconds);
+    RefreshStatusAppearance();
   }
 
   public bool IsFrozen => Time.time < frozenUntil;
   private float frozenUntil;
 
-  public void ApplySlow(float amount)
+  // Damage over time, and the Poison tower's reason to exist. Three decisions
+  // worth not re-litigating:
+  //
+  // - It IGNORES ARMOUR. Without that, Poison was a worse Inferno against the
+  //   one enemy type - Armored - whose whole point is shrugging off per-hit
+  //   damage; a tower whose damage arrives in many small pieces is exactly what
+  //   a flat percentage reduction punishes hardest. Shields still absorb it,
+  //   so Shielded remains a counter to chip damage (phase 20's design).
+  // - It REFRESHES rather than stacking. Two Poison towers on one enemy stack
+  //   to double damage and a wall of towers would then stack to arbitrary
+  //   damage; taking the stronger dose and resetting the clock keeps the
+  //   ceiling at "one tower's worth, kept topped up".
+  // - It cannot kill-by-rounding. The per-frame dose is a fraction of a point
+  //   at any sane dps, so it is accumulated in poisonCarry and spent in whole
+  //   points; rounding each frame to the nearest int would either deal nothing
+  //   at all or 1 damage per frame, i.e. ~60 dps regardless of the setting.
+  public void ApplyPoison(float damagePerSecond, float duration, Color? tint = null)
   {
-    slowAmount = Mathf.Max(slowAmount, amount);
-    speed = normalSpeed * (1 - slowAmount);
-    StartCoroutine(SlowWearOff());
+    if (isRemoved || !gameObject.activeInHierarchy) return;
+    if (damagePerSecond <= 0f || duration <= 0f) return;
+
+    if (damagePerSecond >= poisonPerSecond)
+    {
+      poisonPerSecond = damagePerSecond;
+      poisonTint = tint ?? new Color(.60f, .86f, .24f);
+    }
+    poisonRemaining = Mathf.Max(poisonRemaining, duration);
+    statusAppearance = -1;
+    RefreshStatusAppearance();
   }
 
-  private IEnumerator SlowWearOff()
+  // dt is passed in rather than read from Time so CombatCheck can step a dose
+  // by hand; edit-mode Time.deltaTime is zero and nothing would ever tick.
+  public void StepPoison(float dt) => TickPoison(dt);
+
+  private void TickPoison(float dt)
   {
-    yield return new WaitForSeconds(slowDuration);
-    slowAmount = 0f;
-    speed = normalSpeed;
+    if (poisonPerSecond <= 0f) return;
+
+    // Only the remaining slice counts, so a long dt at the end of a dose does
+    // not deal a whole frame's worth of poison the enemy no longer owes.
+    float slice = Mathf.Min(dt, poisonRemaining);
+    poisonRemaining -= dt;
+    poisonCarry += poisonPerSecond * slice;
+
+    // Whole points while the dose runs, and the leftover fraction rounded and
+    // spent when it ends. Without that last step a dose always delivers one
+    // point less than it promises: ten tenth-second ticks of 10/s accumulate to
+    // 9.999... in float, so the tenth point is never reached and is then thrown
+    // away with the carry.
+    bool finished = poisonRemaining <= 0f;
+    int dose = finished ? Mathf.RoundToInt(poisonCarry) : (int)poisonCarry;
+    poisonCarry -= dose;
+
+    if (finished)
+    {
+      poisonPerSecond = 0f;
+      poisonCarry = 0f;
+    }
+
+    if (dose > 0) TakeDamage(dose, true);
+  }
+
+  public void ApplySlow(float amount, Color? tint = null)
+  {
+    if(isRemoved || !gameObject.activeInHierarchy) return;
+    amount = Mathf.Clamp01(amount);
+    if(amount >= slowAmount) slowTint = tint ?? new Color(.42f,.82f,1f);
+    slowAmount = Mathf.Max(slowAmount, amount);
+    slowedUntil = Time.time + slowDuration;
+    speed = normalSpeed * (1 - slowAmount);
+    statusAppearance = -1;
+    RefreshStatusAppearance();
   }
 }

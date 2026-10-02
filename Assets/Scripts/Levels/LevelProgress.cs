@@ -5,10 +5,17 @@ public static class LevelProgress
   // TESTING: unlocks every environment and level. MUST be false in a store
   // build. Flip it back to true to jump straight to a late level while
   // debugging - with it false you have to play there.
+  //
+  // CURRENTLY TRUE, deliberately: phase 32 is going onto a device to be
+  // played, and most of what needs looking at is late-game - the chain bolt
+  // wants a crowded path, the enemy triangle cut wants a 30-enemy wave, and
+  // the three losing levels in section 5 are all in environment 7. None of
+  // that is reachable in a reasonable time from a locked fresh install.
+  // TURN IT BACK OFF before any store build.
   // `static readonly`, not `const`: a compile-time constant makes every
   // `if (UnlockAll) return true;` below fold away and the compiler then reports
   // the returns as unreachable code, burying real warnings under noise.
-  public static readonly bool UnlockAll = false;
+  public static readonly bool UnlockAll = true;
 
   private static string Key(string environmentName) => $"HighestCompletedLevel_{environmentName}";
 

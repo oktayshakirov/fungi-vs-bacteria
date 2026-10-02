@@ -28,6 +28,38 @@ public static class PathSurface
             return grain;
         }
     }
+    // One transparent ribbon shared by gameplay and the live island preview.
+    // Resources keeps the shader available in player builds, not just the editor.
+    public static void ApplyRoad(Material material)
+    {
+        Color color = material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor") : material.color;
+        material.shader = Resources.Load<Shader>("Shaders/NaturalPath");
+        // Terrain decals draw before shields, auras and other transparent actors.
+        // Explicitly override a queue inherited from an authored path material.
+        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 100;
+        Apply(material);
+        material.SetColor("_BaseColor",color);
+    }
+
+    public static void ApplyWidth(LineRenderer line, Vector3[] points, float width)
+    {
+        float length = 0f;
+        for(int i=1;i<points.Length;i++) length += Vector3.Distance(points[i-1],points[i]);
+        // Never extend beyond the original road footprint. Variations are broad
+        // and fixed in distance, so rebuilding or rotating cannot change them.
+        int count = Mathf.Clamp(Mathf.CeilToInt(length/3f)+1,2,96);
+        var keys = new Keyframe[count];
+        float phase = points[0].x*.37f + points[0].z*.19f;
+        for(int i=0;i<count;i++)
+        {
+            float t=i/(float)(count-1), distance=t*length;
+            float value=.965f+.022f*Mathf.Sin(distance*.43f+phase)+.013f*Mathf.Sin(distance*.91f+phase);
+            keys[i]=new Keyframe(t,value);
+        }
+        line.widthCurve=new AnimationCurve(keys);
+        line.widthMultiplier=width;
+    }
+
     public static void Apply(Material material)
     {
         material.mainTexture=Grain;

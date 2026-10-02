@@ -145,7 +145,7 @@ public class HUDManager : MonoBehaviour
 
     if (TutorialOverlay.ShouldShow())
     {
-      TutorialOverlay.Show(uiRoot);
+      TutorialOverlay.Show(uiRoot, uiRoot.Find("TowersPanel") as RectTransform, startWaveButton!=null ? (RectTransform)startWaveButton.transform : null);
     }
   }
 
@@ -293,8 +293,12 @@ public class HUDManager : MonoBehaviour
   public void ShowWaveBanner(int currentWave, int totalWaves)
   {
     string message = currentWave >= totalWaves ? "FINAL WAVE" : $"WAVE {currentWave}";
-    WaveBanner.Show(HudUiRoot(), message);
+    var waves=GameSession.SelectedLevel?.waveConfig?.waves;
+    string detail=waves!=null && currentWave>0 && currentWave<=waves.Length ? WaveBanner.Describe(waves[currentWave-1]) : "";
+    WaveBanner.Show(HudUiRoot(), message,detail);
   }
+
+  public void ShowPathClear() => WaveBanner.Show(HudUiRoot(),"PATH CLEAR","A moment to strengthen your defenses");
 
   public void UpdateWaveTimer(float timeRemaining)
   {

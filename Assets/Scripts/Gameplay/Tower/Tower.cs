@@ -25,6 +25,10 @@ public class Tower : MonoBehaviour
   private TowerConfig config;
   private TowerTargeting targeting;
   private float fireCountdown = 0f;
+  private Vector3 headRestScale;
+  private float recoilUntil;
+  private bool recoiling;
+  private TowerSupportCue supportCue;
   private GameObject tileIndicator;
   private bool isSelected = false;
   private bool isPreviewMode = false;
@@ -49,6 +53,18 @@ public class Tower : MonoBehaviour
   public bool IsSupport => config != null && config.isSupport;
   public int EffectiveDamage =>
     config == null ? 0 : Mathf.RoundToInt(config.DamageAt(Level) * damageMultiplier);
+
+  // Everything this tower's damage has been multiplied by - its tier and any
+  // support auras on it - as a float. The poison dose rides on this so that
+  // upgrading a Poison tower is worth paying for: almost all of its output is
+  // in the poison rather than in the dart, so scaling only the dart would make
+  // its upgrades the worst value in the game.
+  //
+  // Taken as a RATIO rather than recomputing the compound, so a buffed tower's
+  // poison is buffed too and there is only one definition of "how hard is this
+  // tower hitting" to keep in step.
+  private float DamageScale =>
+    config == null || config.damage <= 0 ? 1f : EffectiveDamage / (float)config.damage;
   // The last term is the Overclock booster, which is global and temporary: it
   // multiplies every tower at once, so it lives in BoosterEffects rather than
   // in each tower's own buff state (which TowerBuffs owns and recalculates).
@@ -71,10 +87,16 @@ public class Tower : MonoBehaviour
   {
     damageMultiplier = damage;
     fireRateMultiplier = fireRate;
+    if(isPreviewMode || config == null) return;
+    bool damageCue = IsSupport ? EffectiveDamageBoost > 0 : damage > 1f;
+    bool speedCue = IsSupport ? EffectiveFireRateBoost > 0 : fireRate > 1f;
+    if(supportCue == null && (damageCue || speedCue)) supportCue=gameObject.AddComponent<TowerSupportCue>();
+    supportCue?.Set(damageCue,speedCue);
   }
 
   private void Awake()
   {
+    if(tower != null) headRestScale = tower.localScale;
     targeting = GetComponent<TowerTargeting>();
     if (targeting == null)
     {
@@ -87,6 +109,13 @@ public class Tower : MonoBehaviour
     if (isPreviewMode || config == null)
     {
       return;
+    }
+
+    if(recoiling && tower != null)
+    {
+      float t = Mathf.Clamp01((recoilUntil-Time.time)/.14f);
+      tower.localScale = Vector3.Scale(headRestScale,new Vector3(1f-.055f*t,1f+.035f*t,1f+.035f*t));
+      if(t<=0) recoiling=false;
     }
 
     // A support tower has no weapon. Without this it would still run the
@@ -168,7 +197,7 @@ public class Tower : MonoBehaviour
     // defences are working", not as a continuous vibration.
     Haptics.PlayThrottled(Haptics.Style.Selection, 0.4f);
 
-    GameObject projectileGO = Instantiate(projectilePrefab, projectileSpawnPoint.position, projectileSpawnPoint.rotation);
+    GameObject projectileGO = CombatPool.Spawn(projectilePrefab, projectileSpawnPoint.position, projectileSpawnPoint.rotation);
     Vector3 directionToTarget = (targeting.CurrentTarget.position - projectileSpawnPoint.position).normalized;
     projectileGO.transform.forward = directionToTarget;
 
@@ -180,8 +209,20 @@ public class Tower : MonoBehaviour
           config.splashRadius,
           config.slowsEnemies,
           config.slowAmount,
-          20f
+          20f,
+          config.slowTint,
+          config.chainTargets,
+          config.chainRadius,
+          config.chainFalloff,
+          config.chainTint,
+          // The dose scales with the tower's tier like its damage does;
+          // otherwise upgrading a Poison tower buys almost nothing, because
+          // nearly all of its output is in the poison and not in the dart.
+          config.poisonDamagePerSecond * DamageScale,
+          config.poisonDuration,
+          config.poisonTint
       );
+      recoilUntil=Time.time+.14f; recoiling=true;
       projectile.Initialize(projectileData);
       projectile.Seek(targeting.CurrentTarget);
     }

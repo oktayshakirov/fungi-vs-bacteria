@@ -143,8 +143,9 @@ public static class MenuLayout
     rect.anchorMin = new Vector2(0f, 0f);
     rect.anchorMax = new Vector2(1f, 0f);
     rect.pivot = new Vector2(0.5f, 0f);
-    rect.anchoredPosition = new Vector2(0f, NextUpBottomInset);
-    rect.sizeDelta = new Vector2(-60f, NextUpHeight);
+    // Reserve the bottom-left corner for the independent Remove Ads action.
+    rect.offsetMin = new Vector2(222f, NextUpBottomInset);
+    rect.offsetMax = new Vector2(-CornerInset, NextUpBottomInset + NextUpHeight);
 
     // Icon and caption sit on one centred row, so the pair stays centred
     // whatever the biome name's length.
@@ -179,7 +180,9 @@ public static class MenuLayout
     if (caption == null) caption = captionGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(caption, UiSkin.Role.ButtonLabel, tint);
     caption.color = tint;
-    caption.enableAutoSizing = false;
+    caption.enableAutoSizing = true;
+    caption.fontSizeMin = 14f;
+    caption.fontSizeMax = 22f;
     caption.fontSize = 22f;
     caption.text = text;
     caption.alignment = TextAlignmentOptions.Midline;

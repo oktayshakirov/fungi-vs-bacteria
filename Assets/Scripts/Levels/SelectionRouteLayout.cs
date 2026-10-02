@@ -23,8 +23,9 @@ public static class SelectionRouteLayout
         }
         else { row=slot/columns; col=slot%columns; }
         if (row % 2 == 1) col = rowColumns - 1 - col;
-        var random = new Random(unchecked(seed * 397 ^ slot * 7919));
-        x = (col + .5f + (float)(random.NextDouble()-.5)*.22f) / rowColumns;
-        y = (rows == 1 ? .5f : .84f - row * .64f/(rows-1)) + (float)(random.NextDouble()-.5)*.06f;
+        x = (col + .5f) / rowColumns;
+        // Broad alternating arcs make a legible trail without rigid parallel lanes.
+        float arc = (float)Math.Sin((col + .5f) / rowColumns * Math.PI) * .035f;
+        y = (rows == 1 ? .5f : .87f - row * .74f/(rows-1)) + (row % 2 == 0 ? -arc : arc);
     }
 }

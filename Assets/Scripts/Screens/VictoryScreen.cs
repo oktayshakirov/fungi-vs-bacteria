@@ -8,6 +8,12 @@ public class VictoryScreen : MonoBehaviour
   [SerializeField] private Button mainMenuButton;
 
   private RectTransform starsRow;
+  private TMP_Text payoutLabel;
+  private Button skipReveal;
+  private int earnedStars, payout, shownCoins = -1, lastStar = -1;
+  private float revealStarted;
+  private bool revealing;
+  private const float RevealDuration = 1.45f;
 
   public void Initialize(int stars = 3, int coinsEarned = 0)
   {
@@ -17,6 +23,16 @@ public class VictoryScreen : MonoBehaviour
       return;
     }
 
+    revealing = false;
+    earnedStars = Mathf.Clamp(stars,0,3);
+    payout = Mathf.Max(0,coinsEarned);
+    shownCoins = lastStar = -1;
+    payoutLabel = null;
+    foreach(string name in new[]{"CoinPayout","ProgressSummary","SkipReveal"})
+    {
+      var old = transform.Find(name);
+      if(old != null) { old.name += "Retired"; old.gameObject.SetActive(false); if(Application.isPlaying) Destroy(old.gameObject); else DestroyImmediate(old.gameObject); }
+    }
     nextLevelButton.onClick.RemoveAllListeners();
     mainMenuButton.onClick.RemoveAllListeners();
 
@@ -35,7 +51,12 @@ public class VictoryScreen : MonoBehaviour
     ScreenTheme.Apply(transform, nextLevelButton, null, UiSkin.Gold);
     LowerCard();
     ShowStars(stars);
-    ShowCoinPayout(coinsEarned);
+    ShowCoinPayout(payout);
+    ShowProgress();
+    BuildSkip();
+    revealStarted = Time.unscaledTime;
+    revealing = Application.isPlaying;
+    if(revealing) AnimateReveal(0); else CompleteReveal();
 
     // Asked once per level end; Ads decides whether an ad is actually due.
     // Deliberately here rather than on the button presses: the screen appearing
@@ -74,8 +95,14 @@ public class VictoryScreen : MonoBehaviour
     Transform panel = nextLevelButton.transform.parent;
     var rect = panel as RectTransform;
     if (rect == null) return;
-    rect.anchorMin = new Vector2(0.5f, 0.33f);
-    rect.anchorMax = new Vector2(0.5f, 0.33f);
+    rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.29f);
+    var layout = panel.GetComponent<VerticalLayoutGroup>();
+    if(layout != null) layout.spacing=12f;
+    foreach(var button in panel.GetComponentsInChildren<Button>(true))
+    {
+      var element=button.GetComponent<LayoutElement>();
+      if(element!=null) { element.minHeight=68f; element.preferredHeight=68f; }
+    }
   }
 
   private void OnReplayClicked()
@@ -109,29 +136,50 @@ public class VictoryScreen : MonoBehaviour
     go.AddComponent<LayoutElement>().ignoreLayout = true;
     UiSkin.Panel(go.AddComponent<Image>(), new Color(0.05f, 0.06f, 0.10f, 0.85f), UiSkin.RadiusChip);
 
+    // The chip keeps its 300 width to match the buttons below it, but the coin
+    // and the number are laid out as one CENTRED group rather than the coin
+    // being pinned to the left edge and the number centred in what is left of
+    // the pill. Done the other way they end up a hundred units apart with the
+    // coin floating off on its own, which reads as a broken layout rather than
+    // as a reward. Same HorizontalLayoutGroup shape as HudTheme's stat chips.
+    var layout = go.AddComponent<HorizontalLayoutGroup>();
+    layout.padding = new RectOffset(16, 16, 8, 8);
+    layout.spacing = 10;
+    layout.childAlignment = TextAnchor.MiddleCenter;
+    layout.childControlWidth = true;
+    layout.childControlHeight = true;
+    layout.childForceExpandWidth = false;
+    layout.childForceExpandHeight = false;
+
     Image coin = UiSkin.Icon(go.transform, UiSprites.Coin(), UiSkin.Gold, 36f);
-    var coinRect = (RectTransform)coin.transform;
-    coinRect.anchorMin = coinRect.anchorMax = new Vector2(0f, 0.5f);
-    coinRect.pivot = new Vector2(0f, 0.5f);
-    coinRect.anchoredPosition = new Vector2(18f, 0f);
+    var coinElement = coin.gameObject.AddComponent<LayoutElement>();
+    coinElement.preferredWidth = 36f;
+    coinElement.preferredHeight = 36f;
+    coinElement.flexibleWidth = 0f;
 
     var labelGo = new GameObject("Label", typeof(RectTransform));
     labelGo.transform.SetParent(go.transform, false);
-    var labelRect = UiSkin.Stretch((RectTransform)labelGo.transform);
-    labelRect.offsetMin = new Vector2(60f, 0f);
-    labelRect.offsetMax = new Vector2(-16f, 0f);
     var label = labelGo.AddComponent<TextMeshProUGUI>();
+    payoutLabel = label;
     UiSkin.Label(label, UiSkin.Role.Value, UiSkin.Gold);
     label.fontSizeMax = 34f;
     label.text = $"+{coins}";
-    label.alignment = TextAlignmentOptions.Midline;
+    label.alignment = TextAlignmentOptions.MidlineLeft;
     label.raycastTarget = false;
+
+    // Sized for the FINAL payout, not the current one: the number counts up
+    // from +0, and a width that followed the text would shuffle the coin
+    // leftward on every digit the count-up adds.
+    var labelElement = labelGo.AddComponent<LayoutElement>();
+    labelElement.preferredWidth = label.GetPreferredValues($"+{coins}").x;
+    labelElement.preferredHeight = 36f;
+    labelElement.flexibleWidth = 0f;
   }
 
   // Builds a row of star sprites at runtime, so no prefab wiring is required.
   private void ShowStars(int stars)
   {
-    if (starsRow != null) Destroy(starsRow.gameObject);
+    if(starsRow != null) { starsRow.name = "StarsRowRetired"; starsRow.gameObject.SetActive(false); if(Application.isPlaying) Destroy(starsRow.gameObject); else DestroyImmediate(starsRow.gameObject); }
 
     var go = new GameObject("StarsRow", typeof(RectTransform));
     go.transform.SetParent(transform, false);
@@ -148,49 +196,78 @@ public class VictoryScreen : MonoBehaviour
 
     StarSprite.BuildRow(starsRow, Mathf.Clamp(stars, 0, 3), 104f);
 
-    // Earned stars pop in one after another; empty slots are simply there.
-    int earned = Mathf.Clamp(stars, 0, 3);
-    for (int i = 0; i < starsRow.childCount; i++)
-    {
-      if (i >= earned) continue;
-      starsRow.GetChild(i).gameObject.AddComponent<PopIn>().delay = 0.25f + i * 0.28f;
-    }
   }
 
-  // Scale 0 -> overshoot -> 1 after a delay, on unscaled time (the game may be
-  // paused under this screen). In batch previews, where nothing updates, the
-  // star is left at full size so renders still show it.
-  private class PopIn : MonoBehaviour
+  private void ShowProgress()
   {
-    public float delay;
-    private float start = -1f;
-
-    private void OnEnable()
+    var current=GameSession.SelectedLevel;
+    var next=LevelRepository.GetNextLevel(current);
+    string text="WELL DEFENDED";
+    if(next!=null) text=$"UP NEXT: LEVEL {next.levelNumber}  •  {EnvironmentInfo.DisplayName(next.environmentName)}";
+    else if(current!=null)
     {
-      if (!Application.isPlaying) return;
-      start = Time.unscaledTime;
-      transform.localScale = Vector3.zero;
-    }
-
-    private void Update()
-    {
-      if (start < 0f) return;
-      float t = (Time.unscaledTime - start - delay) / 0.35f;
-      if (t < 0f) return;
-      if (t >= 1f)
+      string[] parts=current.environmentName.Split(' ');
+      if(int.TryParse(parts[parts.Length-1],out int number))
       {
-        transform.localScale = Vector3.one;
-        if (Application.isPlaying) Haptics.Play(Haptics.Style.Light);
-        Destroy(this);
-        return;
+        var levels=LevelRepository.GetLevelsForEnvironment("Environment "+(number+1));
+        text=levels.Count>0 ? $"ENVIRONMENT COMPLETE\nNEXT: {EnvironmentInfo.DisplayName(levels[0].environmentName)}" : "ALL ENVIRONMENTS COMPLETE!";
       }
-      // Back-out easing: overshoots to ~1.2 before settling.
-      float c = 2.2f;
-      float u = t - 1f;
-      float s = 1f + (c + 1f) * u * u * u + c * u * u;
-      transform.localScale = Vector3.one * s;
+    }
+    var go=new GameObject("ProgressSummary",typeof(RectTransform));go.transform.SetParent(transform,false);
+    var rect=(RectTransform)go.transform;rect.anchorMin=rect.anchorMax=new Vector2(.5f,.525f);
+    rect.sizeDelta=new Vector2(900,48);go.AddComponent<LayoutElement>().ignoreLayout=true;
+    var label=go.AddComponent<TextMeshProUGUI>();UiSkin.Label(label,UiSkin.Role.Value,UiSkin.TextPrimary);
+    label.fontSizeMax=22;label.fontSizeMin=16;label.alignment=TextAlignmentOptions.Center;label.text=text;label.raycastTarget=false;
+  }
+
+  private void BuildSkip()
+  {
+    var go=new GameObject("SkipReveal",typeof(RectTransform),typeof(Image),typeof(Button));go.transform.SetParent(transform,false);
+    var rect=(RectTransform)go.transform;rect.anchorMin=rect.anchorMax=new Vector2(.5f,.045f);rect.sizeDelta=new Vector2(240,42);
+    go.AddComponent<LayoutElement>().ignoreLayout=true;
+    var image=go.GetComponent<Image>();image.color=Color.clear;
+    skipReveal=go.GetComponent<Button>();skipReveal.targetGraphic=image;skipReveal.onClick.AddListener(CompleteReveal);
+    var text=new GameObject("Label",typeof(RectTransform));text.transform.SetParent(go.transform,false);UiSkin.Stretch((RectTransform)text.transform);
+    var label=text.AddComponent<TextMeshProUGUI>();UiSkin.Label(label,UiSkin.Role.Value,UiSkin.TextMuted);
+    label.fontSizeMax=18;label.text="SKIP ANIMATION";label.alignment=TextAlignmentOptions.Center;label.raycastTarget=false;
+  }
+
+  private void Update()
+  {
+    if(!revealing) return;
+    float elapsed=Time.unscaledTime-revealStarted;
+    AnimateReveal(elapsed);
+    if(elapsed>=RevealDuration) CompleteReveal();
+  }
+
+  private void AnimateReveal(float elapsed)
+  {
+    for(int i=0;i<earnedStars && i<starsRow.childCount;i++)
+    {
+      float t=Mathf.Clamp01((elapsed-.12f-i*.23f)/.30f);
+      float u=t-1f;
+      float scale=t<=0?0:1+2.6f*u*u*u+1.6f*u*u;
+      starsRow.GetChild(i).localScale=Vector3.one*scale;
+      if(t>=1 && i>lastStar) {lastStar=i;Haptics.PlayThrottled(Haptics.Style.Light,.12f);}
+    }
+    if(payoutLabel!=null)
+    {
+      float t=Mathf.Clamp01((elapsed-.55f)/.85f);
+      int coins=Mathf.RoundToInt(payout*(1-(1-t)*(1-t)));
+      if(coins!=shownCoins){shownCoins=coins;payoutLabel.text=$"+{coins}";}
     }
   }
+
+  // Presentation only: rewards were already credited by GameManager.
+  public void CompleteReveal()
+  {
+    revealing=false;
+    if(starsRow!=null) foreach(Transform star in starsRow) star.localScale=Vector3.one;
+    if(payoutLabel!=null) payoutLabel.text=$"+{payout}";
+    if(skipReveal!=null) skipReveal.gameObject.SetActive(false);
+  }
+
+  private void OnDisable() { CompleteReveal(); }
 
   private void OnNextLevelClicked()
   {

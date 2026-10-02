@@ -1,72 +1,52 @@
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
-// A transient "WAVE N" banner that scales and fades in the upper-middle of the
-// screen when a wave starts. Built at runtime under the HUD canvas.
+// One compact, non-blocking announcement at a time. No per-enemy UI objects.
 public class WaveBanner : MonoBehaviour
 {
-  private const float Lifetime = 1.8f;
-
-  private TextMeshProUGUI label;
   private CanvasGroup group;
-  private RectTransform rect;
   private float age;
-
-  public static void Show(Transform canvasParent, string message)
+  public static void Show(Transform parent, string message, string detail = "")
   {
-    var go = new GameObject("WaveBanner", typeof(RectTransform));
-    go.transform.SetParent(canvasParent, false);
-    go.AddComponent<WaveBanner>().Setup(message);
+    // A clear-path message cannot pile up underneath the next wave announcement.
+    foreach(var old in parent.GetComponentsInChildren<WaveBanner>())
+    { old.gameObject.SetActive(false); Destroy(old.gameObject); }
+    var rect=SelectionScreenView.Rect("WaveBanner",parent,new Vector2(.5f,.54f),new Vector2(.5f,.54f));
+    rect.sizeDelta=new Vector2(Mathf.Min(580,ScreenTheme.LayoutWidth((RectTransform)parent)-260),106);
+    rect.gameObject.AddComponent<WaveBanner>().Setup(message,detail);
   }
-
-  private void Setup(string message)
+  private void Setup(string message,string detail)
   {
-    rect = (RectTransform)transform;
-    rect.anchorMin = new Vector2(0.5f, 0.72f);
-    rect.anchorMax = new Vector2(0.5f, 0.72f);
-    rect.pivot = new Vector2(0.5f, 0.5f);
-    rect.anchoredPosition = Vector2.zero;
-    rect.sizeDelta = new Vector2(1200f, 240f);
-    transform.SetAsLastSibling();
-
-    group = gameObject.AddComponent<CanvasGroup>();
-    group.blocksRaycasts = false;
-    group.interactable = false;
-
-    label = gameObject.AddComponent<TextMeshProUGUI>();
-    UiFont.Apply(label, useTitle: true);
-    label.text = message;
-    label.fontSize = 120f;
-    label.enableAutoSizing = true;
-    label.fontSizeMin = 40f;
-    label.fontSizeMax = 120f;
-    label.alignment = TextAlignmentOptions.Center;
-    label.fontStyle = FontStyles.Bold;
-    label.color = new Color(1f, 0.95f, 0.7f);
-    label.outlineWidth = 0.2f;
-    label.outlineColor = new Color(0f, 0f, 0f, 0.85f);
-    label.raycastTarget = false;
+    group=gameObject.AddComponent<CanvasGroup>(); group.blocksRaycasts=false; group.interactable=false;
+    UiSkin.Panel(gameObject.AddComponent<Image>(),new Color(.06f,.09f,.12f,.88f));
+    var title=SelectionScreenView.Label(SelectionScreenView.Rect("Title",transform,new Vector2(.04f,.59f),new Vector2(.96f,.96f)),message,30,true);
+    title.color=UiSkin.Gold; title.alignment=TextAlignmentOptions.Center;
+    var caption=SelectionScreenView.Label(SelectionScreenView.Rect("Detail",transform,new Vector2(.04f,.07f),new Vector2(.96f,.57f)),detail,16);
+    caption.alignment=TextAlignmentOptions.Center;
   }
-
+  public static string Describe(WaveConfig.Wave wave)
+  {
+    if(wave?.enemyGroups==null) return "";
+    int count=0; var traits=new List<string>();
+    void Add(bool condition,string text) { if(condition && !traits.Contains(text)) traits.Add(text); }
+    foreach(var g in wave.enemyGroups)
+    {
+      if(g==null || g.enemyConfig==null || g.count<=0) continue;
+      count+=g.count; var c=g.enemyConfig;
+      Add(c.hasShield,"SHIELDED");
+      Add(c.isHealer,"HEALERS");
+      Add(c.isSplitter,"SPLITTERS");
+      Add(c.isArmored,"ARMORED"); Add(c.isFast,"FAST");
+    }
+    string hint=traits.Contains("SHIELDED") ? "Burst damage breaks shields before they recharge." : traits.Contains("HEALERS") ? "Concentrate your fire to beat their healing." : traits.Contains("SPLITTERS") ? "Leave defenses near the exit for the smaller enemies." : "Defend your base.";
+    return $"{count} incoming" + (traits.Count==0 ? "" : "  /  "+string.Join(", ",traits)) + "\n" + hint;
+  }
   private void Update()
   {
-    // Runs during normal play (timeScale 1); unscaled keeps it steady regardless
-    age += Time.unscaledDeltaTime;
-    float t = age / Lifetime;
-
-    if (t >= 1f)
-    {
-      Destroy(gameObject);
-      return;
-    }
-
-    // Pop in over the first 25%, hold, then fade out over the last 35%
-    float alpha = 1f;
-    if (t < 0.25f) alpha = t / 0.25f;
-    else if (t > 0.65f) alpha = 1f - (t - 0.65f) / 0.35f;
-    group.alpha = alpha;
-
-    float scale = Mathf.Lerp(0.8f, 1f, Mathf.Clamp01(t / 0.25f));
-    rect.localScale = Vector3.one * scale;
+    age+=Time.deltaTime;
+    group.alpha=Mathf.Min(Mathf.Clamp01(age/.15f),Mathf.Clamp01((3.5f-age)/.5f));
+    if(age>=3.5f) Destroy(gameObject);
   }
 }

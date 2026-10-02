@@ -24,3 +24,4 @@ MonoBehaviour:
   splashRadius: 2
   slowsEnemies: 1
   slowAmount: 0.5
+  slowTint: {r: .42, g: .82, b: 1, a: 1}

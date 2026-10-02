@@ -95,6 +95,63 @@ public static class BalanceSim
     EditorApplication.Exit(0);
   }
 
+  // ------------------------------------------------------------ tower audit
+  //
+  // The whole-game run above says almost nothing about any INDIVIDUAL tower.
+  // The proxy is greedy on value-per-gold per covered unit of path, so it buys
+  // the top one or two types and ignores the rest: changing Shock from splash
+  // to chaining and Poison from a slow to damage over time left every one of
+  // the 70 verdicts and the entire CSV byte-identical, because the proxy had
+  // never built either tower in the first place.
+  //
+  // That is a property of the proxy, not evidence the change was harmless. This
+  // mode plays a spread of levels with exactly ONE tower type on the board, so
+  // each tower is measured against the same enemies instead of against the
+  // proxy's shopping preferences. Read it as "can this tower hold a level on
+  // its own, and how does that compare to the others", never as the difficulty
+  // curve - a one-type board is not how the game is played.
+  [MenuItem("Tools/Balance/Audit Each Tower")]
+  public static void AuditTowers()
+  {
+    TowerConfig[] towers = LoadTowers();
+    LevelConfig[] levels = LoadLevels();
+    if (towers == null || levels == null) return;
+
+    // A spread across the difficulty range rather than all 70: the point is to
+    // compare towers with each other, and eight levels each already shows it.
+    int[] picks = { 0, 9, 19, 29, 39, 49, 59, 69 };
+
+    Debug.Log("=== TOWER AUDIT (one tower type per run) ===");
+    foreach (TowerConfig cfg in towers)
+    {
+      if (cfg.isSupport || !IsAttacker(cfg)) continue;
+
+      var solo = new[] { cfg };
+      int wins = 0;
+      float health = 0f, depth = 0f;
+      int built = 0;
+      foreach (int i in picks)
+      {
+        if (i >= levels.Length) continue;
+        LevelResult r = SimulateLevel(levels[i], solo);
+        if (r.won) wins++;
+        health += r.startingHealth > 0 ? r.healthLeft / (float)r.startingHealth : 0f;
+        depth += r.killDepth;
+        built += r.towersBuilt;
+      }
+      int n = picks.Length;
+      Debug.Log($"AUDIT {cfg.towerName,-14} cost {cfg.cost,4}  " +
+                $"won {wins}/{n}  health {health / n:P0}  " +
+                $"killDepth {depth / n:P0}  towers {built / (float)n:0.#}");
+    }
+  }
+
+  public static void AuditBatch()
+  {
+    AuditTowers();
+    EditorApplication.Exit(0);
+  }
+
   // ---------------------------------------------------------------- loading
 
   private static TowerConfig[] LoadTowers()
@@ -176,6 +233,13 @@ public static class BalanceSim
     public float nextHealAt;
     public bool canSplit = true;
     public float rewardMultiplier = 1f;
+
+    // Poison. Mirrors Enemy.ApplyPoison/TickPoison: the stronger dose wins
+    // rather than stacking, the clock is refreshed, and the dose is accumulated
+    // in whole points so a sub-1 per-tick dose is not rounded away.
+    public float poisonPerSecond;
+    public float poisonRemaining;
+    public float poisonCarry;
   }
 
   private class SimTower
@@ -212,6 +276,12 @@ public static class BalanceSim
     public bool slows;
     public float slowAmount;
     public float life;
+
+    public int chainTargets;
+    public float chainRadius;
+    public float chainFalloff;
+    public float poisonPerSecond;
+    public float poisonDuration;
   }
 
   private struct SpawnEvent
@@ -366,7 +436,7 @@ public static class BalanceSim
       UpdateProjectiles(projectiles, enemies, t, ref gold, ref damageDealt);
 
       // --- shields regenerate and healers top the pack up
-      UpdateBehaviours(enemies, t);
+      UpdateBehaviours(enemies, t, ref gold, ref damageDealt);
 
       // --- enemies move, leak, expire slows
       health -= UpdateEnemies(enemies, path, t);
@@ -540,6 +610,14 @@ public static class BalanceSim
       splash = tower.cfg.splashRadius,
       slows = tower.cfg.slowsEnemies,
       slowAmount = tower.cfg.slowAmount,
+      chainTargets = tower.cfg.chainTargets,
+      chainRadius = tower.cfg.chainRadius,
+      chainFalloff = tower.cfg.chainFalloff,
+      // Mirrors Tower.DamageScale: the dose rides on whatever the damage has
+      // been multiplied by, so an upgraded or buffed Poison tower poisons harder.
+      poisonPerSecond = tower.cfg.poisonDamagePerSecond *
+        (tower.cfg.damage > 0 ? tower.Damage / (float)tower.cfg.damage : 1f),
+      poisonDuration = tower.cfg.poisonDuration,
     });
     tower.cooldown = 1f / tower.FireRate;
   }
@@ -563,7 +641,11 @@ public static class BalanceSim
       float dist = Vector2.Distance(p.pos, p.target.pos);
       if (dist <= ProjectileHitRadius)
       {
-        if (p.aoe)
+        if (p.chainTargets > 0 && p.chainRadius > 0f)
+        {
+          Chain(p, enemies, now, ref gold, ref damageDealt);
+        }
+        else if (p.aoe)
         {
           for (int e = 0; e < enemies.Count; e++)
           {
@@ -588,9 +670,107 @@ public static class BalanceSim
     }
   }
 
+  // Mirrors Projectile.Chain: full damage on the target, then the nearest
+  // untouched enemy within chainRadius OF THE LAST ONE HIT, losing chainFalloff
+  // each hop. Measuring from the last enemy rather than from the impact point is
+  // the whole difference between a chain and a splash, so the sim has to do it
+  // the same way or it would score Shock as an Inferno with a smaller radius.
+  private static readonly List<SimEnemy> chainHit = new List<SimEnemy>();
+
+  // Mirrors Enemy.TickPoison. Poison IGNORES ARMOUR, which is the whole reason
+  // the tower exists - see the note on Enemy.ApplyPoison - so the sim must not
+  // put e.armor in this path or it would under-report Poison against exactly
+  // the enemies it is meant to answer.
+  private static void TickPoison(SimEnemy e, float now, ref int gold,
+    ref long damageDealt)
+  {
+    if (e.poisonPerSecond <= 0f) return;
+
+    float slice = Mathf.Min(Dt, e.poisonRemaining);
+    e.poisonRemaining -= Dt;
+    e.poisonCarry += e.poisonPerSecond * slice;
+
+    bool finished = e.poisonRemaining <= 0f;
+    int dose = finished ? Mathf.RoundToInt(e.poisonCarry) : (int)e.poisonCarry;
+    e.poisonCarry -= dose;
+    if (finished)
+    {
+      e.poisonPerSecond = 0f;
+      e.poisonCarry = 0f;
+    }
+    if (dose <= 0) return;
+    e.lastDamagedAt = now;
+
+    // Shields absorb poison, same as in Enemy.TakeDamage.
+    if (e.shield > 0f)
+    {
+      float absorbed = Mathf.Min(e.shield, dose);
+      e.shield -= absorbed;
+      dose -= Mathf.RoundToInt(absorbed);
+      damageDealt += Mathf.RoundToInt(absorbed);
+    }
+
+    damageDealt += Mathf.Min(dose, Mathf.Max(0, e.health));
+    e.health -= dose;
+    if (e.health <= 0)
+    {
+      e.alive = false;
+      gold += e.gold;
+    }
+  }
+
+  private static void Chain(SimProjectile p, List<SimEnemy> enemies, float now,
+    ref int gold, ref long damageDealt)
+  {
+    chainHit.Clear();
+    SimEnemy current = p.target;
+    if (current == null) return;
+
+    float damage = p.damage;
+    int baseDamage = p.damage;
+    Damage(current, p, now, ref gold, ref damageDealt);
+    chainHit.Add(current);
+
+    for (int hop = 0; hop < p.chainTargets; hop++)
+    {
+      damage *= 1f - p.chainFalloff;
+      SimEnemy next = null;
+      float nearest = p.chainRadius;
+      for (int i = 0; i < enemies.Count; i++)
+      {
+        SimEnemy candidate = enemies[i];
+        if (candidate == null || !candidate.alive) continue;
+        if (chainHit.Contains(candidate)) continue;
+        float distance = Vector2.Distance(candidate.pos, current.pos);
+        if (distance <= nearest)
+        {
+          nearest = distance;
+          next = candidate;
+        }
+      }
+      if (next == null) break;
+
+      p.damage = Mathf.Max(1, Mathf.RoundToInt(damage));
+      Damage(next, p, now, ref gold, ref damageDealt);
+      chainHit.Add(next);
+      current = next;
+    }
+
+    // Restored because projectiles are pooled objects in this list and the
+    // damage field is read again if the shot somehow survives the frame.
+    p.damage = baseDamage;
+    chainHit.Clear();
+  }
+
   private static void Damage(SimEnemy e, SimProjectile p, float now, ref int gold,
     ref long damageDealt)
   {
+    if (p.poisonPerSecond > 0f && p.poisonDuration > 0f)
+    {
+      if (p.poisonPerSecond >= e.poisonPerSecond) e.poisonPerSecond = p.poisonPerSecond;
+      e.poisonRemaining = Mathf.Max(e.poisonRemaining, p.poisonDuration);
+    }
+
     int dealt = Mathf.RoundToInt(p.damage * (1f - e.armor));
     e.lastDamagedAt = now;
 
@@ -622,11 +802,14 @@ public static class BalanceSim
   }
 
   // Mirrors Enemy.TickShield / Enemy.TickHealer.
-  private static void UpdateBehaviours(List<SimEnemy> enemies, float now)
+  private static void UpdateBehaviours(List<SimEnemy> enemies, float now,
+    ref int gold, ref long damageDealt)
   {
     for (int i = 0; i < enemies.Count; i++)
     {
       SimEnemy e = enemies[i];
+      if (!e.alive) continue;
+      TickPoison(e, now, ref gold, ref damageDealt);
       if (!e.alive || e.cfg == null) continue;
 
       // Shield regenerates only after a quiet spell, so sustained fire holds it
@@ -892,6 +1075,32 @@ public static class BalanceSim
     float dps = cfg.DamageAt(level) * cfg.FireRateAt(level);
     if (cfg.isAoE) dps *= 1.6f;          // splash hits more than one enemy
     if (cfg.slowsEnemies) dps *= 1.15f;  // slow buys every other tower more time
+
+    // A chain hits 1 + chainTargets enemies, each worth less than the last, but
+    // only when there are that many within reach of each other. Discounted to
+    // roughly half the hops landing, on the same "it depends on the crowd"
+    // footing as the 1.6 for splash above.
+    if (cfg.Chains)
+    {
+      float hops = 1f;
+      float share = 1f;
+      for (int i = 0; i < cfg.chainTargets; i++)
+      {
+        share *= 1f - cfg.chainFalloff;
+        hops += share * 0.5f;
+      }
+      dps *= hops;
+    }
+
+    // Poison is a flat addition, not a multiplier: the dose does not care how
+    // hard the dart hit. Counted at one dose per shot up to the point where
+    // refreshing overlaps, which is what a tower firing faster than its own
+    // poison duration actually gets.
+    if (cfg.Poisons)
+    {
+      float scale = cfg.damage > 0 ? cfg.DamageAt(level) / (float)cfg.damage : 1f;
+      dps += cfg.poisonDamagePerSecond * scale;
+    }
     return dps;
   }
 

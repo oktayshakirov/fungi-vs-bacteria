@@ -1,5 +1,4 @@
 using UnityEngine;
-//TODO: Add Damage over time effect (PoisonTower)
 
 [CreateAssetMenu(fileName = "NewTower", menuName = "Tower Defense/Tower")]
 public class TowerConfig : ScriptableObject
@@ -134,4 +133,57 @@ public class TowerConfig : ScriptableObject
   public int SellValueAt(int level) => Mathf.RoundToInt(TotalInvested(level) * 0.7f);
 
   public int sellValue => SellValueAt(1);
+  [Header("Visual feedback")]
+  public Color slowTint = new Color(.42f,.82f,1f);
+
+  // --- Roles ----------------------------------------------------------------
+  //
+  // Three of the four "special" towers used to be the same tower with different
+  // numbers: Ice, Shock and Poison were all splash-plus-slow, so Shock was a
+  // strictly better Ice at a higher price and Poison was an Ice with a smaller
+  // radius. Worse, Shock's card said it "chains" and Poison's never mentioned
+  // poison at all. Each of the two now has a mechanic of its own and the splash
+  // slow belongs to Ice alone:
+  //
+  //   Ice      splash + slow        -> buys time, the only slower
+  //   Shock    chain                -> swarms, pays off on a crowded path
+  //   Poison   damage over time     -> armour and high health, ignores armour
+  //   Inferno  splash, big burst    -> packs
+  //
+  // Appended at the END, like everything else below the upgrade block, for the
+  // field-order reason written there.
+
+  [Header("Chain")]
+  [Tooltip("Extra enemies the bolt jumps to after the first. 0 disables chaining.")]
+  [Min(0)] public int chainTargets = 0;
+
+  [Tooltip("How far the bolt can jump from one enemy to the next.")]
+  public float chainRadius = 0f;
+
+  [Tooltip("Share of the damage lost on each jump. 0.25 = each hop hits for 75% of the last.")]
+  [Range(0f, 1f)] public float chainFalloff = 0.25f;
+
+  [Tooltip("Colour of the bolt between enemies.")]
+  public Color chainTint = new Color(.77f, .55f, 1f);
+
+  public bool Chains => chainTargets > 0 && chainRadius > 0f;
+
+  [Header("Poison")]
+  [Tooltip("Damage per second while poisoned. 0 disables poison.")]
+  public float poisonDamagePerSecond = 0f;
+
+  [Tooltip("Seconds a hit keeps the target poisoned. Re-hitting refreshes it rather than stacking.")]
+  public float poisonDuration = 0f;
+
+  public bool Poisons => poisonDamagePerSecond > 0f && poisonDuration > 0f;
+
+  // Damage per level, for the card: the direct hit plus one full dose of
+  // poison, so a 6-damage dart that puts 56 damage into an enemy over four
+  // seconds does not read as the weakest tower in the game.
+  public int PoisonDamageAt(int level) =>
+    Poisons ? Mathf.RoundToInt(poisonDamagePerSecond * poisonDuration *
+                               Compound(upgradeDamageStep, level)) : 0;
+
+  [Tooltip("Tint an enemy takes while poisoned.")]
+  public Color poisonTint = new Color(.60f, .86f, .24f);
 }

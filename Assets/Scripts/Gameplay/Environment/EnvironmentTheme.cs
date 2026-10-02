@@ -131,13 +131,14 @@ public static class EnvironmentTheme
           ambient = C(0.50f, 0.47f, 0.52f),
           lightColor = C(1f, 0.86f, 0.68f),
           lightIntensity = 1.28f,
-          lightAngles = new Vector3(16f, 20f, 0f),
+          lightAngles = new Vector3(28f, 20f, 0f),
           sunColor = C(1f, 0.55f, 0.22f),
           sunSize = 0.02f, sunGlow = 3.5f,
           hazeColor = C(1f, 0.74f, 0.48f), hazeStrength = 0.42f,
           cloudColor = C(1f, 0.78f, 0.58f), cloudStrength = 0.55f, cloudScale = 2.2f,
           starStrength = 0f,
           ground = "SAND",
+          groundTiling = 2f,
           baseModel = "Structures/BaseDunes",
           nestModel = "Structures/NestDunes",
           groundTint = Color.white,
@@ -215,7 +216,7 @@ public static class EnvironmentTheme
           baseModel = "Structures/BaseTundra",
           nestModel = "Structures/NestTundra",
           groundTint = Color.white,
-          groundTiling = 4f,
+          groundTiling = 2f,
           soilColor = C(0.44f, 0.48f, 0.56f),
           // Glacier blue, a step darker than the snow so the road holds its edge
           pathColor = C(0.47f, 0.62f, 0.80f),
@@ -242,7 +243,7 @@ public static class EnvironmentTheme
           ambient = C(0.42f, 0.30f, 0.28f),
           lightColor = C(1f, 0.62f, 0.42f),
           lightIntensity = 1.05f,
-          lightAngles = new Vector3(20f, 14f, 0f),
+          lightAngles = new Vector3(30f, 14f, 0f),
           sunColor = C(1f, 0.42f, 0.14f),
           sunSize = 0.026f, sunGlow = 6f,
           hazeColor = C(1f, 0.44f, 0.18f), hazeStrength = 0.5f,
@@ -252,7 +253,7 @@ public static class EnvironmentTheme
           baseModel = "Structures/BaseEmber",
           nestModel = "Structures/NestEmber",
           groundTint = Color.white,
-          groundTiling = 3f,
+          groundTiling = 2f,
           soilColor = C(0.20f, 0.13f, 0.11f),
           pathColor = C(0.90f, 0.86f, 0.78f),
           rockColor = C(0.26f, 0.22f, 0.22f),
@@ -290,7 +291,7 @@ public static class EnvironmentTheme
           // Above 1 deliberately: the neutral dark ground is built for a night
           // scene, and this lifts it to a readable mid teal
           groundTint = C(1.5f, 2.1f, 2.0f),
-          groundTiling = 3f,
+          groundTiling = 2f,
           soilColor = C(0.16f, 0.22f, 0.24f),
           pathColor = C(0.86f, 0.92f, 0.70f),
           rockColor = C(0.30f, 0.34f, 0.42f),
@@ -326,7 +327,7 @@ public static class EnvironmentTheme
           baseModel = "Structures/BaseBlossom",
           nestModel = "Structures/NestBlossom",
           groundTint = C(1f, 0.90f, 0.86f),      // warms the grass toward autumn
-          groundTiling = 4f,
+          groundTiling = 2f,
           soilColor = C(0.42f, 0.28f, 0.24f),
           pathColor = C(0.74f, 0.56f, 0.44f),
           rockColor = C(0.62f, 0.56f, 0.56f),
@@ -362,7 +363,7 @@ public static class EnvironmentTheme
           baseModel = "Structures/BaseMeadow",
           nestModel = "Structures/NestMeadow",
           groundTint = Color.white,
-          groundTiling = 4f,
+          groundTiling = 2f,
           soilColor = C(0.40f, 0.28f, 0.17f),
           pathColor = C(0.66f, 0.50f, 0.32f),
           rockColor = C(0.55f, 0.56f, 0.58f),
@@ -395,7 +396,10 @@ public static class EnvironmentTheme
     keyLight.intensity = p.lightIntensity;
     keyLight.transform.rotation = Quaternion.Euler(p.lightAngles);
     keyLight.shadows = LightShadows.Soft;
-    keyLight.shadowStrength = 0.72f;
+    keyLight.shadowStrength = 0.60f;
+    keyLight.shadowBias = 0.15f;
+    keyLight.shadowNormalBias = 0.35f;
+    RenderSettings.sun = keyLight;
 
     // Atmospheric depth: the distant clouds and floating islands fade toward the
     // horizon colour, which is most of what sells the "high in the sky" look.
@@ -445,8 +449,17 @@ public static class EnvironmentTheme
       cam.backgroundColor = p.skyHorizon;
     }
 
-    RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-    RenderSettings.ambientLight = p.ambient;
+    ApplyAmbient(p);
+  }
+
+  // Shared by gameplay and off-screen island previews. A gentle sky/ground
+  // gradient gives models volume without adding fill lights or shadow passes.
+  public static void ApplyAmbient(Palette p)
+  {
+    RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+    RenderSettings.ambientSkyColor = Color.Lerp(p.ambient,p.skyHorizon,.12f);
+    RenderSettings.ambientEquatorColor = p.ambient * .92f;
+    RenderSettings.ambientGroundColor = Color.Lerp(p.ambient,p.soilColor,.18f) * .72f;
   }
 
   private static void ApplyGround(Palette p)

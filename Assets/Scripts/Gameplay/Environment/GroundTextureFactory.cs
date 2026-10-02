@@ -23,25 +23,22 @@ public static class GroundTextureFactory
 
   private static Texture2D BuildMeadow()
   {
-    Color deep = new Color(0.20f, 0.38f, 0.15f);
-    Color mid = new Color(0.33f, 0.52f, 0.19f);
-    Color light = new Color(0.51f, 0.66f, 0.27f);
-    Color soil = new Color(0.32f, 0.26f, 0.16f);
+    Color deep = new Color(0.28f, 0.42f, 0.20f);
+    Color mid = new Color(0.37f, 0.50f, 0.25f);
+    Color light = new Color(0.46f, 0.57f, 0.30f);
+    Color soil = new Color(0.48f, 0.43f, 0.27f);
 
     return Build((u, v) =>
     {
-      float patches = Fbm(u, v, 3, 4);
-      float clumps = Fbm(u + 3.1f, v + 7.4f, 9, 3);
-      float blades = Fbm(u, v, 40, 2);
-      float t = Mathf.Clamp01(patches * 0.52f + clumps * 0.34f + blades * 0.14f);
-
-      Color c = t < 0.5f
-        ? Color.Lerp(deep, mid, t * 2f)
-        : Color.Lerp(mid, light, (t - 0.5f) * 2f);
-
-      // Occasional worn patches where the earth shows through
-      float bare = SmoothStep(0.78f, 0.94f, Fbm(u + 11.3f, v + 5.7f, 4, 3));
-      return Color.Lerp(c, soil, bare * 0.4f);
+      // Broad grassy clearings carry the composition; fine grain is restrained
+      // so it does not shimmer or compete with enemies at gameplay distance.
+      float patches = SmoothStep(.28f,.72f,Fbm(u,v,2,3));
+      float clumps = Fbm(u + 3.1f, v + 7.4f, 8, 2);
+      float blades = Fbm(u, v, 36, 2);
+      float t = Mathf.Clamp01(patches*.82f + clumps*.14f + blades*.04f);
+      Color c = t < .5f ? Color.Lerp(deep,mid,t*2) : Color.Lerp(mid,light,(t-.5f)*2);
+      float bare = SmoothStep(.58f,.76f,Fbm(u+11.3f,v+5.7f,3,2));
+      return Color.Lerp(c,soil,bare*.30f);
     });
   }
 
@@ -76,13 +73,13 @@ public static class GroundTextureFactory
       Color shadow = new Color(0.72f, 0.78f, 0.88f);
       Color lit = new Color(0.97f, 0.98f, 1f);
 
-      float drift = Fbm(u, v, 3, 4);
-      float crust = Fbm(u + 4.1f, v + 2.3f, 12, 3) * 0.3f;
-      Color c = Color.Lerp(shadow, lit, Mathf.Clamp01(drift * 0.75f + crust));
+      float drift = Fbm(u, v, 2, 3);
+      float crust = Fbm(u + 4.1f, v + 2.3f, 12, 2) * 0.10f;
+      Color c = Color.Lerp(shadow, lit, Mathf.Clamp01(drift * 0.90f + crust));
 
       // Occasional bright glints where the crust catches the light
       float glint = SmoothStep(0.93f, 0.99f, Fbm(u + 8.7f, v + 3.9f, 26, 2));
-      return Color.Lerp(c, Color.white, glint);
+      return Color.Lerp(c, Color.white, glint * .25f);
     });
     return snow;
   }
@@ -96,13 +93,13 @@ public static class GroundTextureFactory
       Color stone = new Color(0.26f, 0.23f, 0.22f);
       Color ember = new Color(1f, 0.42f, 0.10f);
 
-      float plates = Fbm(u, v, 4, 4);
+      float plates = Fbm(u, v, 2, 3);
       Color c = Color.Lerp(soot, stone, plates);
 
       // Ridged noise gives a crack network rather than blobs
       float veins = Mathf.Abs(Fbm(u + 2.7f, v + 6.1f, 6, 3) - 0.5f) * 2f;
-      float glow = SmoothStep(0.14f, 0.0f, veins);
-      return Color.Lerp(c, ember, glow * 0.85f);
+      float glow = SmoothStep(0.07f, 0.0f, veins);
+      return Color.Lerp(c, ember, glow * 0.48f);
     });
     return ash;
   }
@@ -122,15 +119,15 @@ public static class GroundTextureFactory
       Color slime = new Color(0.46f, 0.78f, 0.18f);
       Color pool = new Color(0.20f, 0.42f, 0.10f);
 
-      float bog = Fbm(u, v, 4, 4);
-      float fleck = Fbm(u + 3.3f, v + 7.1f, 22, 2) * 0.22f;
+      float bog = Fbm(u, v, 2, 3);
+      float fleck = Fbm(u + 3.3f, v + 7.1f, 22, 2) * 0.08f;
       Color c = Color.Lerp(peat, moss, Mathf.Clamp01(bog * 1.1f - 0.1f + fleck));
 
-      float pools = Fbm(u + 5.2f, v + 1.7f, 5, 3);
+      float pools = Fbm(u + 5.2f, v + 1.7f, 3, 3);
       float inside = SmoothStep(0.66f, 0.72f, pools);
       float rim = inside * (1f - SmoothStep(0.72f, 0.79f, pools));
       c = Color.Lerp(c, pool, inside * 0.6f);
-      return Color.Lerp(c, slime, rim * 0.5f);
+      return Color.Lerp(c, slime, rim * 0.35f);
     });
     return marsh;
   }
@@ -143,8 +140,9 @@ public static class GroundTextureFactory
     Color b = new Color(0.26f, 0.28f, 0.35f);
     return Build((u, v) =>
     {
-      float n = Fbm(u, v, 3, 3);
-      return Color.Lerp(a, b, n);
+      float n = Fbm(u, v, 2, 3);
+      float growth = SmoothStep(.6f,.8f,Fbm(u+2.1f,v+4.7f,4,2));
+      return Color.Lerp(Color.Lerp(a,b,n), new Color(.25f,.33f,.34f),growth*.35f);
     });
   }
 
@@ -156,10 +154,10 @@ public static class GroundTextureFactory
 
     return Build((u, v) =>
     {
-      float dune = Fbm(u, v, 4, 4);
-      float grain = Fbm(u, v, 24, 3) * 0.25f;
+      float dune = Fbm(u, v, 2, 3);
+      float grain = Fbm(u, v, 24, 2) * 0.06f;
       float ripple = 0.5f + 0.5f * Mathf.Sin((v * 8f + dune * 2f) * Mathf.PI * 2f);
-      float t = Mathf.Clamp01(dune * 0.7f + grain + ripple * 0.12f);
+      float t = Mathf.Clamp01(dune * 0.90f + grain + ripple * 0.04f);
       return Color.Lerp(dark, light, t);
     });
   }

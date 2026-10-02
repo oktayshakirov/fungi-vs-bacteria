@@ -542,6 +542,17 @@ public static class UiPreview
   // is up. That bar shares the bottom-left slot with the selected-tower panel
   // (TowerActions); the two are mutually exclusive and are shot separately -
   // see ShootTowerActions.
+  // Which tower the placement bar and the selected-tower panel are shot with.
+  private static TowerConfig PreviewTower()
+  {
+    string name = System.Environment.GetEnvironmentVariable("PREVIEW_TOWER");
+    if (string.IsNullOrEmpty(name)) name = "IceTower";
+    var config = AssetDatabase.LoadAssetAtPath<TowerConfig>(
+      $"Assets/Settings/Towers/{name}.asset");
+    if (config == null) Debug.LogWarning($"UI PREVIEW: {name}.asset missing");
+    return config;
+  }
+
   private static void ShootPlacement(Camera cam, string name)
   {
     const int width = 1920, height = 1080;
@@ -553,9 +564,11 @@ public static class UiPreview
     GameObject canvasGo = BuildHud(cam, width, height);
 
     // A real TowerConfig off disk, not a mock: the bar's stat line branches on
-    // isSupport/isAoE/slowsEnemies, so inventing one would prove nothing.
-    TowerConfig config = AssetDatabase.LoadAssetAtPath<TowerConfig>(
-      "Assets/Settings/Towers/IceTower.asset");
+    // isSupport/isAoE/slowsEnemies/Chains/Poisons, so inventing one would prove
+    // nothing. Ice is the default because it is the one that carries both of
+    // the original tags; PREVIEW_TOWER=ShockTower or PoisonTower to check the
+    // two whose lines and descriptions are longest.
+    TowerConfig config = PreviewTower();
     if (config != null) PlacementCancelButton.Show(config, () => { });
 
     Canvas.ForceUpdateCanvases();
@@ -594,8 +607,7 @@ public static class UiPreview
     GameObject canvasGo = BuildHud(cam, width, height);
     Transform safeArea = canvasGo.transform.Find("SafeArea");
 
-    TowerConfig config = AssetDatabase.LoadAssetAtPath<TowerConfig>(
-      "Assets/Settings/Towers/IceTower.asset");
+    TowerConfig config = PreviewTower();
 
     Tower tower = BuildPreviewTower(config, level: 2);
     var panel = BuildTowerActionsPanel(safeArea);

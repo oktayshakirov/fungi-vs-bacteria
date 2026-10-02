@@ -139,7 +139,10 @@ namespace TowerDefense.UI
             $"   Range {config.RangeAt(next):0.#}";
       }
 
-      return $"Next: Damage {config.DamageAt(next)}   Range {config.RangeAt(next):0.#}" +
+      string damage = config.Poisons
+        ? $"Damage {config.DamageAt(next)}+{config.PoisonDamageAt(next)}"
+        : $"Damage {config.DamageAt(next)}";
+      return $"Next: {damage}   Range {config.RangeAt(next):0.#}" +
              $"   {config.FireRateAt(next):0.#}/s";
     }
 
@@ -157,9 +160,14 @@ namespace TowerDefense.UI
         return $"Range {tower.Range:0.#}   {boost} to nearby towers";
       }
 
-      string line = $"Damage {tower.EffectiveDamage}   Range {tower.Range:0.#}" +
+      string damage = config.Poisons
+        ? $"Damage {tower.EffectiveDamage}+{config.PoisonDamageAt(tower.Level)}"
+        : $"Damage {tower.EffectiveDamage}";
+      string line = $"{damage}   Range {tower.Range:0.#}" +
                     $"   {tower.EffectiveFireRate:0.#}/s";
       if (config.isAoE) line += "   Splash";
+      if (config.Chains) line += $"   Chains {config.chainTargets + 1}";
+      if (config.Poisons) line += "   Poison";
       if (config.slowsEnemies) line += "   Slow";
 
       // Compared against the tower's OWN tier, not against the config: an

@@ -11,7 +11,8 @@ public class LevelSelectionScreen : MonoBehaviour
     SelectionScreenView view;
     List<LevelConfig> levels;
     RectTransform route;
-    TMP_Text selection, description, pageLabel;
+    TMP_Text selection, description, pageLabel, status;
+    RectTransform detailStars;
     Button play, previous, next;
     int selectedIndex, page, columns, nextIndex;
     float lastWidth;
@@ -28,6 +29,11 @@ public class LevelSelectionScreen : MonoBehaviour
         view = new SelectionScreenView(transform, EnvironmentInfo.DisplayName(GameSession.SelectedEnvironment).ToUpperInvariant(), OnBack);
         view.Theme(GameSession.SelectedEnvironment);
         view.MapTexture(GameSession.SelectedEnvironment);
+        // A quiet veil keeps the live ground texture from competing with the route.
+        var veil = SelectionScreenView.Rect("MapVeil", transform.Find("SelectionBackdrop"), Vector2.zero, Vector2.one);
+        var veilImage = veil.gameObject.AddComponent<Image>();
+        veilImage.color = new Color(.025f, .065f, .075f, .48f);
+        veilImage.raycastTarget = false;
         view.Title.rectTransform.anchorMax = new Vector2(.70f, .98f);
         view.ProgressBadge.anchorMin = new Vector2(.70f, .90f);
         view.ProgressBadge.anchorMax = new Vector2(.87f, .975f);
@@ -35,16 +41,27 @@ public class LevelSelectionScreen : MonoBehaviour
         int stars = 0;
         foreach (var level in levels) stars += Mathf.Clamp(LevelProgress.GetStars(level.environmentName, level.levelNumber), 0, 3);
         view.Progress.text = $"{stars} / {levels.Count * 3}";
-        route = SelectionScreenView.Rect("LevelTrail", view.Root, new Vector2(.07f, .22f), new Vector2(.93f, .83f));
-        var footer = SelectionScreenView.Rect("SelectionFooter", view.Root, new Vector2(.025f, .025f), new Vector2(.975f, .145f));
-        UiSkin.Panel(footer.gameObject.AddComponent<Image>(), new Color(.055f, .09f, .10f, .94f), 20);
-        selection = SelectionScreenView.Label(SelectionScreenView.Rect("SelectedLevel", footer, new Vector2(.025f, .46f), new Vector2(.30f, .94f)), "", 27, true);
-        description = SelectionScreenView.Label(SelectionScreenView.Rect("Description", footer, new Vector2(.025f, .04f), new Vector2(.48f, .47f)), "", 17);
-        play = SelectionScreenView.Button(SelectionScreenView.Rect("Play", footer, new Vector2(.72f, .15f), new Vector2(.98f, .85f)), "PLAY", UiSkin.Primary, Play);
-        previous = SelectionScreenView.Button(SelectionScreenView.Rect("PreviousPage", footer, new Vector2(.49f, .22f), new Vector2(.55f, .78f)), "", UiSkin.Neutral, () => ChangePage(-1));
-        next = SelectionScreenView.Button(SelectionScreenView.Rect("NextPage", footer, new Vector2(.64f, .22f), new Vector2(.70f, .78f)), "", UiSkin.Neutral, () => ChangePage(1));
+        var heading = SelectionScreenView.Label(SelectionScreenView.Rect("JourneyHeading", view.Root,
+            new Vector2(.05f,.79f), new Vector2(.65f,.85f)), "CHOOSE YOUR NEXT LEVEL", 18, true);
+        heading.color = SelectionScreenView.Muted;
+        route = SelectionScreenView.Rect("LevelTrail", view.Root, new Vector2(.035f, .12f), new Vector2(.68f, .80f));
+        var card = SelectionScreenView.Rect("LevelDetails", view.Root, new Vector2(.715f, .16f), new Vector2(.975f, .81f));
+        UiSkin.Panel(card.gameObject.AddComponent<Image>(), new Color(.075f, .12f, .13f, .96f), 28);
+        status = SelectionScreenView.Label(SelectionScreenView.Rect("Status", card, new Vector2(.08f,.87f), new Vector2(.92f,.96f)), "", 14, true);
+        status.alignment = TextAlignmentOptions.Center;
+        currentBase = SelectionScreenView.Rect("CurrentLevelBase", card, new Vector2(.5f,.67f), new Vector2(.5f,.67f));
+        currentBase.sizeDelta = new Vector2(132,132);
+        basePreview = SelectionIslandPreview.Create(currentBase);
+        selection = SelectionScreenView.Label(SelectionScreenView.Rect("SelectedLevel", card, new Vector2(.08f,.43f), new Vector2(.92f,.55f)), "", 32, true);
+        selection.alignment = TextAlignmentOptions.Center;
+        detailStars = SelectionScreenView.Rect("BestStars", card, new Vector2(.5f,.38f), new Vector2(.5f,.38f));
+        description = SelectionScreenView.Label(SelectionScreenView.Rect("Description", card, new Vector2(.09f,.22f), new Vector2(.91f,.31f)), "", 17);
+        description.alignment = TextAlignmentOptions.Center;
+        play = SelectionScreenView.Button(SelectionScreenView.Rect("Play", card, new Vector2(.08f,.055f), new Vector2(.92f,.19f)), "PLAY", UiSkin.Primary, Play);
+        previous = SelectionScreenView.Button(SelectionScreenView.Rect("PreviousPage", view.Root, new Vector2(.25f,.025f), new Vector2(.30f,.095f)), "", UiSkin.Neutral, () => ChangePage(-1));
+        next = SelectionScreenView.Button(SelectionScreenView.Rect("NextPage", view.Root, new Vector2(.42f,.025f), new Vector2(.47f,.095f)), "", UiSkin.Neutral, () => ChangePage(1));
         EnvironmentsScreen.Arrow(previous, false); EnvironmentsScreen.Arrow(next, true);
-        pageLabel = SelectionScreenView.Label(SelectionScreenView.Rect("Page", footer, new Vector2(.55f, .15f), new Vector2(.64f, .85f)), "", 16);
+        pageLabel = SelectionScreenView.Label(SelectionScreenView.Rect("Page", view.Root, new Vector2(.30f,.025f), new Vector2(.42f,.095f)), "", 16);
         pageLabel.alignment = TextAlignmentOptions.Center;
         selectedIndex = levels.FindIndex(l => LevelProgress.IsLevelUnlocked(l.environmentName, l.levelNumber) && l.levelNumber > LevelProgress.GetHighestCompletedLevel(l.environmentName));
         nextIndex = selectedIndex < 0 ? Mathf.Max(0,levels.Count-1) : selectedIndex;
@@ -96,15 +113,16 @@ public class LevelSelectionScreen : MonoBehaviour
             var r = SelectionScreenView.Rect(layer==0 ? "TrailEdge" : "TrailSurface", route, Vector2.zero, Vector2.one);
             var trail = r.gameObject.AddComponent<SelectionTrailGraphic>();
             trail.points=positions;
-            trail.width=layer==0 ? 36 : 34;
-            trail.color=layer==0 ? PathSurface.Edge(palette.pathColor) : palette.pathColor;
+            trail.width=layer==0 ? 22 : 16;
+            Color sand = Color.Lerp(palette.pathColor, new Color(.76f,.73f,.57f), .65f);
+            trail.color=layer==0 ? new Color(sand.r,sand.g,sand.b,.12f) : new Color(sand.r,sand.g,sand.b,.64f);
             if(layer==1)
             {
                 int completed=LevelProgress.GetHighestCompletedLevel(GameSession.SelectedEnvironment);
                 int traversed=0;
                 for(int i=0;i<count-1;i++) if(levels[start+i].levelNumber<=completed) traversed++;
                 trail.completedSegments=traversed;
-                trail.completedColor=UiSkin.Primary;
+                trail.completedColor=new Color(.75f,.81f,.46f);
             }
             trail.texture=PathSurface.Grain;
             trail.raycastTarget=false;
@@ -116,42 +134,38 @@ public class LevelSelectionScreen : MonoBehaviour
         {
             int index = start + slot; LevelConfig level = levels[index];
             var r = SelectionScreenView.Rect("Level_" + level.levelNumber, route, positions[slot], positions[slot]);
-            r.sizeDelta = new Vector2(84, 84);
+            r.sizeDelta = new Vector2(72, 72);
             bool unlocked = LevelProgress.IsLevelUnlocked(level.environmentName, level.levelNumber);
             Color fill = index == selectedIndex ? UiSkin.Primary : UiSkin.Neutral;
             if (!unlocked) fill = UiSkin.PanelRaised;
             fill.a=1;
             Button b = SelectionScreenView.Button(r, level.levelNumber.ToString(), fill, () => Select(index));
+            var plate = b.GetComponent<Image>();
+            plate.sprite = UiSprites.Circle(128); plate.type = Image.Type.Simple;
+            var rim = SelectionScreenView.Rect("Rim", r, Vector2.zero, Vector2.one);
+            rim.offsetMin = new Vector2(-4,-4); rim.offsetMax = new Vector2(4,4);
+            SelectionScreenView.Icon(rim, UiSprites.Circle(128), new Color(.79f,.81f,.67f,.22f));
+            rim.SetAsFirstSibling();
+            // Rim sits behind an inset disc; all artwork is cached UI geometry.
+            var inset = SelectionScreenView.Rect("Face", rim, Vector2.zero, Vector2.one);
+            inset.offsetMin = new Vector2(4,4); inset.offsetMax = new Vector2(-4,-4);
+            SelectionScreenView.Icon(inset, UiSprites.Circle(128), fill);
             levelButtons[index]=b;
             int earned = Mathf.Clamp(LevelProgress.GetStars(level.environmentName, level.levelNumber), 0, 3);
             if(unlocked)
             {
-                var stars = SelectionScreenView.Rect("Stars", r, new Vector2(.5f,-.25f),new Vector2(.5f,-.25f));
+                var stars = SelectionScreenView.Rect("Stars", r, new Vector2(.5f,-.22f),new Vector2(.5f,-.22f));
                 StarSprite.BuildRow(stars,earned,16);
             }
             if (!unlocked)
             {
-                var badge = SelectionScreenView.Rect("Lock", r, new Vector2(.38f, -.32f), new Vector2(.62f, -.08f));
+                var badge = SelectionScreenView.Rect("Lock", r, new Vector2(.72f, .0f), new Vector2(.94f, .22f));
                 var icon = badge.gameObject.AddComponent<Image>();
                 icon.sprite = UiSprites.Lock(); icon.color = SelectionScreenView.Paper; icon.raycastTarget = false;
             }
             nodes.Add(r.gameObject);
         }
-        if(currentBase==null)
-        {
-            currentBase=SelectionScreenView.Rect("CurrentLevelBase",route,Vector2.zero,Vector2.zero);
-            currentBase.sizeDelta=new Vector2(88,88);
-            basePreview=SelectionIslandPreview.Create(currentBase);
-        }
-        bool currentVisible=nextIndex>=start && nextIndex<start+count;
-        currentBase.gameObject.SetActive(currentVisible);
-        if(currentVisible)
-        {
-            currentBase.anchorMin=currentBase.anchorMax=positions[nextIndex-start];
-            currentBase.anchoredPosition=new Vector2(0,66);
-            currentBase.SetAsLastSibling();
-            basePreview.ShowBase(levels[nextIndex]);
-        }
+        if(levels.Count > 0) basePreview.ShowBase(levels[nextIndex]);
         UpdateSelection();
         int pages = SelectionRouteLayout.PageCount(levels.Count, PageSize);
         previous.gameObject.SetActive(pages > 1);
@@ -166,20 +180,21 @@ public class LevelSelectionScreen : MonoBehaviour
         {
             var level=levels[entry.Key];
             bool unlocked=LevelProgress.IsLevelUnlocked(level.environmentName,level.levelNumber);
-            Color fill=unlocked ? (entry.Key==selectedIndex ? UiSkin.Primary : UiSkin.Neutral) : UiSkin.PanelRaised;
+            Color fill=entry.Key==selectedIndex ? (unlocked ? UiSkin.Primary : UiSkin.Neutral) : (unlocked ? new Color(.36f,.44f,.29f) : new Color(.19f,.26f,.23f));
             fill.a=1;
             entry.Value.GetComponent<Image>().color=fill;
-            entry.Value.GetComponentInChildren<TMP_Text>().color=unlocked && entry.Key==selectedIndex ? UiSkin.TextDark : UiSkin.TextPrimary;
+            entry.Value.transform.Find("Rim/Face").GetComponent<Image>().color=fill;
+            entry.Value.GetComponentInChildren<TMP_Text>().color=unlocked && entry.Key==selectedIndex ? UiSkin.TextDark : (unlocked ? UiSkin.TextPrimary : new Color(.73f,.78f,.71f));
         }
         if(!levelButtons.TryGetValue(selectedIndex,out var selected)) return;
         if(selectionRing==null)
         {
-            var ring=UiSkin.AddBorder((RectTransform)selected.transform,20,3);
+            var ring=UiSkin.AddBorder((RectTransform)selected.transform,48,2);
             ring.color=SelectionScreenView.Paper; selectionRing=ring.rectTransform;
         }
         selectionRing.SetParent(selected.transform,false);
         selectionRing.anchorMin=Vector2.zero; selectionRing.anchorMax=Vector2.one;
-        selectionRing.offsetMin=new Vector2(-5,-5); selectionRing.offsetMax=new Vector2(5,5);
+        selectionRing.offsetMin=new Vector2(-8,-8); selectionRing.offsetMax=new Vector2(8,8);
     }
     void ScatterScenery(List<Vector2> positions)
     {
@@ -196,7 +211,7 @@ public class LevelSelectionScreen : MonoBehaviour
         Vector2 size=route.rect.size;
         var rng=new System.Random(page*31+GameSession.SelectedEnvironment.Length*71+columns);
         var placed=new List<Vector2>();
-        for(int attempt=0;attempt<120 && placed.Count<6;attempt++)
+        for(int attempt=0;attempt<120 && placed.Count<3;attempt++)
         {
             Vector2 p=new Vector2(.04f+(float)rng.NextDouble()*.92f,.05f+(float)rng.NextDouble()*.90f);
             bool clear=true;
@@ -210,10 +225,10 @@ public class LevelSelectionScreen : MonoBehaviour
             }
             if(!clear) continue;
             var icon=SelectionScreenView.Rect("GroundScenery",route,p,p);
-            float scale=58+(float)rng.NextDouble()*20;
+            float scale=42+(float)rng.NextDouble()*16;
             icon.sizeDelta=new Vector2(scale,scale);
             var image=icon.gameObject.AddComponent<RawImage>();
-            image.texture=sourceImage.texture; image.raycastTarget=false;
+            image.texture=sourceImage.texture; image.color=new Color(.77f,.83f,.72f,.65f); image.raycastTarget=false;
             if(rng.Next(2)==0) image.uvRect=new Rect(1,0,-1,1);
             nodes.Add(icon.gameObject); placed.Add(p);
         }
@@ -230,7 +245,11 @@ public class LevelSelectionScreen : MonoBehaviour
         bool unlocked = LevelProgress.IsLevelUnlocked(level.environmentName, level.levelNumber);
         selection.text = $"LEVEL {level.levelNumber}";
         int waves = level.waveConfig != null && level.waveConfig.waves != null ? level.waveConfig.waves.Length : 0;
-        description.text = unlocked ? $"{waves} waves  /  Best: {LevelProgress.GetStars(level.environmentName, level.levelNumber)}/3"
+        status.text = !unlocked ? "KEEP EXPLORING" : index == nextIndex ? "YOUR NEXT LEVEL" : "READY TO REPLAY";
+        status.color = unlocked ? new Color(.75f,.81f,.46f) : SelectionScreenView.Muted;
+        for(int i=detailStars.childCount-1;i>=0;i--) { var child=detailStars.GetChild(i).gameObject; child.SetActive(false); if(Application.isPlaying) Destroy(child); else DestroyImmediate(child); }
+        StarSprite.BuildRow(detailStars, Mathf.Clamp(LevelProgress.GetStars(level.environmentName,level.levelNumber),0,3), 24);
+        description.text = unlocked ? $"{waves} waves to defend"
           : index > 0 ? $"Complete level {levels[index - 1].levelNumber} to unlock" : "Locked";
         play.interactable = unlocked;
         SelectionScreenView.ButtonText(play, unlocked ? "PLAY LEVEL" : "LOCKED");

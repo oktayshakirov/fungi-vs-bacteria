@@ -264,8 +264,17 @@ public class CameraRig : MonoBehaviour
 
     transform.SetPositionAndRotation(pivot - forward * distance - up * worldOffset, rotation);
 
-    cam.nearClipPlane = Mathf.Max(0.3f, distance * 0.05f);
-    cam.farClipPlane = distance * 4f;
+    cam.nearClipPlane = 0.3f;
+    float far = distance * 4f;
+    if (scenery == null) scenery = FindFirstObjectByType<LevelDecorator>();
+    if (scenery != null && scenery.HasVisualBounds)
+    {
+      Bounds bounds = scenery.VisualBounds;
+      // A bounding sphere covers the entire scenery at every camera angle.
+      // The old distance multiplier clipped distant islands during the fly-in.
+      far = Mathf.Max(far, Vector3.Distance(transform.position, bounds.center) + bounds.extents.magnitude + 10f);
+    }
+    cam.farClipPlane = far;
   }
 
   // Smallest distance along the view direction that keeps every board corner
@@ -304,6 +313,7 @@ public class CameraRig : MonoBehaviour
   }
 
   private float aspectOverride;
+  private LevelDecorator scenery;
 
 #if UNITY_EDITOR
   // Used by the framing preview tool: 0 = play, 1 = intro, 2 = outro

@@ -78,7 +78,10 @@ public class GameManager : MonoBehaviour
 
   public void OnEnemyRemoved()
   {
+    bool hadEnemies=aliveEnemies>0;
     aliveEnemies = Mathf.Max(0, aliveEnemies - 1);
+    if(hadEnemies && aliveEnemies==0 && !gameEnded && currentHealth>0 && spawner!=null && !spawner.IsWaveInProgress && !spawner.AreWavesComplete())
+      HUDManager.Instance?.ShowPathClear();
     CheckVictory();
   }
 

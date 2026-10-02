@@ -3,24 +3,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// Two screens built from one class, because they share a card, a header, a
-// balance chip and a scroll body and differed only in what goes inside:
-//
-//   STORE     - what coins buy. Boosters and Remove Ads, no tabs.
-//   GET COINS - how to get coins. Two tabs: FREE COINS (rewarded ads and the
-//               daily streak) and COIN PACKS (the real-money products).
-//
-// They used to be a single dialog with three tabs (BOOSTERS / COINS / FREE),
-// which made "spend" and "earn" the same place and asked the player to find
-// the right tab for whichever one they came for. Splitting them means each
-// entry point lands somewhere that already answers the question it was
-// opened with.
-//
-// Built entirely in code, with no prefab. Every other screen is a prefab, but
-// those predate the code-built skin and each one needed a runtime pass
-// (ScreenTheme, HudTheme, MenuLayout) to look right anyway. A new screen has
-// nothing to inherit from the prefabs, and building it here means it can be
-// changed and re-rendered through UiPreview without opening the editor.
+// Shared presentation for three separate entry points: boosters, coin acquisition,
+// and Remove Ads. Only Get Coins has tabs. Transactions remain in the economy APIs.
 public class WalletScreen : MonoBehaviour
 {
   private TMP_Text balanceLabel;
@@ -34,12 +18,11 @@ public class WalletScreen : MonoBehaviour
   private int initialTab;
   private Mode mode;
 
-  // Which of the two screens this instance is.
-  public enum Mode { Store, Coins }
+  // Which destination this instance presents.
+  public enum Mode { Store, Coins, RemoveAds }
 
-  // The shelves and the buttons that switch between them. The store has a
-  // single shelf and no tab bar; Get Coins has two.
   private RectTransform storeShelf;
+  private int storeColumns;
   private RectTransform freeTab;
   private RectTransform packsTab;
   private readonly System.Collections.Generic.List<(Button button, TMP_Text label)> tabButtons =
@@ -51,7 +34,7 @@ public class WalletScreen : MonoBehaviour
   public const int TabFree = 0;
   public const int TabPacks = 1;
 
-  // What coins buy: boosters, and Remove Ads. No tabs.
+  // The booster store has no tabs or links to other purchase screens.
   public static WalletScreen OpenStore(Transform parent, Action onClosed = null) =>
     Create(parent, Mode.Store, TabFree, onClosed);
 
@@ -59,9 +42,12 @@ public class WalletScreen : MonoBehaviour
   public static WalletScreen OpenCoins(Transform parent, Action onClosed = null, int tab = TabFree) =>
     Create(parent, Mode.Coins, tab, onClosed);
 
+  public static WalletScreen OpenRemoveAds(Transform parent, Action onClosed = null) =>
+    Create(parent, Mode.RemoveAds, TabFree, onClosed);
+
   private static WalletScreen Create(Transform parent, Mode mode, int tab, Action onClosed)
   {
-    var go = new GameObject(mode == Mode.Store ? "StoreScreen" : "GetCoinsScreen",
+    var go = new GameObject(mode == Mode.Store ? "StoreScreen" : mode == Mode.RemoveAds ? "RemoveAdsScreen" : "GetCoinsScreen",
       typeof(RectTransform));
     go.transform.SetParent(parent, false);
     UiSkin.Stretch((RectTransform)go.transform);
@@ -88,11 +74,10 @@ public class WalletScreen : MonoBehaviour
     RectTransform safeArea = ScreenTheme.EnsureSafeArea(transform);
 
     RectTransform card = Panel(safeArea);
-    Header(card, mode == Mode.Store ? "STORE" : "GET COINS",
-      mode == Mode.Store ? UiSprites.Store() : UiSprites.Plus());
+    Header(card, mode == Mode.Store ? "STORE" : mode == Mode.RemoveAds ? "REMOVE ADS" : "GET COINS",
+      mode == Mode.Store ? UiSprites.Store() : mode == Mode.RemoveAds ? UiSprites.Shield() : UiSprites.Plus());
 
-    // The store is one shelf, so it gets no tab bar at all - a single tab is
-    // a control that cannot do anything.
+    // Keep spending categories separate from the free/paid coin options.
     if (mode == Mode.Coins) TabBar(card);
 
     RectTransform body = ScrollBody(card);
@@ -101,9 +86,31 @@ public class WalletScreen : MonoBehaviour
     {
       storeShelf = TabPanel(body, "StoreShelf");
       BoostersSection(storeShelf);
-      SectionHeader(storeShelf, "EXTRAS");
-      NoAdsRow(storeShelf);
-      StatusLine(storeShelf);
+      StatusLine(card);
+    }
+    else if (mode == Mode.RemoveAds)
+    {
+      var offer = TabPanel(body, "RemoveAdsOffer");
+      offer.GetComponent<VerticalLayoutGroup>().spacing=10;
+      var hero = SelectionScreenView.Rect("Hero",offer,Vector2.zero,Vector2.one);
+      hero.gameObject.AddComponent<LayoutElement>().preferredHeight=72;
+      var icon = SelectionScreenView.Rect("Shield",hero,new Vector2(.5f,.5f),new Vector2(.5f,.5f));
+      icon.sizeDelta=new Vector2(68,68);
+      SelectionScreenView.Icon(icon,UiSprites.Shield(),UiSkin.Primary);
+      var heading = SelectionScreenView.Label(SelectionScreenView.Rect("Benefit",offer,Vector2.zero,Vector2.one),
+        "MORE PLAY. FEWER INTERRUPTIONS.",28,true);
+      heading.alignment=TextAlignmentOptions.Center;
+      heading.gameObject.AddComponent<LayoutElement>().preferredHeight=36;
+      var note = SelectionScreenView.Label(SelectionScreenView.Rect("Description",offer,Vector2.zero,Vector2.one),
+        "Turn off automatic ads with a single coin purchase.\nOptional rewarded ads remain available when you want them.",20);
+      note.alignment=TextAlignmentOptions.Center;
+      note.gameObject.AddComponent<LayoutElement>().preferredHeight=52;
+      NoAdsRow(offer);
+      var terms = SelectionScreenView.Label(SelectionScreenView.Rect("DeviceNote",offer,Vector2.zero,Vector2.one),
+        "Saved on this device. Does not carry over to a reinstall.",16);
+      terms.color=UiSkin.TextMuted; terms.alignment=TextAlignmentOptions.Center;
+      terms.gameObject.AddComponent<LayoutElement>().preferredHeight=24;
+      StatusLine(card);
     }
     else
     {
@@ -147,15 +154,16 @@ public class WalletScreen : MonoBehaviour
     // That is exactly what this screen did in the preview, where it is built
     // the moment the canvas is created.
     float available = ScreenTheme.LayoutWidth(parent);
-    float width = Mathf.Clamp(available * 0.74f, 640f, 900f);
+    float width = mode == Mode.Store ? Mathf.Min(available * .94f, 1160f) : Mathf.Clamp(available * 0.74f, 640f, 900f);
+    storeColumns = width >= 1000 ? 3 : 2;
     float height = Mathf.Min(ScreenTheme.LayoutHeight(parent) * 0.90f, 800f);
     rect.sizeDelta = new Vector2(width, height);
 
     UiSkin.Panel(go.AddComponent<Image>(), UiSkin.PanelDark, UiSkin.RadiusPanel);
 
     var layout = go.AddComponent<VerticalLayoutGroup>();
-    layout.padding = new RectOffset(36, 36, 30, 28);
-    layout.spacing = 16f;
+    layout.padding = mode == Mode.Store ? new RectOffset(24,24,18,12) : new RectOffset(36, 36, 30, 28);
+    layout.spacing = mode == Mode.Store ? 12f : 16f;
     layout.childAlignment = TextAnchor.UpperCenter;
     layout.childControlWidth = true;
     layout.childControlHeight = true;
@@ -180,6 +188,7 @@ public class WalletScreen : MonoBehaviour
     viewportGo.transform.SetParent(go.transform, false);
     UiSkin.Stretch((RectTransform)viewportGo.transform);
     viewportGo.AddComponent<RectMask2D>();
+    viewportGo.AddComponent<Image>().color = Color.clear;
 
     var contentGo = new GameObject("Content", typeof(RectTransform));
     contentGo.transform.SetParent(viewportGo.transform, false);
@@ -265,7 +274,7 @@ public class WalletScreen : MonoBehaviour
     row.childForceExpandHeight = false;
 
     // The same shopfront as every button that opens this screen, so the
-    // header answers "which of the two screens is this".
+    // header answers "which screen is this".
     Image mark = UiSkin.Icon(rowGo.transform, glyph, UiSkin.Gold, 46f);
     mark.raycastTarget = false;
     var markElement = mark.gameObject.AddComponent<LayoutElement>();
@@ -279,7 +288,7 @@ public class WalletScreen : MonoBehaviour
     UiSkin.Label(title, UiSkin.Role.Title);
     title.text = text;
     title.alignment = TextAlignmentOptions.Midline;
-    title.fontSizeMax = 64f;
+    title.fontSizeMax = mode == Mode.RemoveAds ? 42f : 64f;
     title.textWrappingMode = TextWrappingModes.NoWrap;
     title.raycastTarget = false;
 
@@ -406,7 +415,7 @@ public class WalletScreen : MonoBehaviour
 
   private void SelectTab(int index)
   {
-    if (freeTab == null || packsTab == null) return;   // store mode: no tabs
+    if (freeTab == null || packsTab == null) return;   // Tabs belong only to Get Coins.
 
     freeTab.gameObject.SetActive(index == TabFree);
     packsTab.gameObject.SetActive(index == TabPacks);
@@ -621,78 +630,52 @@ public class WalletScreen : MonoBehaviour
 
   // ------------------------------------------------------------- boosters
 
-  // Bought with COINS, not money, which is why this sits above the coin packs:
-  // it is the reason to own coins at all. A player who wants a bomb and cannot
-  // afford one has the packs directly underneath.
+  // Booster cards spend owned coins. Coin acquisition remains a separate screen.
   private readonly System.Collections.Generic.List<Button> boosterButtons =
     new System.Collections.Generic.List<Button>();
 
   private void BoostersSection(RectTransform parent)
   {
-    SectionHeader(parent, "BOOSTERS");
-    BuildKitRow(parent);
-    foreach (BoosterKind kind in BoosterCatalog.All) BuildBoosterRow(parent, kind);
+    // Rows share available width, so no cell-size polling or per-frame grid rebuild.
+    RectTransform row = null;
+    for(int i=0;i<=BoosterCatalog.All.Length;i++)
+    {
+      if(i % storeColumns == 0)
+      {
+        row = SelectionScreenView.Rect("BoosterRow",parent,Vector2.zero,Vector2.one);
+        var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = 14; layout.childControlWidth = layout.childControlHeight = true;
+        layout.childForceExpandWidth = true; layout.childForceExpandHeight = true;
+        var height = row.gameObject.AddComponent<LayoutElement>();
+        height.minHeight = height.preferredHeight = 200; height.flexibleHeight = 0;
+      }
+      if(i < BoosterCatalog.All.Length) BuildBoosterRow(row,BoosterCatalog.All[i]);
+      else BuildKitRow(row);
+    }
   }
 
-  // First on the shelf because it is the best deal in the store, and built as
-  // a two-line card rather than one long label: "SURVIVAL KIT - 1 OF EACH
-  // -25%  1530" auto-sized itself down to fit a single line, so the best offer
-  // in the store was also its smallest text.
+  // A featured card alongside the individual boosters, using the same catalog
+  // price and transaction callback as the original store.
   private void BuildKitRow(RectTransform parent)
   {
     var go = new GameObject("SurvivalKit", typeof(RectTransform));
     go.transform.SetParent(parent, false);
     go.AddComponent<Image>();
     var kit = go.AddComponent<Button>();
-    UiSkin.StyleButton(kit, UiSkin.Primary, UiSkin.RadiusButton);
-    go.AddComponent<LayoutElement>().preferredHeight = 88f;
-
-    var row = go.AddComponent<HorizontalLayoutGroup>();
-    row.padding = new RectOffset(18, 16, 10, 10);
-    row.spacing = 12f;
-    row.childAlignment = TextAnchor.MiddleLeft;
-    row.childControlWidth = true;
-    row.childControlHeight = true;
-    row.childForceExpandWidth = false;
-    row.childForceExpandHeight = true;
-
-    var textGo = new GameObject("Text", typeof(RectTransform));
-    textGo.transform.SetParent(go.transform, false);
-    var stack = textGo.AddComponent<VerticalLayoutGroup>();
-    stack.spacing = 0f;
-    stack.childAlignment = TextAnchor.MiddleLeft;
-    stack.childControlWidth = true;
-    stack.childControlHeight = true;
-    stack.childForceExpandWidth = true;
-    stack.childForceExpandHeight = false;
-    textGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
-
-    var nameGo = new GameObject("Name", typeof(RectTransform));
-    nameGo.transform.SetParent(textGo.transform, false);
-    var name = nameGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(name, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
-    name.text = "SURVIVAL KIT";
-    name.alignment = TextAlignmentOptions.MidlineLeft;
-    name.textWrappingMode = TextWrappingModes.NoWrap;
-    name.fontSizeMax = 30f;
-    name.raycastTarget = false;
-    nameGo.AddComponent<LayoutElement>().preferredHeight = 34f;
-
-    int percent = Mathf.RoundToInt(BoosterCatalog.KitDiscount * 100f);
-    var descGo = new GameObject("Desc", typeof(RectTransform));
-    descGo.transform.SetParent(textGo.transform, false);
-    var desc = descGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(desc, UiSkin.Role.Caption, new Color(0f, 0f, 0f, 0.62f));
-    desc.text = $"One of every booster  -  save {percent}%";
-    desc.alignment = TextAlignmentOptions.TopLeft;
-    desc.enableAutoSizing = false;
-    desc.fontSize = 21f;
-    desc.raycastTarget = false;
-    descGo.AddComponent<LayoutElement>().preferredHeight = 28f;
-
-    // The price on its own dark plate, so it reads as the thing being paid
-    // rather than more of the green button's copy.
-    PricePlate(go.transform, BoosterCatalog.KitPrice, 150f);
+    UiSkin.StyleButton(kit, UiSkin.PanelRaised, UiSkin.RadiusButton);
+    UiSkin.AddBorder((RectTransform)go.transform).color = new Color(1f,.79f,.29f,.5f);
+    go.AddComponent<LayoutElement>().flexibleWidth = 1;
+    var name = SelectionScreenView.Label(SelectionScreenView.Rect("Name",go.transform,new Vector2(.07f,.69f),new Vector2(.93f,.91f)), "SURVIVAL KIT",25,true);
+    name.color=UiSkin.Gold;
+    var desc = SelectionScreenView.Label(SelectionScreenView.Rect("Desc",go.transform,new Vector2(.07f,.37f),new Vector2(.93f,.67f)),
+      $"One of every booster\nSave {Mathf.RoundToInt(BoosterCatalog.KitDiscount*100)}% on the set",18);
+    desc.color=UiSkin.TextMuted;
+    var buy = SelectionScreenView.Rect("KitPrice",go.transform,new Vector2(.07f,.07f),new Vector2(.93f,.32f));
+    var priceLayout=buy.gameObject.AddComponent<HorizontalLayoutGroup>();
+    priceLayout.childControlWidth=priceLayout.childControlHeight=true;
+    priceLayout.childForceExpandWidth=priceLayout.childForceExpandHeight=true;
+    PricePlate(buy, BoosterCatalog.KitPrice,150);
+    kit.targetGraphic = buy.GetComponentInChildren<Image>();
 
     kit.onClick.AddListener(() =>
     {
@@ -757,77 +740,27 @@ public class WalletScreen : MonoBehaviour
     UiSkin.Panel(background, UiSkin.PanelRaised, UiSkin.RadiusButton);
     background.raycastTarget = false;
 
-    var row = go.AddComponent<HorizontalLayoutGroup>();
-    row.padding = new RectOffset(14, 12, 8, 8);
-    row.spacing = 10f;
-    row.childAlignment = TextAnchor.MiddleLeft;
-    row.childControlWidth = true;
-    row.childControlHeight = true;
-    row.childForceExpandWidth = false;
-    row.childForceExpandHeight = true;
-    go.AddComponent<LayoutElement>().preferredHeight = 96f;
-
-    // The glyph on a dark disc ringed in its own colour, so a 38-unit red dot
-    // reads as an item icon rather than a stray bullet point.
-    var discGo = new GameObject("IconDisc", typeof(RectTransform));
-    discGo.transform.SetParent(go.transform, false);
-    var discElement = discGo.AddComponent<LayoutElement>();
-    discElement.preferredWidth = 66f;
-    discElement.flexibleWidth = 0f;
-    var discHolder = new GameObject("Disc", typeof(RectTransform));
-    discHolder.transform.SetParent(discGo.transform, false);
-    var discRect = (RectTransform)discHolder.transform;
-    discRect.anchorMin = discRect.anchorMax = new Vector2(0.5f, 0.5f);
-    discRect.sizeDelta = new Vector2(66f, 66f);
-    var disc = discHolder.AddComponent<Image>();
-    disc.sprite = UiSprites.Circle(128);
+    go.AddComponent<LayoutElement>().flexibleWidth = 1;
     Color tint = BoosterCatalog.Tint(kind);
-    disc.color = new Color(tint.r * 0.28f, tint.g * 0.28f, tint.b * 0.28f, 1f);
-    disc.raycastTarget = false;
-    UiSkin.Icon(discHolder.transform, BoosterCatalog.Icon(kind), tint, 40f);
+    var disc = SelectionScreenView.Rect("IconDisc",go.transform,new Vector2(.04f,.64f),new Vector2(.23f,.94f));
+    SelectionScreenView.Icon(disc,BoosterCatalog.Icon(kind),tint);
+    var nameLabel = SelectionScreenView.Label(SelectionScreenView.Rect("Name",go.transform,new Vector2(.27f,.72f),new Vector2(.96f,.95f)),BoosterCatalog.Name(kind),22,true);
+    var ownedLabel = SelectionScreenView.Label(SelectionScreenView.Rect("Owned",go.transform,new Vector2(.27f,.60f),new Vector2(.96f,.75f)),"",14);
+    ownedLabel.color=UiSkin.TextMuted;
+    var desc = SelectionScreenView.Label(SelectionScreenView.Rect("Desc",go.transform,new Vector2(.06f,.34f),new Vector2(.94f,.60f)),BoosterCatalog.Description(kind),17);
+    desc.color=UiSkin.TextMuted;
+    var buttons = SelectionScreenView.Rect("Purchases",go.transform,new Vector2(.05f,.055f),new Vector2(.95f,.31f));
+    var row=buttons.gameObject.AddComponent<HorizontalLayoutGroup>();
+    row.spacing=8; row.childControlWidth=row.childControlHeight=true;
+    row.childForceExpandWidth=row.childForceExpandHeight=true;
+    Button single = BuyButton(buttons, kind, 1);
+    Button bundle = BuyButton(buttons, kind, BoosterCatalog.BundleSize);
 
-    // Name over description, so the row says what the booster DOES rather than
-    // relying on an icon the player has never seen before.
-    var textGo = new GameObject("Text", typeof(RectTransform));
-    textGo.transform.SetParent(go.transform, false);
-    var stack = textGo.AddComponent<VerticalLayoutGroup>();
-    stack.spacing = 0f;
-    stack.childAlignment = TextAnchor.MiddleLeft;
-    stack.childControlWidth = true;
-    stack.childControlHeight = true;
-    stack.childForceExpandWidth = true;
-    stack.childForceExpandHeight = false;
-    textGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
-
-    var nameGo = new GameObject("Name", typeof(RectTransform));
-    nameGo.transform.SetParent(textGo.transform, false);
-    var nameLabel = nameGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(nameLabel, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
-    nameLabel.alignment = TextAlignmentOptions.MidlineLeft;
-    nameLabel.raycastTarget = false;
-    nameGo.AddComponent<LayoutElement>().preferredHeight = 30f;
-
-    var descGo = new GameObject("Desc", typeof(RectTransform));
-    descGo.transform.SetParent(textGo.transform, false);
-    var desc = descGo.AddComponent<TextMeshProUGUI>();
-    UiSkin.Label(desc, UiSkin.Role.Caption, UiSkin.TextMuted);
-    desc.text = BoosterCatalog.Description(kind);
-    desc.alignment = TextAlignmentOptions.TopLeft;
-    desc.raycastTarget = false;
-    desc.fontSizeMax = 21f;
-    descGo.AddComponent<LayoutElement>().preferredHeight = 44f;
-
-    Button single = BuyButton(go.transform, kind, 1);
-    Button bundle = BuyButton(go.transform, kind, BoosterCatalog.BundleSize);
-
-    // The owned count lives in the name line, so the row does not need a fifth
-    // column for a number that is usually zero.
+    // Keep ownership and affordability in sync with wallet changes.
     void RefreshRow()
     {
       int owned = BoosterInventory.Count(kind);
-      nameLabel.text = owned > 0
-        ? $"{BoosterCatalog.Name(kind)}   x{owned}"
-        : BoosterCatalog.Name(kind);
+      ownedLabel.text = $"Owned: {owned}";
 
       single.interactable = Wallet.CanAffordOwn(BoosterCatalog.Price(kind));
       bundle.interactable = Wallet.CanAffordOwn(BoosterCatalog.BundlePrice(kind));
@@ -1057,16 +990,22 @@ public class WalletScreen : MonoBehaviour
   {
     noAdsRow = new GameObject("NoAds", typeof(RectTransform));
     noAdsRow.transform.SetParent(parent, false);
-    noAdsRow.AddComponent<LayoutElement>().preferredHeight = 88f;
+    noAdsRow.AddComponent<LayoutElement>().preferredHeight = 112f;
+    UiSkin.Panel(noAdsRow.AddComponent<Image>(),UiSkin.PanelRaised);
 
     var row = noAdsRow.AddComponent<HorizontalLayoutGroup>();
-    row.spacing = 10f;
+    row.padding = new RectOffset(20,20,24,24);
+    row.spacing = 20f;
     row.childAlignment = TextAnchor.MiddleCenter;
     row.childControlWidth = true;
     row.childControlHeight = true;
-    row.childForceExpandWidth = true;
+    row.childForceExpandWidth = false;
     row.childForceExpandHeight = true;
 
+    var info=SelectionScreenView.Rect("Benefit",noAdsRow.transform,Vector2.zero,Vector2.one);
+    info.gameObject.AddComponent<LayoutElement>().flexibleWidth=1;
+    SelectionScreenView.Label(SelectionScreenView.Rect("Title",info,new Vector2(0,.48f),Vector2.one),"REMOVE ADS",28,true);
+    SelectionScreenView.Label(SelectionScreenView.Rect("Detail",info,Vector2.zero,new Vector2(1,.48f)),"One unlock for this device",18).color=UiSkin.TextMuted;
     var coinsGo = new GameObject("Coins", typeof(RectTransform));
     coinsGo.transform.SetParent(noAdsRow.transform, false);
     noAdsCoinsButton = UiSkin.IconButton(coinsGo, UiSprites.Coin(), UiSkin.Primary,
@@ -1077,8 +1016,9 @@ public class WalletScreen : MonoBehaviour
     noAdsCoinsLabel.enableAutoSizing = true;
     noAdsCoinsLabel.fontSizeMin = 14f;
     noAdsCoinsLabel.fontSizeMax = 26f;
-    noAdsCoinsLabel.text = $"REMOVE ADS   {NoAds.CoinPrice:N0}";
-    coinsGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+    noAdsCoinsLabel.text = $"{NoAds.CoinPrice:N0}";
+    UiSkin.AddButtonIcon(noAdsCoinsButton,UiSprites.Coin(),UiSkin.Gold,26);
+    coinsGo.AddComponent<LayoutElement>().preferredWidth = 220f;
     noAdsCoinsButton.onClick.AddListener(OnNoAdsWithCoins);
 
     // The "already done" state, built once and swapped in; a separate plate

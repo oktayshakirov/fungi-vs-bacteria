@@ -35,14 +35,14 @@ public class MainMenu : MonoBehaviour
     // is the rect MenuLayout anchors against, so the chip and the gear share a
     // coordinate space and stay in the same band on every aspect ratio.
     Transform cornerHost = settingsButton != null ? settingsButton.transform.parent : transform;
-    // A readout now, not a button: the two labelled pills under it are the
+    // A readout now, not a button: the labelled pills under it are the
     // way in, so nobody has to read a "+" as "shop".
     CoinChip.Create(cornerHost);
 
-    // Two pills under the balance, in the order a player needs them: how to
-    // GET coins, then what to SPEND them on.
+    // Separate destinations under the balance: coins, boosters and Remove Ads.
     BuildCoinsButton(cornerHost);
     BuildStoreButton(cornerHost);
+    BuildRemoveAdsButton(cornerHost);
 
     // Cold launch only. The ad SDK does its main-thread startup work behind
     // this rather than over a live menu.
@@ -52,7 +52,7 @@ public class MainMenu : MonoBehaviour
     }
   }
 
-  // Two compact pills directly under the coin chip, same left inset, stacked
+  // Compact pills directly under the coin chip, same left inset, stacked
   // as one column with the balance above them.
   //
   // Both are coloured from the skin's own palette: GET COINS is Gold, the
@@ -88,6 +88,23 @@ public class MainMenu : MonoBehaviour
     {
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
       if (screensTransform != null) WalletScreen.OpenStore(screensTransform);
+    });
+  }
+
+  private void BuildRemoveAdsButton(Transform parent)
+  {
+    Button button = BuildPill(parent, "RemoveAdsButton", "REMOVE ADS", UiSprites.Shield(),
+      UiSkin.Neutral, UiSkin.TextPrimary,
+      0f);
+    // A separate footer action, anchored inside the same notch-safe parent.
+    var rect = (RectTransform)button.transform;
+    rect.anchorMin = rect.anchorMax = Vector2.zero;
+    rect.pivot = Vector2.zero;
+    rect.anchoredPosition = new Vector2(MenuLayout.CornerInset, MenuLayout.CornerInset);
+    button.onClick.AddListener(() =>
+    {
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+      if (screensTransform != null) WalletScreen.OpenRemoveAds(screensTransform);
     });
   }
 
