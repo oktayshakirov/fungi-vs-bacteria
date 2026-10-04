@@ -66,12 +66,74 @@ public static class IosPostProcess
     Debug.Log("IOS POST-PROCESS: NSAllowsArbitraryLoads set for ad network traffic.");
   }
 
+  // Unity's exporter still writes the *legacy* app icon set: nineteen
+  // per-size entries plus an "ios-marketing" 1024 slot. Since Xcode 14 an
+  // icon is declared instead as a single 1024x1024 "universal" entry, and
+  // from iOS 26 the home screen composites its light/dark/tinted icon from
+  // that universal rendition. A catalog holding only legacy slots gives
+  // SpringBoard nothing to draw, so the app installs with a blank icon.
+  //
+  // Rewrite the set into the modern single-entry form. actool downsamples
+  // the one 1024 source into every size the device and the App Store need,
+  // which is the same thing Unity was doing one step earlier - so the icon
+  // art itself still comes from Assets/Sprites/Icons/AppIcon.png.
+  private static void ModernizeAppIcon(string pathToBuiltProject)
+  {
+    string iconSet = Path.Combine(
+      pathToBuiltProject, OldName, "Images.xcassets", "AppIcon.appiconset");
+    if (!Directory.Exists(iconSet))
+    {
+      Debug.LogWarning($"IOS POST-PROCESS: no app icon set at {iconSet}; icon not modernized.");
+      return;
+    }
+
+    // The 1024 Unity writes for the App Store slot is the full-resolution
+    // source, so it is the right one to keep as the single universal icon.
+    string source = Path.Combine(iconSet, "Icon-Store-1024.png");
+    if (!File.Exists(source))
+    {
+      Debug.LogWarning(
+        $"IOS POST-PROCESS: {source} missing; app icon left in its legacy form.");
+      return;
+    }
+
+    const string UniversalIcon = "AppIcon-1024.png";
+    string universal = Path.Combine(iconSet, UniversalIcon);
+    File.Copy(source, universal, true);
+
+    // Every other PNG is now unreferenced; actool warns about unassigned
+    // children left sitting in an icon set, so clear them out.
+    foreach (string png in Directory.GetFiles(iconSet, "*.png"))
+    {
+      if (Path.GetFileName(png) != UniversalIcon) File.Delete(png);
+    }
+
+    File.WriteAllText(Path.Combine(iconSet, "Contents.json"),
+      "{\n" +
+      "  \"images\" : [\n" +
+      "    {\n" +
+      "      \"filename\" : \"" + UniversalIcon + "\",\n" +
+      "      \"idiom\" : \"universal\",\n" +
+      "      \"platform\" : \"ios\",\n" +
+      "      \"size\" : \"1024x1024\"\n" +
+      "    }\n" +
+      "  ],\n" +
+      "  \"info\" : {\n" +
+      "    \"author\" : \"xcode\",\n" +
+      "    \"version\" : 1\n" +
+      "  }\n" +
+      "}\n");
+
+    Debug.Log("IOS POST-PROCESS: app icon rewritten as a single universal 1024 entry.");
+  }
+
   [PostProcessBuild(100)]
   public static void OnPostProcessBuild(BuildTarget target, string pathToBuiltProject)
   {
     if (target != BuildTarget.iOS) return;
 
     ApplyAppTransportSecurity(pathToBuiltProject);
+    ModernizeAppIcon(pathToBuiltProject);
     RenameXcodeProject(pathToBuiltProject);
   }
 
