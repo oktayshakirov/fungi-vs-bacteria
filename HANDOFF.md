@@ -66,7 +66,9 @@ render-checked, **none of it played by a human**:
 - **Privacy policy linked**: `https://oktayshakirov.com/privacy-policy/fungi-vs-bacteria`,
   `SettingScreen.PrivacyPolicyUrl`, opened by a **PRIVACY POLICY** corner button
   bottom-right of Settings, shown to everyone (the UMP **PRIVACY OPTIONS** button
-  stays bottom-left, EEA/UK only).
+  stays bottom-left, EEA/UK only). Compiles, but **not render-checked**: the
+  batch render failed on Unity licensing that day. Re-run `UiPreview.Render` and
+  look at `screen-settings`, or just check it on the device.
 - Android keystore and the RevenueCat project exist; the RevenueCat public SDK
   keys are already in `IapSetup.cs`.
 
