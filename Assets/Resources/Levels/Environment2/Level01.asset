@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 77ddef90417a74d7fb6cda38879d66ca, type: 2}
   startingGold: 740
   startingHealth: 100
+  challengeTitle: Bend Coverage
+  challengeBrief: Cover both bends and try an Archer style.

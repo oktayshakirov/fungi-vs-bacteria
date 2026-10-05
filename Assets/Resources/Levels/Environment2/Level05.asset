@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 37544c6a42c8c47cfb3a11cfb4acb45b, type: 2}
   startingGold: 836
   startingHealth: 100
+  challengeTitle: Armored Front
+  challengeBrief: Poison bypasses armor; keep strong damage on the road.

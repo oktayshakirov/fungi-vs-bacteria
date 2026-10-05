@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 839b40737104a43518afd18d570a6764, type: 2}
   startingGold: 860
   startingHealth: 100
+  challengeTitle: Swarm Crossing
+  challengeBrief: Combine control and damage across several road sections.

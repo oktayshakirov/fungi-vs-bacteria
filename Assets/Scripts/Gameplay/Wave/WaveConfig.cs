@@ -25,6 +25,7 @@ public class WaveConfig : ScriptableObject
     public float timeBetweenSpawns = 1f;
     public float timeToNextWave = 5f;
     public int waveGoldReward = 50;
+    [TextArea(1, 2)] public string planningHint;
   }
 
   public Wave[] waves;

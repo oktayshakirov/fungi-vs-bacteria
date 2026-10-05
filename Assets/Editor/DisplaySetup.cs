@@ -138,24 +138,24 @@ public static class DisplaySetup
   private static void ConfigureRig(CameraRig rig)
   {
     var so = new SerializedObject(rig);
-    // Low, wide-lens, close: a cinematic 3/4 view with real perspective depth.
-    // A touch lower reveals more of the cliff/sky around the floating island.
-    so.FindProperty("fieldOfView").floatValue = 50f;
-    so.FindProperty("playPitch").floatValue = 34f;
+    // A flatter lens and elevated combat view keep the back rows readable.
+    so.FindProperty("fieldOfView").floatValue = 35f;
+    so.FindProperty("playPitch").floatValue = 42f;
     so.FindProperty("playYaw").floatValue = 0f;
     // CameraRig.ResolvedPose() reads viewPresets whenever the array is
     // non-empty, so playPitch alone is ignored. Preset 0 is the play view.
     SetPresets(so, new[]
     {
-      new Vector3(34f, 0f, 1f),    // play: fills the screen, tiles read clearly
-      new Vector3(52f, 0f, 1f),    // near-isometric
-      new Vector3(26f, 26f, 1f),   // low cinematic three-quarter
+      new Vector3(42f, 0f, 1f),    // default combat view
+      new Vector3(50f, 0f, 1f),    // tactical overview
+      new Vector3(34f, 0f, 1f),    // character view
     });
     so.FindProperty("adaptPitchToAspect").boolValue = false;
     so.FindProperty("minPitch").floatValue = 24f;
     so.FindProperty("maxPitch").floatValue = 40f;
     so.FindProperty("edgePadding").floatValue = 0.02f;
-    so.FindProperty("hudTopReserve").floatValue = 0.09f;
+    so.FindProperty("hudTopReserve").floatValue = 0.12f;
+    so.FindProperty("hudRightWidth").floatValue = 252f;
     so.FindProperty("hudBottomReserve").floatValue = 0.15f;
     so.FindProperty("towerHeadroom").floatValue = 5f;
     so.FindProperty("playIntroOnStart").boolValue = true;

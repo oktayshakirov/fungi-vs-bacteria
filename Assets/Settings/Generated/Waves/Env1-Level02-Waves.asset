@@ -15,45 +15,37 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 0.8
+      rewardMultiplier: 0.8
+    timeBetweenSpawns: 1.6
+    timeToNextWave: 12
+    waveGoldReward: 25
+    planningHint: Build damage around the bends; runners arrive in the next wave.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 4
-      healthMultiplier: 0.66798
-      rewardMultiplier: 0.66798
-    timeBetweenSpawns: 1.536
-    timeToNextWave: 5
-    waveGoldReward: 26
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-      healthMultiplier: 0.81642
-      rewardMultiplier: 0.81642
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 1
-      healthMultiplier: 0.81642
-      rewardMultiplier: 0.81642
-    timeBetweenSpawns: 1.496
-    timeToNextWave: 5
-    waveGoldReward: 30
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-      healthMultiplier: 0.96485996
-      rewardMultiplier: 0.96485996
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 1
-      healthMultiplier: 0.96485996
-      rewardMultiplier: 0.96485996
-    timeBetweenSpawns: 1.456
-    timeToNextWave: 5
-    waveGoldReward: 34
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 6
-      healthMultiplier: 1.1133
-      rewardMultiplier: 1.1133
+      healthMultiplier: 0.9
+      rewardMultiplier: 0.9
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 2
-      healthMultiplier: 1.1133
-      rewardMultiplier: 1.1133
-    timeBetweenSpawns: 1.416
-    timeToNextWave: 5
-    waveGoldReward: 38
+      healthMultiplier: 0.9
+      rewardMultiplier: 0.9
+    timeBetweenSpawns: 1.1
+    timeToNextWave: 12
+    waveGoldReward: 35
+    planningHint: Fast bacteria overtake the pack. Ice slows them; FIRST protects
+      the exit.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1
+      rewardMultiplier: 1
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 4
+      healthMultiplier: 1
+      rewardMultiplier: 1
+    timeBetweenSpawns: 0.8
+    timeToNextWave: 12
+    waveGoldReward: 45
+    planningHint: Combine Ice with damage, or spread Archers along the route.

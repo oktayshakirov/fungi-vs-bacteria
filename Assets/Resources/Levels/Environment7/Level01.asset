@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: d6a0425975e5e4b78b50ea516c9f191c, type: 2}
   startingGold: 1940
   startingHealth: 100
+  challengeTitle: Mixed Counters
+  challengeBrief: Combine counters and protect the exit during the finale.

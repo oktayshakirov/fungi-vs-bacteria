@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: be95054c99a85417f82a369029a1598d, type: 2}
   startingGold: 1772
   startingHealth: 100
+  challengeTitle: Packed Bends
+  challengeBrief: Overlap damage around bends to handle the whole pack.

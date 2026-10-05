@@ -32,6 +32,8 @@ public class GameOverScreen : MonoBehaviour
         mainMenuButton.onClick.RemoveAllListeners();
 
         restartButton.onClick.AddListener(OnRestartClicked);
+        var retryLabel = restartButton.GetComponentInChildren<TMP_Text>(true);
+        if (retryLabel != null) retryLabel.text = "RETRY LEVEL";
         mainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
         // Losing screen: the retry button is the call to action, in danger red
@@ -62,6 +64,7 @@ public class GameOverScreen : MonoBehaviour
     private void PrepareForShow()
     {
         ScreenTheme.Subtitle(transform, ScreenTheme.RunSummary(withWave: true));
+        if (restartButton != null) BattleDebrief.Show(transform, restartButton.transform.parent as RectTransform, false, 0);
         statusText = "";
         awaitingAd = false;
 
@@ -209,6 +212,7 @@ public class GameOverScreen : MonoBehaviour
         {
             continueButton.interactable = Wallet.CanAfford(Boosters.ContinueCost);
             continueLabel.text = $"CONTINUE  {Boosters.ContinueCost}";
+            continueLabel.color=continueButton.interactable?UiSkin.TextDark:UiSkin.TextPrimary;
         }
 
         if (watchButton != null)
@@ -219,6 +223,7 @@ public class GameOverScreen : MonoBehaviour
             bool loading = awaitingAd || Ads.IsRewardedLoading;
 
             watchButton.interactable = ready && !awaitingAd;
+            watchLabel.color=watchButton.interactable?UiSkin.TextDark:UiSkin.TextPrimary;
             watchLabel.text = ready ? "CONTINUE - WATCH AD"
                             : loading ? "LOADING AD..."
                             : "AD UNAVAILABLE";
@@ -227,6 +232,7 @@ public class GameOverScreen : MonoBehaviour
         if (statusLabel != null)
         {
             statusLabel.text = statusText;
+            statusLabel.gameObject.SetActive(!string.IsNullOrEmpty(statusText));
             var element = statusLabel.GetComponent<LayoutElement>();
             if (element != null) element.preferredHeight = string.IsNullOrEmpty(statusText) ? 0f : 34f;
         }

@@ -15,57 +15,80 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-      healthMultiplier: 0.7814483
-      rewardMultiplier: 0.7814483
-    timeBetweenSpawns: 1.488
-    timeToNextWave: 5
-    waveGoldReward: 30
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 0.9551035
-      rewardMultiplier: 0.9551035
+      healthMultiplier: 0.8856414
+      rewardMultiplier: 1
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 1
-      healthMultiplier: 0.9551035
-      rewardMultiplier: 0.9551035
-    timeBetweenSpawns: 1.4480001
-    timeToNextWave: 5
-    waveGoldReward: 34
+      healthMultiplier: 0.79707724
+      rewardMultiplier: 1
+    timeBetweenSpawns: 1.2
+    timeToNextWave: 12
+    waveGoldReward: 40
+    planningHint: Cover the bends. Use the first clear reward to prepare for the
+      next threat.
   - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-      healthMultiplier: 1.1287587
-      rewardMultiplier: 1.1287587
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 1
-      healthMultiplier: 1.1287587
-      rewardMultiplier: 1.1287587
     - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 1
-      healthMultiplier: 1.1287587
-      rewardMultiplier: 1.1287587
-    timeBetweenSpawns: 1.408
-    timeToNextWave: 5
-    waveGoldReward: 38
-  - enemyGroups:
+      count: 2
+      healthMultiplier: 0.9898345
+      rewardMultiplier: 1
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 6
-      healthMultiplier: 1.3024138
-      rewardMultiplier: 1.3024138
+      count: 5
+      healthMultiplier: 0.9898345
+      rewardMultiplier: 1
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 50
+    planningHint: Poison bypasses armor. STRONG keeps damage on the toughest target.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
+      count: 2
+      healthMultiplier: 1.0940276
+      rewardMultiplier: 1.0940276
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1.0940276
+      rewardMultiplier: 1.0940276
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 2
-      healthMultiplier: 1.3024138
-      rewardMultiplier: 1.3024138
+      healthMultiplier: 0.98462486
+      rewardMultiplier: 1.0940276
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 60
+    planningHint: Poison bypasses armor. STRONG keeps damage on the toughest target.
+  - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 1
+      count: 2
+      healthMultiplier: 1.1982207
+      rewardMultiplier: 1.1982207
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1.1982207
+      rewardMultiplier: 1.1982207
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 2
+      healthMultiplier: 1.0783986
+      rewardMultiplier: 1.1982207
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 70
+    planningHint: Poison bypasses armor. STRONG keeps damage on the toughest target.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
+      count: 3
       healthMultiplier: 1.3024138
       rewardMultiplier: 1.3024138
-    - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
-      count: 1
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
       healthMultiplier: 1.3024138
       rewardMultiplier: 1.3024138
-    timeBetweenSpawns: 1.368
-    timeToNextWave: 5
-    waveGoldReward: 42
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 3
+      healthMultiplier: 1.1721724
+      rewardMultiplier: 1.3024138
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 80
+    planningHint: 'Final pack: Poison bypasses armor. STRONG keeps damage on the
+      toughest target.'

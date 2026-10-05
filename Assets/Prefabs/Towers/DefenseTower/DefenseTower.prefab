@@ -163,8 +163,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe8090ae547d84e3b96ca8177a28147b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!114 &8552390643918488480
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -175,10 +175,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 06f94883213f245ffb40b7917a0f569c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   tower: {fileID: 1413968813697788281}
   projectileSpawnPoint: {fileID: 3490391069710048597}
+  modelYawOffset: 90
   projectilePrefab: {fileID: 7319459594048084951, guid: fb12d5aaa1def41e185c73c6d6f0dc96, type: 3}
   tileIndicatorPrefab: {fileID: 8015606089559125091, guid: 17fd0f3a0f81a4a2e91549ce6e7f5e1e, type: 3}
 --- !u!114 &3922636430610390392
@@ -191,8 +192,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe8090ae547d84e3b96ca8177a28147b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!136 &391323194904701625
 CapsuleCollider:
   m_ObjectHideFlags: 0

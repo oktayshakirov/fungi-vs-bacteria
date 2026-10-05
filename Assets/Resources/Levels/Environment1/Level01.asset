@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: b955ec7fad6bc4886881af6c24542437, type: 2}
   startingGold: 500
   startingHealth: 100
+  challengeTitle: First Defense
+  challengeBrief: Cover a bend, then compare an upgrade with another Archer.

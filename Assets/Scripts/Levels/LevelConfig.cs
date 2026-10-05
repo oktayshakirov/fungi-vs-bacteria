@@ -12,4 +12,8 @@ public class LevelConfig : ScriptableObject
   public WaveConfig waveConfig;
   public int startingGold = 500;
   public int startingHealth = 100;
+
+  [Header("Mission")]
+  public string challengeTitle;
+  [TextArea(1, 2)] public string challengeBrief;
 }

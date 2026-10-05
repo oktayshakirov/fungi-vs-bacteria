@@ -101,8 +101,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f693a77478432443aa5aaac7167c2662, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotationOffset: 90
 --- !u!54 &7238659269310172570
 Rigidbody:

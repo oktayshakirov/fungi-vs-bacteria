@@ -13,14 +13,13 @@ MonoBehaviour:
   m_Name: Env2-Level05-Path
   m_EditorClassIdentifier: Assembly-CSharp::PathConfig
   pathName: Env2 Level5 Path
-  description: 
+  description: 'Armored Front: Poison bypasses armor; keep strong damage on the road.'
   pathGridCoordinates:
-  - {x: 0, y: 3}
-  - {x: 1, y: 3}
+  - {x: 0, y: 2}
   - {x: 1, y: 2}
   - {x: 2, y: 2}
-  - {x: 3, y: 2}
-  - {x: 3, y: 3}
+  - {x: 2, y: 3}
+  - {x: 2, y: 4}
   - {x: 3, y: 4}
   - {x: 4, y: 4}
   - {x: 5, y: 4}
@@ -28,6 +27,6 @@ MonoBehaviour:
   - {x: 7, y: 4}
   - {x: 7, y: 3}
   - {x: 7, y: 2}
-  - {x: 8, y: 2}
+  - {x: 7, y: 1}
   - {x: 8, y: 1}
   - {x: 9, y: 1}

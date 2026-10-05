@@ -58,8 +58,9 @@ namespace TowerDefense.UI
         // between them.
         towerIcon.transform.SetAsFirstSibling();
         var iconRect = towerIcon.rectTransform;
-        iconRect.sizeDelta = new Vector2(iconRect.sizeDelta.x, 88f);
-        iconRect.anchoredPosition = new Vector2(iconRect.anchoredPosition.x, -2f);
+        iconRect.anchorMin = new Vector2(0.08f, 0.25f);
+        iconRect.anchorMax = new Vector2(0.92f, 0.78f);
+        iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
       }
 
       Style();
@@ -87,9 +88,15 @@ namespace TowerDefense.UI
       button.colors = colors;
 
       UiSkin.Label(nameText, UiSkin.Role.Caption);
+      nameText.fontSizeMin = 12f;
+      nameText.fontSizeMax = 17f;
+      nameText.alignment = TextAlignmentOptions.Center;
+      nameText.rectTransform.anchorMin = new Vector2(0.04f, 0.78f);
+      nameText.rectTransform.anchorMax = new Vector2(0.96f, 0.98f);
+      nameText.rectTransform.offsetMin = nameText.rectTransform.offsetMax = Vector2.zero;
       UiSkin.Label(costText, UiSkin.Role.Value, UiSkin.Gold);
       costText.fontSizeMin = 16f;
-      costText.fontSizeMax = 26f;
+      costText.fontSizeMax = 21f;
       costText.alignment = TextAlignmentOptions.MidlineLeft;
 
       // The affordability markers were tiny sprites; a coin and a dimmed coin
@@ -126,7 +133,7 @@ namespace TowerDefense.UI
     // what put the coin icon and price outside the card. Bottom-anchoring
     // means this row always sits a fixed distance above whatever the card's
     // actual bottom edge turns out to be.
-    private const float CostRowBottomMargin = 10f;
+    private const float CostRowBottomMargin = 6f;
 
     private void StyleCostRow()
     {
@@ -139,6 +146,7 @@ namespace TowerDefense.UI
       containerRect.anchorMax = new Vector2(0.5f, 0f);
       containerRect.pivot = new Vector2(0.5f, 0f);
       containerRect.anchoredPosition = new Vector2(0f, CostRowBottomMargin);
+      containerRect.sizeDelta = new Vector2(86f, 24f);
 
       var row = container.GetComponent<HorizontalLayoutGroup>();
       if (row == null) row = container.gameObject.AddComponent<HorizontalLayoutGroup>();
@@ -149,7 +157,7 @@ namespace TowerDefense.UI
       row.childForceExpandWidth = false;
       row.childForceExpandHeight = true;
 
-      const float iconSize = 22f;
+      const float iconSize = 18f;
       SizeIcon(goldIcon, iconSize);
       SizeIcon(lockIcon, iconSize);
 
@@ -173,8 +181,13 @@ namespace TowerDefense.UI
 
     public void UpdateInteractability()
     {
-      bool canAfford = GameManager.Instance.CanAfford(towerConfig.cost);
+      RefreshAffordability(GameManager.Instance != null && towerConfig != null
+        && GameManager.Instance.CanAfford(towerConfig.cost));
+    }
 
+    public void RefreshAffordability(bool canAfford)
+    {
+      button.interactable = canAfford;
       Color iconColor = towerIcon.color;
       iconColor.a = canAfford ? 1f : 0.45f;
       towerIcon.color = iconColor;

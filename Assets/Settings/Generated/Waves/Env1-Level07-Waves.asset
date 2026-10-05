@@ -15,57 +15,72 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-      healthMultiplier: 0.80279326
-      rewardMultiplier: 0.80279326
-    timeBetweenSpawns: 1.4760001
-    timeToNextWave: 5
-    waveGoldReward: 31
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 0.98119175
-      rewardMultiplier: 0.98119175
+      healthMultiplier: 0.90983236
+      rewardMultiplier: 1
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 1
-      healthMultiplier: 0.98119175
-      rewardMultiplier: 0.98119175
-    timeBetweenSpawns: 1.436
-    timeToNextWave: 5
-    waveGoldReward: 35
+      healthMultiplier: 0.8188491
+      rewardMultiplier: 1
+    timeBetweenSpawns: 1.2
+    timeToNextWave: 12
+    waveGoldReward: 40
+    planningHint: Cover the bends. Use the first clear reward to prepare for the
+      next threat.
   - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 3
+      healthMultiplier: 1.0168715
+      rewardMultiplier: 1.0168715
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 1.1595902
-      rewardMultiplier: 1.1595902
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 1
-      healthMultiplier: 1.1595902
-      rewardMultiplier: 1.1595902
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 1
-      healthMultiplier: 1.1595902
-      rewardMultiplier: 1.1595902
-    timeBetweenSpawns: 1.396
-    timeToNextWave: 5
-    waveGoldReward: 39
+      healthMultiplier: 1.0168715
+      rewardMultiplier: 1.0168715
+    timeBetweenSpawns: 0.75
+    timeToNextWave: 12
+    waveGoldReward: 50
+    planningHint: Ice slows runners. FIRST focuses enemies nearest the exit.
   - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 6
+      healthMultiplier: 1.1239105
+      rewardMultiplier: 1.1239105
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1.1239105
+      rewardMultiplier: 1.1239105
+    timeBetweenSpawns: 0.75
+    timeToNextWave: 12
+    waveGoldReward: 60
+    planningHint: Ice slows runners. FIRST focuses enemies nearest the exit.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 6
+      healthMultiplier: 1.2309496
+      rewardMultiplier: 1.2309496
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1.2309496
+      rewardMultiplier: 1.2309496
+    timeBetweenSpawns: 0.75
+    timeToNextWave: 12
+    waveGoldReward: 70
+    planningHint: Ice slows runners. FIRST focuses enemies nearest the exit.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 8
       healthMultiplier: 1.3379887
       rewardMultiplier: 1.3379887
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1.3379887
+      rewardMultiplier: 1.3379887
+    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
       count: 2
       healthMultiplier: 1.3379887
       rewardMultiplier: 1.3379887
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 1
-      healthMultiplier: 1.3379887
-      rewardMultiplier: 1.3379887
-    - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
-      count: 1
-      healthMultiplier: 1.3379887
-      rewardMultiplier: 1.3379887
-    timeBetweenSpawns: 1.3560001
-    timeToNextWave: 5
-    waveGoldReward: 43
+    timeBetweenSpawns: 0.75
+    timeToNextWave: 12
+    waveGoldReward: 80
+    planningHint: 'Final pack: Ice slows runners. FIRST focuses enemies nearest the
+      exit.'

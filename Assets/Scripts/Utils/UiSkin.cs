@@ -28,14 +28,14 @@ public static class UiSkin
   public static readonly Color Accent = new Color(0.38f, 0.72f, 1f);
 
   public static readonly Color TextPrimary = new Color(0.95f, 0.96f, 0.99f);
-  public static readonly Color TextMuted = new Color(0.64f, 0.68f, 0.80f);
+  public static readonly Color TextMuted = new Color(0.76f, 0.80f, 0.88f);
   public static readonly Color TextDark = new Color(0.08f, 0.09f, 0.14f);
 
   public const int RadiusPanel = 20;
   public const int RadiusButton = 16;
   public const int RadiusChip = 24;
 
-  public enum Role { Title, Heading, Body, Value, Caption, ButtonLabel }
+  public enum Role { Title, Heading, Body, Value, Caption, ButtonLabel, DisplayHeading, DisplayButton }
 
   // ---------------------------------------------------------------- panels
 
@@ -76,7 +76,7 @@ public static class UiSkin
 
   // Styles an existing Button and its label. `tint` is the fill colour; the
   // sprite's baked shading gives it depth.
-  public static void StyleButton(Button button, Color tint, int radius = RadiusButton)
+  public static void StyleButton(Button button, Color tint, int radius = RadiusButton, bool? emphasized = null)
   {
     if (button == null) return;
 
@@ -105,10 +105,13 @@ public static class UiSkin
     if (label != null)
     {
       Label(label, Role.ButtonLabel, LabelColorFor(tint));
+      UiFont.ApplyControl(label, emphasized ?? IsPrimaryFill(tint));
       // Keep text off the rounded corners
       label.margin = new Vector4(14f, 4f, 14f, 4f);
     }
   }
+
+  public static bool IsPrimaryFill(Color tint) => tint == Primary || tint == Gold;
 
   // Dark text on bright fills, light text on dark ones.
   private static Color LabelColorFor(Color fill)
@@ -123,27 +126,21 @@ public static class UiSkin
   {
     if (label == null) return null;
 
-    // The display face ("Groovy") carries the game's character; Lato is a plain
-    // sans that made most of the UI look like a placeholder. Groovy is used for
-    // everything with presence — titles, headings, button labels, stat values —
-    // and Lato is kept only for small running text, where a display face costs
-    // legibility.
-    bool display = role == Role.Title || role == Role.Heading
-                || role == Role.ButtonLabel || role == Role.Value;
-    UiFont.Apply(label, display);
-    label.color = color ?? ColorFor(role);
-    label.fontStyle = role == Role.Body || role == Role.Caption ? FontStyles.Normal : FontStyles.Bold;
-
-    // Rendered uppercase rather than rewritten, so the authored copy is
-    // untouched. The prefabs mix "Resume game" with "END GAME".
-    if (role == Role.ButtonLabel) label.fontStyle |= FontStyles.UpperCase;
+    // Decorative letters work at large sizes; small controls and detailed
+    // headings use real semibold glyphs instead of a squeezed display face.
+    bool display=role==Role.Title || role==Role.Value || role==Role.DisplayHeading || role==Role.DisplayButton;
+    if(display) { UiFont.Apply(label,true); label.fontWeight=FontWeight.Regular; label.fontStyle=FontStyles.Normal; }
+    else if(role==Role.ButtonLabel) UiFont.ApplyControl(label);
+    else UiFont.ApplyReadable(label,role==Role.Heading);
+    label.color=color ?? ColorFor(role);
+    if(role==Role.DisplayButton)label.fontStyle|=FontStyles.UpperCase;
     label.characterSpacing = role == Role.Title ? 6f : 0f;
 
     // Auto-sizing keeps text inside its box across the aspect ratios this game
     // ships on, rather than overflowing on narrow phones. Short labels must not
     // wrap, or auto-sizing splits them onto two lines instead of shrinking to
     // fit the width — which is how "SPEED 1x" spilled out of its button.
-    if (role == Role.ButtonLabel || role == Role.Value)
+    if (role == Role.ButtonLabel || role == Role.DisplayButton || role == Role.Value)
     {
       label.textWrappingMode = TextWrappingModes.NoWrap;
     }
@@ -171,10 +168,12 @@ public static class UiSkin
     switch (role)
     {
       case Role.Title: return new Vector2(34f, 76f);
-      case Role.Heading: return new Vector2(24f, 48f);
+      case Role.Heading: return new Vector2(22f, 34f);
+      case Role.DisplayHeading: return new Vector2(24f, 48f);
       case Role.Value: return new Vector2(20f, 40f);
       case Role.Caption: return new Vector2(14f, 24f);
-      case Role.ButtonLabel: return new Vector2(18f, 36f);
+      case Role.ButtonLabel: return new Vector2(18f, 30f);
+      case Role.DisplayButton: return new Vector2(18f, 36f);
       default: return new Vector2(16f, 30f);
     }
   }

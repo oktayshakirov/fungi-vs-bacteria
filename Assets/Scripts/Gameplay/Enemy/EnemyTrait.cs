@@ -42,12 +42,19 @@ public class EnemyTrait : MonoBehaviour
            "that the regen delay is running.")]
   public bool hideWhileShieldDown = false;
 
+  [Tooltip("Include this solid role marker when positioning the health bar.")]
+  public bool includeInHealthBarBounds = false;
+
   [Header("Motion")]
   public Motion motion = Motion.None;
   [Tooltip("Cycles per second.")]
   public float motionSpeed = 1f;
   [Tooltip("Scales the whole effect. 1 is the tuned default.")]
   public float motionAmount = 1f;
+
+  [Tooltip("Keep a floating symbol upright and facing the gameplay camera.")]
+  public bool faceCamera = false;
+  private Camera facingCamera;
 
   private MeshRenderer[] renderers;
   private MaterialPropertyBlock block;
@@ -89,9 +96,9 @@ public class EnemyTrait : MonoBehaviour
   // so a preview can render the same part at several points in its cycle - the
   // amplitude is the only thing that can look wrong here, and a still frame at
   // one phase cannot show it.
-  public void Animate(float time)
+  public void Animate(float time, Camera viewCamera = null)
   {
-    if (motion == Motion.None) return;
+    if (motion == Motion.None && !faceCamera) return;
     Capture();
 
     float t = time * motionSpeed * Mathf.PI * 2f + phase;
@@ -114,6 +121,12 @@ public class EnemyTrait : MonoBehaviour
       case Motion.Breathe:
         transform.localScale = restScale * (1f + Mathf.Sin(t) * 0.035f * motionAmount);
         break;
+    }
+    if(faceCamera)
+    {
+      if(viewCamera != null) facingCamera = viewCamera;
+      else if(facingCamera == null) facingCamera = Camera.main;
+      if(facingCamera != null) transform.rotation = facingCamera.transform.rotation;
     }
   }
 

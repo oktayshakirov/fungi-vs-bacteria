@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 9e701862f1b754629a7ec4667d1b5ea3, type: 2}
   startingGold: 1724
   startingHealth: 100
+  challengeTitle: Runner Relay
+  challengeBrief: Catch runners with Ice and coverage near the exit.

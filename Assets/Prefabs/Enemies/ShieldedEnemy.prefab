@@ -10,7 +10,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 590352909298676790, guid: 4a73e280598e743a5b772cf6b9294274, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
-      value: 
+      value:
       objectReference: {fileID: 2100000, guid: 03dd5588841524b93919a33920378f88, type: 2}
     - target: {fileID: 7113848665490352492, guid: 4a73e280598e743a5b772cf6b9294274, type: 3}
       propertyPath: m_Name
@@ -79,7 +79,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4d08c7b11cd3e43898d8b24f518ff633, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ShieldSkin
   plated: {fileID: 2100000, guid: 03dd5588841524b93919a33920378f88, type: 2}
   bare: {fileID: 2100000, guid: afe967213f5ae4de58de4cd45cfabb37, type: 2}

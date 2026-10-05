@@ -10,110 +10,99 @@ public class EnemySpawner : MonoBehaviour
   // way back to the spawner. One spawner per MainGame scene.
   public static EnemySpawner Instance { get; private set; }
 
-  private int currentWave = 0;
-  private bool isSpawning = false;
-  private bool gameStarted = false;
+  private int currentWave;
+  private bool isSpawning;
+  private bool awaitingClear;
   private float waveTimer;
-  private bool isWaitingForNextWave = false;
+  private bool isWaitingForNextWave;
 
-  public bool IsLastWave => currentWave >= waveConfig.waves.Length;
-
-  // How many waves have been started this level. Boosters that are limited to
-  // one use per wave key off this.
+  public bool IsLastWave => waveConfig != null && currentWave >= waveConfig.waves.Length;
   public int WavesStarted => currentWave;
-  public bool IsWaveInProgress => isSpawning;
+  public bool IsWaveInProgress => isSpawning || awaitingClear;
+  public bool CanStartWave => waveConfig != null && !IsLastWave && !IsWaveInProgress
+    && (GameManager.Instance == null || !GameManager.Instance.HasEnded);
+  public WaveConfig.Wave NextWave => waveConfig != null && currentWave < waveConfig.waves.Length
+    ? waveConfig.waves[currentWave] : null;
+  public int TotalWaves => waveConfig != null ? waveConfig.waves.Length : 0;
+  public float PreparationRemaining => isWaitingForNextWave ? waveTimer : 0;
 
-  private void Awake()
-  {
-    Instance = this;
-  }
-
-  private void OnDestroy()
-  {
-    if (Instance == this) Instance = null;
-  }
+  private void Awake() { Instance = this; }
+  private void OnDestroy() { if (Instance == this) Instance = null; }
 
   private void Start()
   {
     if (GameSession.SelectedLevel != null && GameSession.SelectedLevel.waveConfig != null)
-    {
       waveConfig = GameSession.SelectedLevel.waveConfig;
-    }
-
-    if (waveConfig == null)
-    {
-      Debug.LogError("WaveConfig is not assigned to EnemySpawner!");
-      return;
-    }
-    HUDManager.Instance.UpdateWaveText(0, waveConfig.waves.Length);
+    if (waveConfig == null) { Debug.LogError("WaveConfig is not assigned to EnemySpawner!"); return; }
+    HUDManager.Instance?.UpdateWaveText(0, TotalWaves);
+    RefreshPlanning();
   }
 
   private void Update()
   {
-    if (isWaitingForNextWave)
-    {
-      waveTimer -= Time.deltaTime;
-      HUDManager.Instance?.UpdateWaveTimer(waveTimer);
-    }
+    if (!isWaitingForNextWave || (GameManager.Instance != null && GameManager.Instance.HasEnded)) return;
+    waveTimer = Mathf.Max(0, waveTimer - Time.deltaTime);
+    HUDManager.Instance?.UpdateWaveTimer(waveTimer);
+    if (waveTimer <= 0) StartNextWave();
   }
 
-  public void StartGame()
-  {
-    if (!gameStarted && waveConfig != null)
-    {
-      gameStarted = true;
-      StartNextWave();
-    }
-  }
+  // The same button starts the first wave and sends a prepared wave early.
+  // Only Update owns the timer; there is no stale delayed coroutine to send
+  // an extra wave after a manual start.
+  public void StartGame() { StartNextWave(); }
 
   public void StartNextWave()
   {
-    if (currentWave < waveConfig.waves.Length && !isSpawning)
-    {
-      StartCoroutine(SpawnWave(waveConfig.waves[currentWave]));
-      currentWave++;
-      OnWaveStarted?.Invoke(currentWave);
-
-      HUDManager.Instance.UpdateWaveText(currentWave, waveConfig.waves.Length);
-      HUDManager.Instance.ShowWaveBanner(currentWave, waveConfig.waves.Length);
-      HUDManager.Instance.UpdateStartWaveButton();
-    }
+    if (!CanStartWave || Time.timeScale <= 0) return;
+    WaveConfig.Wave wave = NextWave;
+    isWaitingForNextWave = false;
+    isSpawning = true;
+    awaitingClear = true;
+    currentWave++;
+    OnWaveStarted?.Invoke(currentWave);
+    HUDManager.Instance?.UpdateWaveText(currentWave, TotalWaves);
+    HUDManager.Instance?.ShowWaveBanner(currentWave, TotalWaves);
+    RefreshPlanning();
+    StartCoroutine(SpawnWave(wave));
   }
 
   private IEnumerator SpawnWave(WaveConfig.Wave wave)
   {
-    isSpawning = true;
-    isWaitingForNextWave = false;
-
-    foreach (var enemyGroup in wave.enemyGroups)
-    {
-      for (int i = 0; i < enemyGroup.count; i++)
+    if (wave.enemyGroups != null)
+      foreach (var enemyGroup in wave.enemyGroups)
       {
-        SpawnEnemy(enemyGroup);
-        yield return new WaitForSeconds(wave.timeBetweenSpawns);
+        if (enemyGroup == null || enemyGroup.enemyConfig == null || enemyGroup.count <= 0) continue;
+        for (int i = 0; i < enemyGroup.count; i++)
+        {
+          SpawnEnemy(enemyGroup);
+          yield return new WaitForSeconds(Mathf.Max(.05f, wave.timeBetweenSpawns));
+        }
       }
-    }
-
     isSpawning = false;
+    CheckWaveClear();
+    RefreshPlanning();
+  }
 
-    // Award gold for completing the wave
-    GameManager.Instance.AddGold(wave.waveGoldReward);
-
-    // Last wave finished spawning: victory may already be decided if all enemies are dead
-    if (currentWave >= waveConfig.waves.Length)
-    {
-      GameManager.Instance.CheckVictory();
-    }
-
-    if (currentWave < waveConfig.waves.Length)
+  // Count includes splitter children, which register before their parent is
+  // removed. Clearing the parent therefore cannot award a premature reward.
+  public void CheckWaveClear()
+  {
+    if (!awaitingClear || isSpawning || GameManager.Instance == null
+      || GameManager.Instance.HasEnded || GameManager.Instance.AliveEnemies > 0) return;
+    awaitingClear = false;
+    WaveConfig.Wave cleared = waveConfig.waves[currentWave - 1];
+    GameManager.Instance.AddGold(cleared.waveGoldReward);
+    if (!IsLastWave)
     {
       isWaitingForNextWave = true;
-      waveTimer = wave.timeToNextWave;
-      yield return new WaitForSeconds(wave.timeToNextWave);
-      isWaitingForNextWave = false;
-      StartNextWave();
+      waveTimer = Mathf.Max(0, cleared.timeToNextWave);
+      HUDManager.Instance?.ShowPathClear();
     }
+    RefreshPlanning();
+    GameManager.Instance.CheckVictory();
   }
+
+  private void RefreshPlanning() { HUDManager.Instance?.RefreshWavePlanning(this); }
 
   private void SpawnEnemy(WaveConfig.WaveEnemyGroup enemyGroup)
   {
@@ -128,7 +117,7 @@ public class EnemySpawner : MonoBehaviour
       }
 
       // Calculate spawn position using enemy's actual model height
-      float heightOffset = GetEnemyHeight(enemyGroup.enemyConfig.prefab) / 2f;
+      float heightOffset = UnitScale.EnemyGroundOffset(enemyGroup.enemyConfig.prefab, enemyGroup.enemyConfig.scaleMultiplier);
       Vector3 spawnPoint = pathPoints[0];
       spawnPoint.y = heightOffset;
 
@@ -181,7 +170,9 @@ public class EnemySpawner : MonoBehaviour
   {
     if (cfg == null || cfg.prefab == null || path == null || count <= 0) return;
 
-    float heightOffset = GetEnemyHeight(cfg.prefab) / 2f;
+    float heightOffset = UnitScale.EnemyGroundOffset(cfg.prefab, cfg.scaleMultiplier, childOverride.sizeScale);
+    Vector3[] childPath = (Vector3[])path.Clone();
+    for (int i = 0; i < childPath.Length; i++) childPath[i].y = heightOffset;
     Vector3 origin = path[Mathf.Clamp(childOverride.startWaypoint, 0, path.Length - 1)];
 
     for (int i = 0; i < count; i++)
@@ -198,31 +189,17 @@ public class EnemySpawner : MonoBehaviour
       float healthMult = parentMaxHealth / Mathf.Max(1f, cfg.maxHealth);
       float rewardMult = parentReward / Mathf.Max(1f, cfg.goldReward);
 
-      child.Initialize(path, cfg, healthMult, rewardMult, childOverride);
+      child.Initialize(childPath, cfg, healthMult, rewardMult, childOverride);
 
       // Fan the children out slightly so they do not overlap into one blob.
       Vector3 jitter = new Vector3((i - (count - 1) * 0.5f) * 0.45f, 0f, 0f);
       childObj.transform.position = new Vector3(origin.x, heightOffset, origin.z) + jitter;
+      child.PlaySplitBirth();
     }
-  }
-
-  private float GetEnemyHeight(GameObject prefab)
-  {
-    // Get the mesh renderer bounds to calculate actual model height
-    // Skips trait geometry so the spawn height follows the body. See
-    // Enemy.FindBodyRenderer.
-    MeshRenderer renderer = Enemy.FindBodyRenderer(prefab);
-    if (renderer != null)
-    {
-      return renderer.bounds.size.y;
-    }
-
-    Debug.LogWarning($"No MeshRenderer found on enemy prefab {prefab.name}, using default height");
-    return 1f;
   }
 
   public bool AreWavesComplete()
   {
-    return currentWave >= waveConfig.waves.Length && !isSpawning;
+    return waveConfig != null && IsLastWave && !isSpawning && !awaitingClear;
   }
 }

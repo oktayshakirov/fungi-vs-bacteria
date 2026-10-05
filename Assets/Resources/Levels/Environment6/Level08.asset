@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 61b11bf1464bd4b57bf7ecc68a887ab7, type: 2}
   startingGold: 1868
   startingHealth: 100
+  challengeTitle: Boss Advance
+  challengeBrief: 'Build for the boss: Poison for armor, Ice for its rush.'

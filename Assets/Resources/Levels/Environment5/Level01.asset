@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: bfabba4225f3c45b08ef802021c509ba, type: 2}
   startingGold: 1460
   startingHealth: 100
+  challengeTitle: Sustained Fire
+  challengeBrief: Keep shields under fire; link your strongest attackers.

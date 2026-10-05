@@ -528,6 +528,34 @@ public static class MeshFactory
     return tex;
   }
 
+  // Same superellipse rim as CliffPoint(t=0). The rectangular play grid fits
+  // completely inside it; only the decorative corners are rounded away.
+  public static Mesh IslandSurface(float halfW, float halfD, float top, float bottom) =>
+    Cached($"surface{halfW}x{halfD}:{top}:{bottom}", () =>
+    {
+      const int sides = 64;
+      var b = new Builder();
+      Vector3 Rim(int i, float y)
+      {
+        float a = i * Mathf.PI * 2f / sides;
+        float c = Mathf.Cos(a), s = Mathf.Sin(a);
+        return new Vector3(Mathf.Sign(c)*Mathf.Sqrt(Mathf.Abs(c))*halfW, y,
+          Mathf.Sign(s)*Mathf.Sqrt(Mathf.Abs(s))*halfD);
+      }
+      Vector2 Tex(Vector3 p) => new Vector2(p.x/(halfW*2f)+.5f,p.z/(halfD*2f)+.5f);
+      for(int i=0;i<sides;i++)
+      {
+        Vector3 a=Rim(i,top),c=Rim(i+1,top),d=Rim(i,bottom),e=Rim(i+1,bottom);
+        b.Face(new Vector3(0,top,0),c,a,new Vector2(.5f,.5f),Tex(c),Tex(a));
+        if(bottom < top)
+        {
+          b.Quad(a,c,e,d,Tex(a),Tex(c),Tex(e),Tex(d));
+          b.Face(new Vector3(0,bottom,0),d,e,new Vector2(.5f,.5f),Tex(d),Tex(e));
+        }
+      }
+      return b.ToMesh();
+    });
+
   // ---------------------------------------------------------------- geometry
 
   // Flat-shaded output: every triangle gets its own three vertices and one face

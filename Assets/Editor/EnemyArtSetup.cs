@@ -15,7 +15,8 @@ using UnityEngine.Rendering;
 // one or more extra renderers that reference an EXISTING mesh, repositioned,
 // rescaled and recoloured - so every surface in the game is authored art, and
 // a new enemy cannot look hand-made or distorted, because there is nothing
-// hand-made in it.
+// hand-made in a creature. The small healing symbols are built separately
+// as effect geometry by HealerSymbolArt and SplitterCellArt.
 //
 // This replaced a first attempt that bolted on small meshes generated in
 // Blender (a carapace, a spore crown, budding lobes, a cilia fringe). They were
@@ -91,12 +92,9 @@ public static class EnemyArtSetup
   // It is not usable as a sphere: squashing it round exposes its facets, and
   // the first shield bubble built that way read as a chunk of faceted glass.
   //
-  // For anything round, borrow an EYE. Each model's eye white is a smooth
-  // 481-vert sphere - the only proper sphere in the project's art - and at a
-  // flat colour nothing about it reads as an eye. It is the shield bubble and
-  // the splitter's daughter cells.
+  // Closed daughter-cell effects and camera-facing healer symbols are baked
+  // separately. Eye whites have iris openings and cannot serve as closed cells.
   private const string FastBody = "Body_Body";
-  private const string SphereMesh = "defaultMaterial.004_EyeWhite";
 
   private static readonly Composition[] Compositions =
   {
@@ -120,15 +118,7 @@ public static class EnemyArtSetup
     new Composition
     {
       configName = "SplitterEnemy", baseName = "BasicEnemy",
-      parts = new[]
-      {
-        Orb(new Vector3(0.54f, 0.52f, 0.14f), 0.30f),
-        Orb(new Vector3(-0.32f, 0.26f, -0.50f), 0.24f),
-        Orb(new Vector3(0.16f, 0.18f, 0.55f), 0.21f),
-        Orb(new Vector3(-0.50f, 0.62f, 0.22f), 0.18f),
-        Orb(new Vector3(0.30f, 0.78f, -0.34f), 0.16f),
-        Orb(new Vector3(-0.14f, 0.86f, 0.12f), 0.13f),
-      },
+      parts = new Part[0], // Closed buds are added by SplitterCellArt.
     },
 
     // SWARM - a colony of three rods rather than one small enemy.
@@ -183,119 +173,22 @@ public static class EnemyArtSetup
     },
   };
 
-  // A glowing daughter cell. Amber against the splitter's purple body, which
-  // is the contrast rule from Priority 2b: a same-hue part disappears.
-  private static Part Orb(Vector3 offsetShare, float size) => new Part
-  {
-    sourcePrefab = "BasicEnemy", meshObject = SphereMesh,
-    materialName = "DaughterCell",
-    offsetShare = offsetShare,
-    scaleShare = new Vector3(size, size, size),
-    euler = Vector3.zero,
-    // Deeper amber than it looks like it should be, because emission
-    // MULTIPLIES and anything over 1 clips per channel. A light amber at
-    // emission 1.5 clipped to near-white and the orbs stopped reading as
-    // amber at all; starting darker means the clipped result is still amber.
-    color = new Color(1f, 0.58f, 0.12f),
-    // Tuned to look right with NO bloom, deliberately. Emission is verified
-    // working here (the material carries _EMISSION and the orbs self-light),
-    // but bloom's halo could not be verified: URP's post-processing does not
-    // run for a camera driven by Camera.Render() from an editor batch method,
-    // so no preview in this project can show it. Anything above ~2 clips to
-    // white and the orbs lose their amber identity, which is a real regression
-    // if bloom turns out to be off on a device.
-    emission = 1.35f,
-    // Slow: these are meant to drift around the parent, and anything faster
-    // reads as a spinning prop bolted to it.
-    motion = EnemyTrait.Motion.Orbit, motionSpeed = 0.16f,
-  };
-
-  // A glowing healing cross, built as two crossed capsules.
-  //
-  // It lies FLAT, in the horizontal plane, and that is the whole trick: a plus
-  // is symmetric under a quarter turn, so a horizontal one still reads as a
-  // plus no matter which way the enemy is facing. An upright cross would need
-  // to billboard towards the camera - otherwise it degenerates into a single
-  // bar every time the enemy turns side-on - and billboarding means feeding a
-  // camera into every part's animation for a decoration.
-  //
-  // The game camera looks down at roughly 30-40 degrees, so a flat cross is
-  // foreshortened rather than square. It still reads; a bar does not.
-  //
-  // Both bars share the same offsetShare, which is what keeps them together
-  // while orbiting: Orbit preserves each part's own radius and bearing, so two
-  // parts authored at the same position travel as one object.
+  // Keep the healer's authored tendrils. HealerSymbolArt adds the three
+  // beveled, camera-facing effect symbols after the organic parts are built.
   private static Part[] HealerParts()
   {
-    var parts = new List<Part>
+    return new[]
     {
       new Part
       {
         sourcePrefab = "FastEnemy", meshObject = "Hair_Hair",
         materialName = "HealerAura",
         offsetShare = new Vector3(0f, 0.50f, 0f),
-        // Pulled in from 1.32 to leave the crosses somewhere to sit. With the
-        // aura at its old size the signs were inside the tendrils and read as
-        // red specks caught in them.
         scaleShare = new Vector3(1.12f, 1.08f, 1.08f),
         euler = Vector3.zero,
         color = new Color(0.86f, 1f, 0.84f),
         motion = EnemyTrait.Motion.Pulse, motionSpeed = 0.7f,
       },
-    };
-
-    // Three crosses at different bearings and heights, so at least one is on
-    // the camera side at any point in the orbit.
-    // Radii are deliberately OUTSIDE the aura's 1.12 half-width (so beyond
-    // ~0.56 of the body's size), and the arms are long: a small cross at this
-    // camera's elevation is foreshortened into an unreadable speck, which is
-    // exactly what the first attempt produced.
-    parts.AddRange(Cross(new Vector3(0.84f, 0.62f, 0.14f), 0.32f, HealRed));
-    parts.AddRange(Cross(new Vector3(-0.42f, 0.36f, -0.72f), 0.27f, HealRed));
-    parts.AddRange(Cross(new Vector3(-0.20f, 0.94f, 0.60f), 0.23f, HealRed));
-    return parts.ToArray();
-  }
-
-  // Deep red, not a light one: emission multiplies and clips per channel, so a
-  // pale red washes out to pink-white at any useful emission strength.
-  //
-  // A PROPERTY, not a static readonly field, and that matters. `Compositions`
-  // is a static initialiser that calls HealerParts(), so it runs before any
-  // static field declared later in the file - a `static readonly Color` here
-  // was still (0,0,0,0) when the parts were built. The signs came out
-  // transparent black, and because alpha 0 also routes the material through
-  // MakeTransparent they rendered as invisible smudges rather than as anything
-  // that looked like a colour mistake. A property is evaluated on use, so
-  // declaration order stops mattering.
-  private static Color HealRed => new Color(0.94f, 0.07f, 0.06f);
-
-  private static Part[] Cross(Vector3 offsetShare, float size, Color color)
-  {
-    Part Bar(Vector3 scaleShare) => new Part
-    {
-      sourcePrefab = "FastEnemy", meshObject = FastBody,
-      materialName = "HealSign",
-      offsetShare = offsetShare,
-      scaleShare = scaleShare,
-      euler = Vector3.zero,
-      color = color,
-      // Low. Emission ADDS to the lit colour, so a strong value lifts the
-      // green and blue channels too and a saturated red turns salmon - which
-      // is the opposite of what a healing sign needs. Just enough to look
-      // self-lit.
-      emission = 0.8f,
-      motion = EnemyTrait.Motion.Orbit, motionSpeed = 0.12f,
-    };
-
-    float arm = size;
-    // Thin enough that the two bars read as a cross rather than as a blob.
-    // The bars are capsules, so their rounded ends eat into the apparent arm
-    // length; at 0.24 the two of them merged into a fat lozenge.
-    float thick = size * 0.15f;
-    return new[]
-    {
-      Bar(new Vector3(arm, thick, thick)),
-      Bar(new Vector3(thick, thick, arm)),
     };
   }
 
@@ -414,6 +307,9 @@ public static class EnemyArtSetup
         go.transform.localPosition -= go.transform.localRotation *
           Vector3.Scale(mesh.bounds.center, go.transform.localScale);
       }
+
+      if(comp.configName=="HealerEnemy")HealerSymbolArt.Refine(instance);
+      if(comp.configName=="SplitterEnemy")SplitterCellArt.Refine(instance);
 
       string prefabPath = $"{PrefabDir}/{comp.configName}.prefab";
       GameObject saved = PrefabUtility.SaveAsPrefabAsset(instance, prefabPath);

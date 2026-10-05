@@ -23,9 +23,9 @@ public static class GroundTextureFactory
 
   private static Texture2D BuildMeadow()
   {
-    Color deep = new Color(0.28f, 0.42f, 0.20f);
-    Color mid = new Color(0.37f, 0.50f, 0.25f);
-    Color light = new Color(0.46f, 0.57f, 0.30f);
+    Color deep = new Color(0.24f, 0.39f, 0.28f);
+    Color mid = new Color(0.32f, 0.48f, 0.30f);
+    Color light = new Color(0.41f, 0.55f, 0.34f);
     Color soil = new Color(0.48f, 0.43f, 0.27f);
 
     return Build((u, v) =>
@@ -98,8 +98,8 @@ public static class GroundTextureFactory
 
       // Ridged noise gives a crack network rather than blobs
       float veins = Mathf.Abs(Fbm(u + 2.7f, v + 6.1f, 6, 3) - 0.5f) * 2f;
-      float glow = SmoothStep(0.07f, 0.0f, veins);
-      return Color.Lerp(c, ember, glow * 0.48f);
+      float glow = SmoothStep(0.04f, 0.0f, veins);
+      return Color.Lerp(c, ember, glow * 0.18f);
     });
     return ash;
   }
@@ -114,8 +114,8 @@ public static class GroundTextureFactory
   {
     if (marsh == null) marsh = Build((u, v) =>
     {
-      Color peat = new Color(0.13f, 0.12f, 0.17f);
-      Color moss = new Color(0.20f, 0.27f, 0.17f);
+      Color peat = new Color(0.17f, 0.19f, 0.22f);
+      Color moss = new Color(0.25f, 0.33f, 0.25f);
       Color slime = new Color(0.46f, 0.78f, 0.18f);
       Color pool = new Color(0.20f, 0.42f, 0.10f);
 

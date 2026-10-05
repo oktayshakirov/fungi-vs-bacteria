@@ -53,7 +53,7 @@ public static class CameraPreview
     // (pitch, fov)
     (float pitch, float fov)[] combos =
     {
-      (34f, 45f), (30f, 50f), (27f, 55f), (24f, 60f),
+      (34f, 50f), (42f, 35f), (50f, 35f),
     };
 
     var so = new SerializedObject(rig);
@@ -64,6 +64,7 @@ public static class CameraPreview
     {
       so.Update();
       so.FindProperty("playPitch").floatValue = combo.pitch;
+      so.FindProperty("viewPresets").GetArrayElementAtIndex(0).vector3Value = new Vector3(combo.pitch, 0f, 1f);
       so.FindProperty("fieldOfView").floatValue = combo.fov;
       so.ApplyModifiedPropertiesWithoutUndo();
       Capture(rig, cam, Devices[1], 0, $"cam-p{combo.pitch:00}-f{combo.fov:00}", false);
@@ -350,7 +351,7 @@ public static class CameraPreview
     go.transform.localScale *= UnitScale.Enemy * Mathf.Max(0.01f, cfg.scaleMultiplier);
 
     MeshRenderer body = Enemy.FindBodyRenderer(cfg.prefab);
-    float y = body != null ? body.bounds.size.y * 0.5f : 0.5f;
+    float y = UnitScale.EnemyGroundOffset(cfg.prefab, cfg.scaleMultiplier);
     Vector3 dir = path[1] - path[0];
     dir.y = 0f;
     if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
@@ -365,7 +366,7 @@ public static class CameraPreview
   // MainGame opened in edit mode with the singletons the path code reads wired
   // by hand (-executeMethod never runs Awake), so a level can be built the way
   // the game builds it.
-  private class BoardContext
+  public class BoardContext
   {
     public CameraRig rig;
     public Camera cam;
@@ -381,7 +382,7 @@ public static class CameraPreview
     {
       "Assets/Prefabs/Towers/ArcherTower/ArcherTower.prefab",
       "Assets/Prefabs/Towers/IceTower/IceTower.prefab",
-      "Assets/Prefabs/Towers/InfernoTower/InfernoTower.prefab",
+      "Assets/Prefabs/Towers/PoisonTower/PoisonTower.prefab",
       "Assets/Prefabs/Towers/SniperTower/SniperTower.prefab",
     };
 
@@ -413,7 +414,7 @@ public static class CameraPreview
     }
 
     // Returns the towers/enemies it placed, for the caller to destroy.
-    public List<GameObject> Build(int env, string levelFile, bool withCast)
+    public List<GameObject> Build(int env, string levelFile, bool withCast, bool fullCast=false)
     {
       var level = AssetDatabase.LoadAssetAtPath<LevelConfig>(
         $"Assets/Resources/Levels/Environment{env}/{levelFile}.asset");
@@ -427,7 +428,9 @@ public static class CameraPreview
       typeof(PathManager).GetMethod("GeneratePath", Any).Invoke(pathManager, null);
       decor.BuildAt(pathManager.GetPathPoints());
 
-      var created = PlaceRealTowers(level, TowerPaths);
+      string[] paths=fullCast?System.Array.ConvertAll(FullCastReview.Towers,name=>
+        AssetDatabase.GetAssetPath(AssetDatabase.LoadAssetAtPath<TowerConfig>($"Assets/Settings/Towers/{name}.asset").towerPrefab)):TowerPaths;
+      var created = PlaceRealTowers(level, paths);
       if (withCast) created.AddRange(PlaceRealEnemies(grid, level));
       return created;
     }
@@ -440,6 +443,14 @@ public static class CameraPreview
   // placeholder. EnvironmentsScreen falls back to these when no sprite has been
   // assigned in the inspector, so hand-made art can still override them later.
   public static void RenderEnvironmentCards()
+  {
+    bool previous=ShaderUtil.allowAsyncCompilation;
+    ShaderUtil.allowAsyncCompilation=false;
+    try {RenderEnvironmentCardsInternal();}
+    finally {ShaderUtil.allowAsyncCompilation=previous;}
+  }
+
+  private static void RenderEnvironmentCardsInternal()
   {
     const string dir = "Assets/Resources/EnvPreviews";
     Directory.CreateDirectory(dir);
@@ -480,10 +491,18 @@ public static class CameraPreview
     if (Application.isBatchMode) EditorApplication.Exit(0);
   }
 
+  // Editor captures do not run Enemy.Update. Match its camera-facing symbols
+  // after the final camera pose, including crowds placed without animation.
+  public static void PoseSymbols(Camera cam)
+  {
+    foreach(var trait in Object.FindObjectsByType<EnemyTrait>(FindObjectsSortMode.None))
+      if(trait.faceCamera)trait.Animate(0,cam);
+  }
+
   private static void CaptureTo(CameraRig rig, Camera cam, Device device, string path, int pose = 0)
   {
     float aspect = (float)device.width / device.height;
-    rig.EditorPreview(pose, aspect);
+    rig.EditorPreview(pose, aspect, showHud:false);
     rig.enabled = false;
 
     var rt = new RenderTexture(device.width, device.height, 24, RenderTextureFormat.ARGB32)
@@ -496,6 +515,8 @@ public static class CameraPreview
 
     cam.targetTexture = rt;
     cam.aspect = aspect;
+    PoseSymbols(cam);
+    cam.Render();
     cam.Render();
 
     RenderTexture.active = rt;
@@ -510,6 +531,7 @@ public static class CameraPreview
     rt.Release();
     Object.DestroyImmediate(rt);
     Object.DestroyImmediate(texture);
+    rig.EditorPreview(0,aspect,showHud:true);
     rig.enabled = true;
   }
 
@@ -557,11 +579,8 @@ public static class CameraPreview
       float time = i * 0.37f;
       go.transform.localScale = Enemy.WaddleScale(rest, time, 0f);
 
-      // Height matches EnemySpawner: half the BODY's height measured on the
-      // prefab, which deliberately ignores UnitScale the same way the game
-      // does - copying the quirk keeps the preview honest.
-      MeshRenderer body = Enemy.FindBodyRenderer(cfg.prefab);
-      float y = body != null ? body.bounds.size.y * 0.5f : 0.5f;
+      // Same scaled body-bottom lift as runtime, including type proportions.
+      float y = UnitScale.EnemyGroundOffset(cfg.prefab, cfg.scaleMultiplier);
 
       Vector3 here = pts[index];
       Vector3 next = pts[Mathf.Min(index + 1, pts.Length - 1)];

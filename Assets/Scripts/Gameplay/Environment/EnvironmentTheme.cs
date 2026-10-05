@@ -67,7 +67,7 @@ public static class EnvironmentTheme
     get
     {
       Color tint = Current.enemyTint;
-      return tint.r <= 0f && tint.g <= 0f && tint.b <= 0f ? Color.white : tint;
+      return tint.r <= 0f && tint.g <= 0f && tint.b <= 0f ? Color.white : Color.Lerp(Color.white,tint,.25f);
     }
   }
 
@@ -353,7 +353,7 @@ public static class EnvironmentTheme
           ambient = C(0.62f, 0.66f, 0.68f),
           lightColor = C(1f, 0.97f, 0.86f),
           lightIntensity = 1.25f,
-          lightAngles = new Vector3(32f, 28f, 0f),
+          lightAngles = new Vector3(48f, -28f, 0f),
           sunColor = C(1f, 0.97f, 0.80f),
           sunSize = 0.012f, sunGlow = 5f,
           hazeColor = C(0.95f, 0.98f, 1f), hazeStrength = 0.45f,
@@ -365,7 +365,7 @@ public static class EnvironmentTheme
           groundTint = Color.white,
           groundTiling = 2f,
           soilColor = C(0.40f, 0.28f, 0.17f),
-          pathColor = C(0.66f, 0.50f, 0.32f),
+          pathColor = C(0.83f, 0.69f, 0.46f),
           rockColor = C(0.55f, 0.56f, 0.58f),
           plantColor = C(0.28f, 0.60f, 0.24f),
           structureColor = C(0.62f, 0.52f, 0.70f),
@@ -392,11 +392,12 @@ public static class EnvironmentTheme
     }
     if (keyLight == null) return;
 
-    keyLight.color = p.lightColor;
+    // Keep the atmosphere in the sky/scenery while retaining readable role colours.
+    keyLight.color = Color.Lerp(p.lightColor,Color.white,.55f);
     keyLight.intensity = p.lightIntensity;
     keyLight.transform.rotation = Quaternion.Euler(p.lightAngles);
     keyLight.shadows = LightShadows.Soft;
-    keyLight.shadowStrength = 0.60f;
+    keyLight.shadowStrength = 0.48f;
     keyLight.shadowBias = 0.15f;
     keyLight.shadowNormalBias = 0.35f;
     RenderSettings.sun = keyLight;
@@ -457,15 +458,19 @@ public static class EnvironmentTheme
   public static void ApplyAmbient(Palette p)
   {
     RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-    RenderSettings.ambientSkyColor = Color.Lerp(p.ambient,p.skyHorizon,.12f);
-    RenderSettings.ambientEquatorColor = p.ambient * .92f;
-    RenderSettings.ambientGroundColor = Color.Lerp(p.ambient,p.soilColor,.18f) * .72f;
+    float value=p.ambient.r*.2126f+p.ambient.g*.7152f+p.ambient.b*.0722f;
+    float lift=Mathf.InverseLerp(.65f,.35f,value)*.65f;
+    Color fill=Color.Lerp(p.ambient,new Color(.58f,.60f,.62f),lift);
+    RenderSettings.ambientSkyColor = Color.Lerp(fill,p.skyHorizon,.08f);
+    RenderSettings.ambientEquatorColor = fill * .96f;
+    RenderSettings.ambientGroundColor = Color.Lerp(fill,p.soilColor,.10f) * .78f;
   }
 
   private static void ApplyGround(Palette p)
   {
     if (GroundManager.Instance != null)
     {
+      GroundManager.Instance.ApplyIslandOutline();
       var renderer = GroundManager.Instance.GetComponent<MeshRenderer>();
       if (renderer != null)
       {

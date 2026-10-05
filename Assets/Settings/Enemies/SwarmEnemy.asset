@@ -37,4 +37,4 @@ MonoBehaviour:
   splitSpeedMultiplier: 1.15
   overrideBodyColor: 1
   bodyColor: {r: 0.98, g: 0.6, b: 0.2, a: 1}
-  scaleMultiplier: 0.65
+  scaleMultiplier: 0.85

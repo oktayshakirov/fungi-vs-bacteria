@@ -9,7 +9,7 @@ public class TutorialOverlay : MonoBehaviour
 {
   private const string CompletedKey = "TutorialCompleted";
   private TMP_Text stepText, counterText;
-  private bool placed, started, finished;
+  private bool placed, started, inspected, finished;
   private RectTransform startButton;
   private Image highlight;
 
@@ -44,37 +44,46 @@ public class TutorialOverlay : MonoBehaviour
   {
     TowerPlacement.OnTowerPlaced += Placed;
     EnemySpawner.OnWaveStarted += Started;
+    Tower.OnTowerSelected += Selected;
   }
   private void OnDisable()
   {
     TowerPlacement.OnTowerPlaced -= Placed;
     EnemySpawner.OnWaveStarted -= Started;
+    Tower.OnTowerSelected -= Selected;
     if(highlight!=null) Destroy(highlight.gameObject);
   }
   private void Placed(TowerConfig config) { placed=true; Refresh(); }
   private void Started(int wave) { started=true; Refresh(); }
+  private void Selected(Tower tower) { if (placed && started) { inspected=true; Refresh(); } }
 
   private void Refresh()
   {
     if(finished || stepText==null) return;
-    if(placed && started)
+    if(placed && started && inspected)
     {
       finished=true;
       counterText.text="YOU'RE READY";
-      stepText.text="Your fungus attacks automatically. Earn coins from enemies and build more defenses.";
+      stepText.text="Compare UPGRADE with another fungus. FIRST stops leaks; STRONG focuses high health and shields.";
       Highlight(null);
       Complete();
       StartCoroutine(Dismiss());
     }
+    else if(placed && started)
+    {
+      Highlight(null);
+      counterText.text="3 / 3   INSPECT YOUR DEFENSE";
+      stepText.text="Tap your placed fungus. Compare the next upgrade and choose which bacteria it targets.";
+    }
     else if(placed)
     {
       Highlight(startButton);
-      counterText.text="2 / 2   START YOUR FIRST WAVE";
+      counterText.text="2 / 3   START YOUR FIRST WAVE";
       stepText.text="Tap START WAVE when you're ready. Keep bacteria away from your base.";
     }
     else
     {
-      counterText.text="1 / 2   PLACE YOUR FIRST FUNGUS";
+      counterText.text="1 / 3   PLACE YOUR FIRST FUNGUS";
       stepText.text="Drag a fungus from the right panel onto a free tile beside the path. Or tap the fungus, then the tile.";
     }
   }

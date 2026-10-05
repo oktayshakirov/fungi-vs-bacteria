@@ -32,27 +32,29 @@ public class CameraRig : MonoBehaviour
 
   [Header("Lens")]
   [Tooltip("A narrow FOV from further away gives the flat 'tabletop diorama' look.")]
-  [SerializeField] private float fieldOfView = 50f;
+  [SerializeField] private float fieldOfView = 35f;
 
   [Header("Framing")]
   [Tooltip("Fraction of the screen kept as a margin around the board.")]
   [SerializeField, Range(0f, 0.2f)] private float edgePadding = 0.02f;
   [Tooltip("Screen fraction reserved for the top HUD (stats bar).")]
-  [SerializeField, Range(0f, 0.4f)] private float hudTopReserve = 0.09f;
+  [SerializeField, Range(0f, 0.4f)] private float hudTopReserve = 0.12f;
   [Tooltip("Screen fraction reserved for the bottom HUD (towers panel).")]
   [SerializeField, Range(0f, 0.4f)] private float hudBottomReserve = 0.15f;
+  [Tooltip("Fallback tower tray width in 720-height canvas units, before the HUD has laid out.")]
+  [SerializeField] private float hudRightWidth = 252f;
   [Tooltip("Vertical headroom above the board so tall towers stay in frame.")]
   [SerializeField] private float towerHeadroom = 5f;
 
   [Header("Play view")]
-  [SerializeField] private float playPitch = 34f;
+  [SerializeField] private float playPitch = 42f;
   [SerializeField] private float playYaw = 0f;
   [Tooltip("Selectable camera angles (pitch, yaw, zoom) cycled by the view button.")]
   [SerializeField] private Vector3[] viewPresets =
   {
-    new Vector3(26f, 0f, 1f),    // Cinematic low
-    new Vector3(52f, 0f, 1f),    // Isometric / top-down
-    new Vector3(34f, 34f, 1f),   // Angled
+    new Vector3(42f, 0f, 1f),    // Clear default combat view
+    new Vector3(50f, 0f, 1f),    // Tactical overview
+    new Vector3(34f, 0f, 1f),    // Character view, same board orientation
   };
   private int viewIndex = 0;
   [Tooltip("Tilt further on wide phones and flatter on tablets, so the board " +
@@ -115,8 +117,9 @@ public class CameraRig : MonoBehaviour
     Bounds board = GetBoardBounds();
     if (board.size.z < 0.01f) return playPitch;
 
-    float usableV = Mathf.Max(0.2f, 1f - hudTopReserve - hudBottomReserve - edgePadding * 2f);
-    float usableH = Mathf.Max(0.2f, 1f - edgePadding * 2f);
+    Rect viewport = GameplayViewport;
+    float usableV = viewport.height;
+    float usableH = viewport.width;
     float sin = board.size.x * usableV / (board.size.z * GetAspect() * usableH);
 
     return Mathf.Clamp(Mathf.Asin(Mathf.Clamp01(sin)) * Mathf.Rad2Deg, minPitch, maxPitch);
@@ -188,8 +191,9 @@ public class CameraRig : MonoBehaviour
   // amount is a 0..1 intensity; scaled to world units for this camera distance
   public void Shake(float amount)
   {
-    shakeMagnitude = amount * 4f;
-    shakeDuration = 0.35f;
+    if(shakeDuration>0 && shakeTime<.12f) return;
+    shakeMagnitude = Mathf.Clamp01(amount) * 1.2f;
+    shakeDuration = 0.25f;
     shakeTime = 0f;
   }
 
@@ -245,24 +249,21 @@ public class CameraRig : MonoBehaviour
     float tanV = Mathf.Tan(fieldOfView * 0.5f * Mathf.Deg2Rad);
     float tanH = tanV * aspect;
 
-    // Reserve space for the HUD bands and a uniform margin
-    float usableV = Mathf.Max(0.2f, 1f - hudTopReserve - hudBottomReserve - edgePadding * 2f);
-    float usableH = Mathf.Max(0.2f, 1f - edgePadding * 2f);
-    float tanVFit = tanV * usableV;
-    float tanHFit = tanH * usableH;
-
+    Rect viewport = GameplayViewport;
     Vector3 pivot = board.center + Vector3.up * pose.height;
-    float distance = RequiredDistance(board, pivot, rotation, tanHFit, tanVFit) * pose.zoom;
+    float distance = RequiredDistance(board, pivot, rotation, tanH, tanV, viewport) * pose.zoom;
 
     Vector3 forward = rotation * Vector3.forward;
     Vector3 up = rotation * Vector3.up;
 
-    // Slide the image so the board sits inside the usable band rather than
-    // behind the HUD: positive when the bottom reserve is larger than the top.
-    float bandOffset = (hudBottomReserve - hudTopReserve) * 0.5f;
-    float worldOffset = 2f * distance * tanV * bandOffset;
-
-    transform.SetPositionAndRotation(pivot - forward * distance - up * worldOffset, rotation);
+    Vector3 right = rotation * Vector3.right;
+    Vector2 centre = viewport.center * 2f - Vector2.one;
+    // Aim into the usable rectangle, including the tray's horizontal exclusion.
+    // The fit below includes this offset in its perspective inequalities;
+    // shifting after a symmetric fit clips the nearer corners.
+    transform.SetPositionAndRotation(pivot - forward * distance
+      - right * (distance * tanH * centre.x)
+      - up * (distance * tanV * centre.y), rotation);
 
     cam.nearClipPlane = 0.3f;
     float far = distance * 4f;
@@ -279,13 +280,16 @@ public class CameraRig : MonoBehaviour
 
   // Smallest distance along the view direction that keeps every board corner
   // inside the frustum, solved directly from the frustum inequalities.
-  private float RequiredDistance(Bounds board, Vector3 pivot, Quaternion rotation, float tanH, float tanV)
+  private float RequiredDistance(Bounds board, Vector3 pivot, Quaternion rotation, float tanH, float tanV, Rect viewport)
   {
     Vector3 forward = rotation * Vector3.forward;
     Vector3 right = rotation * Vector3.right;
     Vector3 up = rotation * Vector3.up;
 
     Vector3 e = board.extents;
+    Vector2 min = viewport.min * 2f - Vector2.one;
+    Vector2 max = viewport.max * 2f - Vector2.one;
+    Vector2 centre = (min + max) * 0.5f;
     float distance = 1f;
 
     for (int i = 0; i < 8; i++)
@@ -298,11 +302,63 @@ public class CameraRig : MonoBehaviour
       Vector3 v = corner - pivot;
       float alongForward = Vector3.Dot(v, forward);
 
-      distance = Mathf.Max(distance, Mathf.Abs(Vector3.Dot(v, right)) / tanH - alongForward);
-      distance = Mathf.Max(distance, Mathf.Abs(Vector3.Dot(v, up)) / tanV - alongForward);
+      float x = Vector3.Dot(v, right) / tanH;
+      float y = Vector3.Dot(v, up) / tanV;
+      distance = Mathf.Max(distance, (x - max.x * alongForward) / (max.x - centre.x));
+      distance = Mathf.Max(distance, (min.x * alongForward - x) / (centre.x - min.x));
+      distance = Mathf.Max(distance, (y - max.y * alongForward) / (max.y - centre.y));
+      distance = Mathf.Max(distance, (min.y * alongForward - y) / (centre.y - min.y));
     }
 
     return distance;
+  }
+
+  private readonly Vector3[] hudCorners = new Vector3[4];
+
+  // Coordinates are relative to the full camera image, not the SafeArea child.
+  // Read the actual tray after layout so tablets and notched phones agree with
+  // the UI. The fallback also makes standalone board previews representative.
+  public Rect GameplayViewport
+  {
+    get
+    {
+#if UNITY_EDITOR
+      if(suppressHudForPreview && !Application.isPlaying) return Rect.MinMaxRect(edgePadding,edgePadding,1f-edgePadding,1f-edgePadding);
+#endif
+      float left = edgePadding;
+      float right = 1f - edgePadding - hudRightWidth / (720f * GetAspect());
+      float bottom = hudBottomReserve + edgePadding;
+      float top = 1f - hudTopReserve - edgePadding;
+      RectTransform frame = HudTheme.RightRailRect;
+      if (frame != null)
+      {
+        Canvas canvas = frame.GetComponentInParent<Canvas>();
+        RectTransform root = canvas != null ? canvas.rootCanvas.transform as RectTransform : null;
+        if (root != null && root.rect.width > 0f)
+        {
+          if (frame.gameObject.activeInHierarchy)
+          {
+            frame.GetWorldCorners(hudCorners);
+            float localLeft = root.InverseTransformPoint(hudCorners[0]).x;
+            right = (localLeft - root.rect.xMin - 8f) / root.rect.width - edgePadding;
+          }
+          else right = 1f - edgePadding;
+
+          RectTransform safe = HudTheme.GameplaySafeRect;
+          if (safe != null)
+          {
+            safe.GetWorldCorners(hudCorners);
+            left = Mathf.Max(left, (root.InverseTransformPoint(hudCorners[0]).x - root.rect.xMin) / root.rect.width + edgePadding);
+            right = Mathf.Min(right, (root.InverseTransformPoint(hudCorners[2]).x - root.rect.xMin) / root.rect.width - edgePadding);
+            bottom = Mathf.Max(bottom, (root.InverseTransformPoint(hudCorners[0]).y - root.rect.yMin) / root.rect.height + edgePadding);
+            top = Mathf.Min(top, (root.InverseTransformPoint(hudCorners[2]).y - root.rect.yMin) / root.rect.height - edgePadding);
+          }
+        }
+      }
+      right = Mathf.Clamp(right, left + 0.2f, 1f - edgePadding);
+      top = Mathf.Max(bottom + 0.2f, top);
+      return Rect.MinMaxRect(left, bottom, right, top);
+    }
   }
 
   private float GetAspect()
@@ -317,9 +373,11 @@ public class CameraRig : MonoBehaviour
 
 #if UNITY_EDITOR
   // Used by the framing preview tool: 0 = play, 1 = intro, 2 = outro
-  public void EditorPreview(int poseIndex, float aspect)
+  private bool suppressHudForPreview;
+  public void EditorPreview(int poseIndex, float aspect, bool showHud=true)
   {
     aspectOverride = aspect;
+    suppressHudForPreview=!showHud;
     ApplyPose(poseIndex == 1 ? introPose : poseIndex == 2 ? outroPose : PlayPose);
   }
 

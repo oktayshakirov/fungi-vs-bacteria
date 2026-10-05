@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: e53202ee0ed854197a8f4797e80b0de0, type: 2}
   startingGold: 1268
   startingHealth: 100
+  challengeTitle: Armor Patrol
+  challengeBrief: Use Poison for armor; invest the clear reward in damage.

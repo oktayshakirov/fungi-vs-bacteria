@@ -15,193 +15,63 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-      healthMultiplier: 1.2837343
-      rewardMultiplier: 1.2837343
-    timeBetweenSpawns: 1.02
-    timeToNextWave: 5
-    waveGoldReward: 69
+      count: 5
+      healthMultiplier: 1.4548988
+      rewardMultiplier: 1.4548988
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 1
+      healthMultiplier: 1.3094089
+      rewardMultiplier: 1.4548988
+    timeBetweenSpawns: 1.2
+    timeToNextWave: 12
+    waveGoldReward: 60
+    planningHint: Cover the bends. Use the first clear reward to prepare for the
+      next threat.
   - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
+      count: 2
+      healthMultiplier: 1.6831183
+      rewardMultiplier: 1.6831183
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 1.4263715
-      rewardMultiplier: 1.4263715
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 2
-      healthMultiplier: 1.4263715
-      rewardMultiplier: 1.4263715
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 4
-      healthMultiplier: 1.4263715
-      rewardMultiplier: 1.4263715
+      healthMultiplier: 1.6831183
+      rewardMultiplier: 1.6831183
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 70
+    planningHint: Sustain hits on shields; a break in damage lets them regenerate.
+  - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
       count: 2
-      healthMultiplier: 1.4263715
-      rewardMultiplier: 1.4263715
-    timeBetweenSpawns: 0.98
-    timeToNextWave: 5
-    waveGoldReward: 73
-  - enemyGroups:
+      healthMultiplier: 1.9113376
+      rewardMultiplier: 1.9113376
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
+      healthMultiplier: 1.9113376
+      rewardMultiplier: 1.9113376
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 2
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 2
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
+      healthMultiplier: 1.7202038
+      rewardMultiplier: 1.9113376
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 80
+    planningHint: Sustain hits on shields; a break in damage lets them regenerate.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
+      count: 3
+      healthMultiplier: 2.1395571
+      rewardMultiplier: 2.1395571
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 2
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
-    - enemyConfig: {fileID: 11400000, guid: 2f24141bd9e44d289fe037c883aba29f, type: 2}
-      count: 2
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
-    - enemyConfig: {fileID: 11400000, guid: dca56fc8518b48debe0fe23969c491a6, type: 2}
-      count: 1
-      healthMultiplier: 1.5690086
-      rewardMultiplier: 1.5690086
-    timeBetweenSpawns: 0.94
-    timeToNextWave: 5
-    waveGoldReward: 77
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 6
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 3
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 2
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 5
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 2
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    - enemyConfig: {fileID: 11400000, guid: 2f24141bd9e44d289fe037c883aba29f, type: 2}
-      count: 2
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    - enemyConfig: {fileID: 11400000, guid: dca56fc8518b48debe0fe23969c491a6, type: 2}
-      count: 1
-      healthMultiplier: 1.7116457
-      rewardMultiplier: 1.7116457
-    timeBetweenSpawns: 0.90000004
-    timeToNextWave: 5
-    waveGoldReward: 81
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 6
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 3
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 3
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 5
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 3
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    - enemyConfig: {fileID: 11400000, guid: 2f24141bd9e44d289fe037c883aba29f, type: 2}
-      count: 3
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    - enemyConfig: {fileID: 11400000, guid: dca56fc8518b48debe0fe23969c491a6, type: 2}
-      count: 1
-      healthMultiplier: 1.8542829
-      rewardMultiplier: 1.8542829
-    timeBetweenSpawns: 0.86
-    timeToNextWave: 5
-    waveGoldReward: 85
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 7
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 3
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 3
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 6
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 3
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    - enemyConfig: {fileID: 11400000, guid: 2f24141bd9e44d289fe037c883aba29f, type: 2}
-      count: 3
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    - enemyConfig: {fileID: 11400000, guid: dca56fc8518b48debe0fe23969c491a6, type: 2}
-      count: 1
-      healthMultiplier: 1.99692
-      rewardMultiplier: 1.99692
-    timeBetweenSpawns: 0.82000005
-    timeToNextWave: 5
-    waveGoldReward: 89
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 7
       healthMultiplier: 2.1395571
       rewardMultiplier: 2.1395571
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 3
-      healthMultiplier: 2.1395571
+      healthMultiplier: 1.9256014
       rewardMultiplier: 2.1395571
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 3
-      healthMultiplier: 2.1395571
-      rewardMultiplier: 2.1395571
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 6
-      healthMultiplier: 2.1395571
-      rewardMultiplier: 2.1395571
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 3
-      healthMultiplier: 2.1395571
-      rewardMultiplier: 2.1395571
-    - enemyConfig: {fileID: 11400000, guid: 2f24141bd9e44d289fe037c883aba29f, type: 2}
-      count: 3
-      healthMultiplier: 2.1395571
-      rewardMultiplier: 2.1395571
-    - enemyConfig: {fileID: 11400000, guid: dca56fc8518b48debe0fe23969c491a6, type: 2}
-      count: 1
-      healthMultiplier: 2.1395571
-      rewardMultiplier: 2.1395571
-    - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
-      count: 2
-      healthMultiplier: 2.1395571
-      rewardMultiplier: 2.1395571
-    timeBetweenSpawns: 0.78000003
-    timeToNextWave: 5
-    waveGoldReward: 93
+    timeBetweenSpawns: 1
+    timeToNextWave: 12
+    waveGoldReward: 90
+    planningHint: 'Final pack: Sustain hits on shields; a break in damage lets them
+      regenerate.'

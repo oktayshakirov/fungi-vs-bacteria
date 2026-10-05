@@ -22,3 +22,4 @@ MonoBehaviour:
   armorDamageReduction: 0
   isFast: 0
   speedMultiplier: 1
+  scaleMultiplier: 1.3

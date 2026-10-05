@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: f126ef277a4f5411d9485874cf616478, type: 2}
   startingGold: 1604
   startingHealth: 100
+  challengeTitle: Healer Escort
+  challengeBrief: Overlap damage to finish enemies between healer pulses.

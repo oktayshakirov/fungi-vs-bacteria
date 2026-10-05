@@ -95,6 +95,14 @@ PrefabInstance:
       propertyPath: m_ConstrainProportionsScale
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: -7338594022215688393, guid: 764de8441fe42e24597ca18ca56ff205, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.12
+      objectReference: {fileID: 0}
+    - target: {fileID: -7338594022215688393, guid: 764de8441fe42e24597ca18ca56ff205, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.12
+      objectReference: {fileID: 0}
     - target: {fileID: -5849248108168824167, guid: 764de8441fe42e24597ca18ca56ff205, type: 3}
       propertyPath: m_Name
       value: Head
@@ -188,10 +196,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 06f94883213f245ffb40b7917a0f569c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   tower: {fileID: 525912956784778861}
   projectileSpawnPoint: {fileID: 6402484516474792370}
+  modelYawOffset: 90
   projectilePrefab: {fileID: 1026409603045961977, guid: 2596a992dd62f824293293bc70d75c36, type: 3}
   tileIndicatorPrefab: {fileID: 8015606089559125091, guid: 17fd0f3a0f81a4a2e91549ce6e7f5e1e, type: 3}
 --- !u!114 &-1597527475024697962
@@ -204,8 +213,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe8090ae547d84e3b96ca8177a28147b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!136 &-8859893611709710456
 CapsuleCollider:
   m_ObjectHideFlags: 0

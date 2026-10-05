@@ -13,20 +13,21 @@ MonoBehaviour:
   m_Name: Env4-Level08-Path
   m_EditorClassIdentifier: Assembly-CSharp::PathConfig
   pathName: Env4 Level8 Path
-  description: 
+  description: 'Boss Advance: Build for the boss: Poison for armor, Ice for its rush.'
   pathGridCoordinates:
-  - {x: 0, y: 1}
-  - {x: 1, y: 1}
+  - {x: 0, y: 3}
+  - {x: 1, y: 3}
+  - {x: 2, y: 3}
+  - {x: 2, y: 2}
   - {x: 2, y: 1}
-  - {x: 2, y: 0}
-  - {x: 3, y: 0}
-  - {x: 4, y: 0}
-  - {x: 5, y: 0}
-  - {x: 6, y: 0}
-  - {x: 6, y: 1}
-  - {x: 6, y: 2}
+  - {x: 3, y: 1}
+  - {x: 4, y: 1}
+  - {x: 4, y: 2}
+  - {x: 4, y: 3}
+  - {x: 5, y: 3}
   - {x: 6, y: 3}
-  - {x: 7, y: 3}
-  - {x: 7, y: 4}
-  - {x: 8, y: 4}
-  - {x: 9, y: 4}
+  - {x: 6, y: 2}
+  - {x: 6, y: 1}
+  - {x: 7, y: 1}
+  - {x: 8, y: 1}
+  - {x: 9, y: 1}

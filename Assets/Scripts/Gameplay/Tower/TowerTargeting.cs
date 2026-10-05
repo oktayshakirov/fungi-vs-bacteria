@@ -1,45 +1,47 @@
 using UnityEngine;
 
+public enum TargetPriority { First, Strong, Nearest }
+
 public class TowerTargeting : MonoBehaviour
 {
   public Transform CurrentTarget { get; private set; }
+  public TargetPriority Priority { get; private set; } = TargetPriority.First;
   private float range;
   private float nextSearch;
   private Enemy targetEnemy;
   private uint targetSpawn;
 
+  // Reinitializing the range on upgrade keeps the player's chosen priority.
   public void Initialize(float range)
   {
     this.range = range;
-    CurrentTarget=null; targetEnemy=null;
-    nextSearch=Time.time+(GetInstanceID()&15)*.006f;
+    CurrentTarget = null;
+    targetEnemy = null;
+    nextSearch = Time.time + (GetInstanceID() & 15) * .006f;
   }
 
-  private float GetDistanceToTarget(Transform target)
+  public void SetPriority(TargetPriority priority)
   {
-    float distanceToEnemy = Vector3.Distance(transform.position, target.position);
+    Priority = priority;
+    nextSearch = Time.time;
+    FindNewTarget();
+  }
 
-    return distanceToEnemy;
+  private float GroundDistanceSquared(Transform target)
+  {
+    Vector3 offset = target.position - transform.position;
+    return offset.x * offset.x + offset.z * offset.z;
   }
 
   public void UpdateTarget()
   {
-    if (CurrentTarget != null)
-    {
-      // A pooled enemy is deactivated, not destroyed, so the reference stays
-      // non-null. Without this check the tower keeps firing at a dead (or
-      // reused) enemy's position — shooting at "nothing".
-      if (!CurrentTarget.gameObject.activeInHierarchy || targetEnemy == null || targetEnemy.SpawnVersion != targetSpawn)
-      {
-        CurrentTarget = null;
-      }
-      else if (GetDistanceToTarget(CurrentTarget) > range)
-      {
-        CurrentTarget = null;
-      }
-    }
+    if (CurrentTarget != null && (targetEnemy == null || !targetEnemy.IsTargetable
+      || targetEnemy.SpawnVersion != targetSpawn || GroundDistanceSquared(CurrentTarget) > range * range))
+      CurrentTarget = null;
 
-    if (CurrentTarget == null && Time.time >= nextSearch)
+    // Reconsider the best target even while the old one is valid: a fast
+    // bacterium can overtake it. Staggered scans avoid a full-board frame spike.
+    if (Time.time >= nextSearch)
     {
       nextSearch = Time.time + .10f;
       FindNewTarget();
@@ -48,19 +50,29 @@ public class TowerTargeting : MonoBehaviour
 
   private void FindNewTarget()
   {
-    float shortestDistance = range*range;
-    Enemy nearest = null;
+    Enemy best = null;
+    float bestScore = float.PositiveInfinity;
+    float bestExit = float.PositiveInfinity;
     var enemies = Enemy.Active;
-    for(int i=0;i<enemies.Count;i++)
+    for (int i = 0; i < enemies.Count; i++)
     {
-      Enemy enemy=enemies[i];
-      if(enemy==null || !enemy.gameObject.activeInHierarchy) continue;
-      float distance=(transform.position-enemy.transform.position).sqrMagnitude;
-      if(distance<=shortestDistance){shortestDistance=distance;nearest=enemy;}
+      Enemy enemy = enemies[i];
+      if (enemy == null || !enemy.IsTargetable) continue;
+      float distance = GroundDistanceSquared(enemy.transform);
+      if (distance > range * range) continue;
+      float exit = enemy.DistanceToExit;
+      float score = Priority == TargetPriority.Nearest ? distance
+        : Priority == TargetPriority.Strong ? -enemy.RemainingStrength : exit;
+      if (best == null || score < bestScore || (Mathf.Approximately(score, bestScore) && exit < bestExit))
+      {
+        best = enemy;
+        bestScore = score;
+        bestExit = exit;
+      }
     }
-    targetEnemy=nearest;
-    targetSpawn=nearest!=null?nearest.SpawnVersion:0;
-    CurrentTarget=nearest!=null?nearest.transform:null;
+    targetEnemy = best;
+    targetSpawn = best != null ? best.SpawnVersion : 0;
+    CurrentTarget = best != null ? best.transform : null;
   }
 
   public void DrawRangeGizmo()

@@ -57,7 +57,9 @@ public class GameSpeedButton : MonoBehaviour
     label.text = fast ? "2x" : "1x";
 
     Color tint = fast ? UiSkin.Accent : UiSkin.Neutral;
-    UiSkin.StyleButton(button, tint, UiSkin.RadiusChip);
+    UiSkin.StyleButton(button, tint, UiSkin.RadiusChip, emphasized: fast);
+    if(fast)UiFont.ApplyReadable(label,true);
+    label.fontSize=label.fontSizeMax=20f;label.fontSizeMin=16f;label.margin=Vector4.zero;
     if (glyph != null) glyph.color = fast ? UiSkin.TextDark : UiSkin.TextPrimary;
   }
 }

@@ -18,8 +18,11 @@ public class GameManager : MonoBehaviour
 
   private EnemySpawner spawner;
   private int aliveEnemies;
+  public int AliveEnemies => aliveEnemies;
+  public bool HasEnded => gameEnded;
   private bool gameEnded;
   private int levelStartingHealth = 100;
+  public BattleReport Report { get; private set; }
 
   // Chosen play speed (1x or 2x); pausing sets timeScale to 0 without losing it
   public float PlaySpeed { get; private set; } = 1f;
@@ -51,6 +54,7 @@ public class GameManager : MonoBehaviour
     currentHealth = level != null ? level.startingHealth : startingHealth;
 
     levelStartingHealth = currentHealth;
+    Report = new BattleReport(currentHealth, level != null ? LevelProgress.GetStars(level.environmentName,level.levelNumber) : 0);
     Boosters.BeginRun();
 
     PlaySpeed = 1f;
@@ -78,10 +82,8 @@ public class GameManager : MonoBehaviour
 
   public void OnEnemyRemoved()
   {
-    bool hadEnemies=aliveEnemies>0;
     aliveEnemies = Mathf.Max(0, aliveEnemies - 1);
-    if(hadEnemies && aliveEnemies==0 && !gameEnded && currentHealth>0 && spawner!=null && !spawner.IsWaveInProgress && !spawner.AreWavesComplete())
-      HUDManager.Instance?.ShowPathClear();
+    spawner?.CheckWaveClear();
     CheckVictory();
   }
 
@@ -155,11 +157,17 @@ public class GameManager : MonoBehaviour
     UpdateUI();
   }
 
-  public void TakeDamage(int damage)
+  public void TakeDamage(int damage) => TakeDamage(damage,null,false);
+
+  public void TakeDamage(int damage, EnemyConfig source, bool isChild)
   {
+    if (gameEnded || damage <= 0) return;
+    int lost = BoosterEffects.ShieldActive ? 0 : Mathf.Min(currentHealth,damage);
+    // Record before showing the result: the fatal enemy is still on the board.
+    Report?.RecordEscape(source,isChild,lost);
     if (BoosterEffects.ShieldActive) return;
 
-    currentHealth = Mathf.Max(0, currentHealth - damage);
+    currentHealth = Mathf.Max(0, currentHealth - lost);
     UpdateUI();
 
     // Feedback: the base was hit
@@ -200,6 +208,8 @@ public class GameManager : MonoBehaviour
     UpdateUI();
     HUDManager.Instance.HideGameOverScreen();
     ResumeGame();
+
+    spawner?.CheckWaveClear();
 
     // A continue can leave the board already empty — the last enemy may have
     // died in the same frame as the base fell — which would otherwise strand

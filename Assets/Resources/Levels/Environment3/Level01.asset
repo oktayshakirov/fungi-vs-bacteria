@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 8fa70944d0e7e4b76b4f50f9101eee79, type: 2}
   startingGold: 980
   startingHealth: 100
+  challengeTitle: Poison and Armor
+  challengeBrief: Use Poison for armor and overlap damage against healers.

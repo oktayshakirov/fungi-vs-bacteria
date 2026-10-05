@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: a4e6749a2bdb14e43adcdee57be22a4c, type: 2}
   startingGold: 692
   startingHealth: 100
+  challengeTitle: Counter Mix
+  challengeBrief: Use clear rewards to strengthen gaps between counters.

@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e6760aa607ac6488d9309034868fb647, type: 3}
   m_Name: HealerEnemy
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   enemyName: Healer enemy
   prefab: {fileID: 5411766135431099508, guid: 7bd7fcd149eb242ee896fb47d3d0fc6f, type: 3}
   maxHealth: 110
@@ -37,4 +37,4 @@ MonoBehaviour:
   splitSpeedMultiplier: 1.15
   overrideBodyColor: 1
   bodyColor: {r: 0.35, g: 0.9, b: 0.45, a: 1}
-  scaleMultiplier: 0.95
+  scaleMultiplier: 1.25

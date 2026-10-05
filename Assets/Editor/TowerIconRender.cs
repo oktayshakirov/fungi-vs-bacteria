@@ -20,6 +20,14 @@ public static class TowerIconRender
 
   public static void Render()
   {
+    bool previous=ShaderUtil.allowAsyncCompilation;
+    ShaderUtil.allowAsyncCompilation=false;
+    try {RenderInternal();}
+    finally {ShaderUtil.allowAsyncCompilation=previous;}
+  }
+
+  private static void RenderInternal()
+  {
     var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
     var lightGo = new GameObject("Key");
@@ -123,6 +131,9 @@ public static class TowerIconRender
     var rt = new RenderTexture(big, big, 24, RenderTextureFormat.ARGB32) { antiAliasing = 2 };
     cam.targetTexture = rt;
     cam.aspect = 1f;
+    // Warm the URP material bindings before alpha reconstruction; otherwise
+    // the first icon can inherit one material tint across all of its parts.
+    cam.Render();
     cam.Render();
 
     RenderTexture.active = rt;

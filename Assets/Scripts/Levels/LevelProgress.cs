@@ -2,20 +2,12 @@ using UnityEngine;
 
 public static class LevelProgress
 {
-  // TESTING: unlocks every environment and level. MUST be false in a store
-  // build. Flip it back to true to jump straight to a late level while
-  // debugging - with it false you have to play there.
-  //
-  // CURRENTLY TRUE, deliberately: phase 32 is going onto a device to be
-  // played, and most of what needs looking at is late-game - the chain bolt
-  // wants a crowded path, the enemy triangle cut wants a 30-enemy wave, and
-  // the three losing levels in section 5 are all in environment 7. None of
-  // that is reachable in a reasonable time from a locked fresh install.
-  // TURN IT BACK OFF before any store build.
-  // `static readonly`, not `const`: a compile-time constant makes every
-  // `if (UnlockAll) return true;` below fold away and the compiler then reports
-  // the returns as unreachable code, burying real warnings under noise.
+  // Keep late missions accessible for playtesting; store builds use progression.
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
   public static readonly bool UnlockAll = true;
+#else
+  public static readonly bool UnlockAll = false;
+#endif
 
   private static string Key(string environmentName) => $"HighestCompletedLevel_{environmentName}";
 
@@ -102,13 +94,20 @@ public static class LevelProgress
     }
   }
 
-  // 3 stars for finishing near-untouched, 2 for over half health, else 1
+  // Share exact integer thresholds with result and replay-goal UI.
+  public static int HealthForStars(int stars, int startingHealth)
+  {
+    int health = Mathf.Max(1, startingHealth);
+    if (stars >= 3) return Mathf.CeilToInt(health * .9f);
+    if (stars >= 2) return Mathf.CeilToInt(health * .5f);
+    return 1;
+  }
+
   public static int StarsForHealth(int healthRemaining, int startingHealth)
   {
     if (startingHealth <= 0) return 1;
-    float ratio = (float)healthRemaining / startingHealth;
-    if (ratio >= 0.9f) return 3;
-    if (ratio >= 0.5f) return 2;
+    if (healthRemaining >= HealthForStars(3,startingHealth)) return 3;
+    if (healthRemaining >= HealthForStars(2,startingHealth)) return 2;
     return 1;
   }
 }

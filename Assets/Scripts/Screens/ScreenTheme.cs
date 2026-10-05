@@ -26,7 +26,7 @@ public static class ScreenTheme
       bool isPrimary = button == primary;
       UiSkin.StyleButton(button,
         isPrimary ? (primaryColor ?? UiSkin.Primary) : UiSkin.Neutral,
-        UiSkin.RadiusButton);
+        UiSkin.RadiusButton, emphasized: isPrimary);
     }
   }
 

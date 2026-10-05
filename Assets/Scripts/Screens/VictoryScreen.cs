@@ -30,7 +30,7 @@ public class VictoryScreen : MonoBehaviour
     payoutLabel = null;
     foreach(string name in new[]{"CoinPayout","ProgressSummary","SkipReveal"})
     {
-      var old = transform.Find(name);
+      var old = transform.Find(name) ?? transform.Find("SafeArea/"+name);
       if(old != null) { old.name += "Retired"; old.gameObject.SetActive(false); if(Application.isPlaying) Destroy(old.gameObject); else DestroyImmediate(old.gameObject); }
     }
     nextLevelButton.onClick.RemoveAllListeners();
@@ -42,9 +42,7 @@ public class VictoryScreen : MonoBehaviour
     bool hasNextLevel = LevelRepository.GetNextLevel(GameSession.SelectedLevel) != null;
     nextLevelButton.gameObject.SetActive(hasNextLevel);
 
-    // Short of three stars, offer the level again: stars are where the coin
-    // payout comes from, and the only other route back was menu -> biome ->
-    // level. Not offered at three stars, where there is nothing left to earn.
+    // An imperfect run can be replayed directly to pursue its health goal.
     Button replay = EnsureReplayButton();
     replay.gameObject.SetActive(stars < 3);
 
@@ -54,6 +52,7 @@ public class VictoryScreen : MonoBehaviour
     ShowCoinPayout(payout);
     ShowProgress();
     BuildSkip();
+    BattleDebrief.Show(transform, nextLevelButton.transform.parent as RectTransform, true, stars);
     revealStarted = Time.unscaledTime;
     revealing = Application.isPlaying;
     if(revealing) AnimateReveal(0); else CompleteReveal();
@@ -203,7 +202,7 @@ public class VictoryScreen : MonoBehaviour
     var current=GameSession.SelectedLevel;
     var next=LevelRepository.GetNextLevel(current);
     string text="WELL DEFENDED";
-    if(next!=null) text=$"UP NEXT: LEVEL {next.levelNumber}  •  {EnvironmentInfo.DisplayName(next.environmentName)}";
+    if(next!=null) text=$"UP NEXT: LEVEL {next.levelNumber}  /  {EnvironmentInfo.DisplayName(next.environmentName)}";
     else if(current!=null)
     {
       string[] parts=current.environmentName.Split(' ');
@@ -216,7 +215,7 @@ public class VictoryScreen : MonoBehaviour
     var go=new GameObject("ProgressSummary",typeof(RectTransform));go.transform.SetParent(transform,false);
     var rect=(RectTransform)go.transform;rect.anchorMin=rect.anchorMax=new Vector2(.5f,.525f);
     rect.sizeDelta=new Vector2(900,48);go.AddComponent<LayoutElement>().ignoreLayout=true;
-    var label=go.AddComponent<TextMeshProUGUI>();UiSkin.Label(label,UiSkin.Role.Value,UiSkin.TextPrimary);
+    var label=go.AddComponent<TextMeshProUGUI>();UiSkin.Label(label,UiSkin.Role.Heading,UiSkin.TextPrimary);
     label.fontSizeMax=22;label.fontSizeMin=16;label.alignment=TextAlignmentOptions.Center;label.text=text;label.raycastTarget=false;
   }
 
@@ -228,7 +227,7 @@ public class VictoryScreen : MonoBehaviour
     var image=go.GetComponent<Image>();image.color=Color.clear;
     skipReveal=go.GetComponent<Button>();skipReveal.targetGraphic=image;skipReveal.onClick.AddListener(CompleteReveal);
     var text=new GameObject("Label",typeof(RectTransform));text.transform.SetParent(go.transform,false);UiSkin.Stretch((RectTransform)text.transform);
-    var label=text.AddComponent<TextMeshProUGUI>();UiSkin.Label(label,UiSkin.Role.Value,UiSkin.TextMuted);
+    var label=text.AddComponent<TextMeshProUGUI>();UiSkin.Label(label,UiSkin.Role.ButtonLabel,UiSkin.TextMuted);
     label.fontSizeMax=18;label.text="SKIP ANIMATION";label.alignment=TextAlignmentOptions.Center;label.raycastTarget=false;
   }
 

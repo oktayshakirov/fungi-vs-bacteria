@@ -126,6 +126,8 @@ namespace TowerDefense.UI
     {
       TMP_Text label = Label(panel, "Description", UiSkin.Role.Caption, UiSkin.TextPrimary);
       label.alignment = TextAlignmentOptions.TopLeft;
+      label.textWrappingMode = TextWrappingModes.Normal;
+      label.overflowMode = TextOverflowModes.Ellipsis;
       Element(label.gameObject).preferredHeight = DescriptionHeight;
       return label;
     }
@@ -156,9 +158,9 @@ namespace TowerDefense.UI
 
     // The button row at the foot of the panel. Buttons are added to the
     // returned transform; they share the width evenly.
-    public static Transform Actions(Transform panel)
+    public static Transform Actions(Transform panel, string name = "Actions")
     {
-      var rowGo = new GameObject("Actions", typeof(RectTransform));
+      var rowGo = new GameObject(name, typeof(RectTransform));
       rowGo.transform.SetParent(panel, false);
       var row = rowGo.AddComponent<HorizontalLayoutGroup>();
       row.spacing = 8f;

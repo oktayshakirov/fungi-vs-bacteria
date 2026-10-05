@@ -426,6 +426,7 @@ public class WalletScreen : MonoBehaviour
       bool active = i == index;
       var image = button.GetComponent<Image>();
       UiSkin.Panel(image, active ? UiSkin.Primary : UiSkin.PanelRaised, UiSkin.RadiusButton);
+      if(active)UiFont.ApplyReadable(label,true);else UiFont.ApplyControl(label);
       label.color = active ? UiSkin.TextDark : UiSkin.TextPrimary;
     }
   }
@@ -797,13 +798,13 @@ public class WalletScreen : MonoBehaviour
     var capGo = new GameObject("Amount", typeof(RectTransform));
     capGo.transform.SetParent(go.transform, false);
     var capRect = (RectTransform)capGo.transform;
-    capRect.anchorMin = new Vector2(0f, 0.55f);
+    capRect.anchorMin = new Vector2(0f, 0.50f);
     capRect.anchorMax = new Vector2(1f, 1f);
     capRect.offsetMin = new Vector2(6f, 0f);
-    capRect.offsetMax = new Vector2(-6f, -4f);
+    capRect.offsetMax = new Vector2(-6f, -1f);
     var cap = capGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(cap, UiSkin.Role.ButtonLabel, bundle ? UiSkin.Primary : UiSkin.TextMuted);
-    cap.fontSizeMax = 20f;
+    cap.fontSize=cap.fontSizeMax=18f;cap.fontSizeMin=16f;
     cap.text = bundle && saving > 0 ? $"x{amount}  -{saving}%" : $"x{amount}";
     cap.alignment = TextAlignmentOptions.Midline;
     cap.raycastTarget = false;
@@ -958,6 +959,7 @@ public class WalletScreen : MonoBehaviour
     priceGo.transform.SetParent(go.transform, false);
     var priceLabel = priceGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(priceLabel, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
+    UiFont.ApplyReadable(priceLabel,true);
     priceLabel.text = price;
     priceLabel.alignment = TextAlignmentOptions.MidlineRight;
     priceLabel.textWrappingMode = TextWrappingModes.NoWrap;
@@ -1011,6 +1013,7 @@ public class WalletScreen : MonoBehaviour
     noAdsCoinsButton = UiSkin.IconButton(coinsGo, UiSprites.Coin(), UiSkin.Primary,
       out noAdsCoinsLabel, UiSkin.RadiusButton, UiSkin.Gold);
     UiSkin.Label(noAdsCoinsLabel, UiSkin.Role.ButtonLabel, UiSkin.TextDark);
+    UiFont.ApplyControl(noAdsCoinsLabel,true);
     noAdsCoinsLabel.alignment = TextAlignmentOptions.Midline;
     noAdsCoinsLabel.textWrappingMode = TextWrappingModes.NoWrap;
     noAdsCoinsLabel.enableAutoSizing = true;
@@ -1045,6 +1048,7 @@ public class WalletScreen : MonoBehaviour
     labelGo.transform.SetParent(go.transform, false);
     label = labelGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(label, UiSkin.Role.ButtonLabel, text);
+    UiFont.ApplyControl(label,UiSkin.IsPrimaryFill(tint));
     label.alignment = TextAlignmentOptions.Midline;
     label.textWrappingMode = TextWrappingModes.NoWrap;
     label.enableAutoSizing = true;
@@ -1317,6 +1321,7 @@ public class WalletScreen : MonoBehaviour
       // moves, which is the whole point of merging the two buttons.
       watchLabel.text = $"WATCH AD  +{reward}";
     }
+    watchLabel.color=watchButton.interactable?UiSkin.TextDark:UiSkin.TextPrimary;
   }
 
   private void Close()

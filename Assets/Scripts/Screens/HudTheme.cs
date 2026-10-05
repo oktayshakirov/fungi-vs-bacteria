@@ -17,6 +17,8 @@ public static class HudTheme
     Button startWaveButton, Button pauseButton,
     RectTransform towersPanel)
   {
+    RightRailRect = null;
+    GameplaySafeRect = statsPanel != null ? statsPanel.parent as RectTransform : null;
     StyleStats(statsPanel, goldText, healthText);
 
     // Pulled inside first: WaveText's own position is nudged clear of
@@ -43,6 +45,7 @@ public static class HudTheme
     if (startWaveButton != null)
     {
       UiSkin.StyleButton(startWaveButton, UiSkin.Primary, UiSkin.RadiusButton);
+      UiSkin.Label(startWaveButton.GetComponentInChildren<TMP_Text>(true),UiSkin.Role.DisplayButton,UiSkin.TextDark);
       UiSkin.AddButtonIcon(startWaveButton, UiSprites.Play(), null, 26f);
       PlaceStartWave((RectTransform)startWaveButton.transform, rail);
     }
@@ -67,6 +70,7 @@ public static class HudTheme
   {
     if (statsPanel != null)
     {
+      statsPanel.sizeDelta = new Vector2(statsPanel.sizeDelta.x, 74f);
       // The old flat grey box; the chips carry the background now
       var panelImage = statsPanel.GetComponent<Image>();
       if (panelImage != null) panelImage.enabled = false;
@@ -100,15 +104,15 @@ public static class HudTheme
     chip.transform.SetSiblingIndex(index);
 
     var chipRect = (RectTransform)chip.transform;
-    chipRect.sizeDelta = new Vector2(168f, 62f);
+    chipRect.sizeDelta = new Vector2(138f, 50f);
 
     var bg = chip.AddComponent<Image>();
     UiSkin.Panel(bg, UiSkin.PanelDark, UiSkin.RadiusChip);
     bg.raycastTarget = false;
 
     var element = chip.AddComponent<LayoutElement>();
-    element.preferredWidth = 168f;
-    element.preferredHeight = 62f;
+    element.preferredWidth = 138f;
+    element.preferredHeight = 50f;
 
     var layout = chip.AddComponent<HorizontalLayoutGroup>();
     layout.padding = new RectOffset(14, 16, 8, 8);
@@ -128,6 +132,7 @@ public static class HudTheme
     text.transform.SetParent(chip.transform, false);
     UiSkin.Label(text, UiSkin.Role.Value, textColor);
     text.alignment = TextAlignmentOptions.MidlineLeft;
+    text.fontSizeMax = 30f;
 
     var textElement = text.gameObject.GetComponent<LayoutElement>();
     if (textElement == null) textElement = text.gameObject.AddComponent<LayoutElement>();
@@ -281,8 +286,9 @@ public static class HudTheme
       // width follows the number inside it - see HudKeepClear.
       HudKeepClear.Attach((RectTransform)plate.transform, waveText.rectTransform,
         statsPanel, EdgeMargin);
-      UiSkin.Label(waveText, UiSkin.Role.Heading);
+      UiSkin.Label(waveText, UiSkin.Role.DisplayHeading);
       waveText.alignment = TextAlignmentOptions.Center;
+      waveText.fontSizeMax = 30f;
     }
 
     if (timerText != null)
@@ -294,7 +300,7 @@ public static class HudTheme
       // The scene authors this as the placeholder "Timer", which showed on the
       // HUD until the first countdown tick replaced it
       timerText.text = string.Empty;
-      timerText.fontStyle = FontStyles.Bold;
+      UiFont.ApplyReadable(timerText,true);
       timerText.outlineWidth = 0.18f;
       timerText.outlineColor = new Color32(12, 14, 24, 210);
     }
@@ -302,16 +308,9 @@ public static class HudTheme
 
   // --------------------------------------------------------- the towers rail
   //
-  // The right-hand rail: a single scrolling column of tower cards with an
-  // icon-only collapse toggle above it and Start Wave directly beneath it.
-  //
-  // It was a TWO-column grid pinned 14 units off the right edge with Start Wave
-  // parked in the opposite corner. Two columns of 160 claim 340 units - better
-  // than a quarter of the board on a 16:9 phone - for a list that is read one
-  // card at a time, and splitting the two controls across opposite corners
-  // meant the eye had to cross the whole screen between "which tower" and
-  // "go". One column, hard against the right edge, hands that width back to
-  // the board and puts both controls in one vertical run.
+  // A compact two-column tower tray, with the wave control directly below it.
+  // Its measured left edge is shared with CameraRig so gameplay never sits
+  // behind the cards. Scrolling remains available for larger future rosters.
 
   // How far the rail sits off the right edge of the SCREEN - not off the safe
   // area. The rail is hoisted out of the SafeArea (see StyleTowersPanel) so it
@@ -372,24 +371,22 @@ public static class HudTheme
 
     Transform parent = towersPanel.parent;
 
-    // ONE column. The scene authors two; the count is overridden here rather
-    // than in the scene so the width below is always derived from what the
-    // grid is actually going to lay out.
+    // Four compact rows expose the full eight-tower roster without scrolling
+    // on landscape screens. Keep scrolling available for shorter safe areas.
     grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-    grid.constraintCount = 1;
+    grid.constraintCount = 2;
     grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-    grid.spacing = new Vector2(0f, 8f);
+    grid.spacing = new Vector2(8f, 8f);
 
     // A gutter on the right for the permanent scrollbar, which would otherwise
     // sit on top of the cards.
     grid.padding = new RectOffset(10, 10 + ScrollbarGutter, 10, 10);
 
-    // Squarer cells would only fit three towers in the rail's height. The card
-    // lays its name, art and cost out on anchors, so it takes the shorter cell
-    // without anything inside it moving.
-    grid.cellSize = new Vector2(grid.cellSize.x, Mathf.Min(grid.cellSize.y, 132f));
+    // Labels and art use proportional anchors (TowerSelectionButton.Style),
+    // so the compact two-column cell does not retain the old fixed offsets.
+    grid.cellSize = new Vector2(104f, 112f);
 
-    float width = grid.padding.left + grid.padding.right + grid.cellSize.x;
+    float width = grid.padding.left + grid.padding.right + grid.cellSize.x * 2f + grid.spacing.x;
 
     float top = -towersPanel.anchoredPosition.y;          // gap below the pause row
     float frameTop = top;
@@ -516,6 +513,7 @@ public static class HudTheme
     // comes from the tower grid's cell size at runtime, so it cannot be a
     // constant and nothing else can work it out on its own.
     RightRailSpan = RailInset + width;
+    RightRailRect = frame;
     return rail;
   }
 
@@ -664,14 +662,16 @@ public static class HudTheme
     }
   }
 
-  public const float StackedButtonWidth = 132f;
-  public const float StackedButtonHeight = 58f;
+  public const float StackedButtonWidth = 104f;
+  public const float StackedButtonHeight = 46f;
   public const float EdgeMargin = 20f;
 
   // How much of the right edge the towers rail and Start Wave occupy, measured
   // when the rail is laid out. Zero until then, which is the safe default: a
   // bar that assumes nothing is there simply centres itself.
   public static float RightRailSpan { get; private set; }
+  public static RectTransform RightRailRect { get; private set; }
+  public static RectTransform GameplaySafeRect { get; private set; }
 
   // The scene anchors the right-hand HUD at x = +10, i.e. ten units past the
   // screen edge. That was survivable at the old canvas scale; once the UI was

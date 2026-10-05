@@ -24,6 +24,7 @@ using TowerDefense.UI;
 public class PlacementCancelButton : MonoBehaviour
 {
   private static PlacementCancelButton instance;
+  public static bool IsOpen => instance != null && instance.gameObject.activeSelf;
 
   public static void Show(TowerConfig config, Action onCancel)
   {

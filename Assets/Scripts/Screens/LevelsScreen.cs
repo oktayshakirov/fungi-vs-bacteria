@@ -11,7 +11,7 @@ public class LevelSelectionScreen : MonoBehaviour
     SelectionScreenView view;
     List<LevelConfig> levels;
     RectTransform route;
-    TMP_Text selection, description, pageLabel, status;
+    TMP_Text selection, missionTitle, description, pageLabel, status;
     RectTransform detailStars;
     Button play, previous, next;
     int selectedIndex, page, columns, nextIndex;
@@ -20,7 +20,15 @@ public class LevelSelectionScreen : MonoBehaviour
     RectTransform selectionRing, currentBase;
     SelectionIslandPreview basePreview, sceneryPreview;
     readonly List<GameObject> nodes = new List<GameObject>();
-    public int PageSize => columns * 3;
+    // Balance pages so a narrow tablet does not leave level ten on its own.
+    public int PageSize
+    {
+        get
+        {
+            int capacity=Mathf.Max(1,columns*3), count=levels?.Count??0;
+            return count>capacity ? Mathf.CeilToInt(count/(float)SelectionRouteLayout.PageCount(count,capacity)) : capacity;
+        }
+    }
 
     void Start()
     {
@@ -49,15 +57,18 @@ public class LevelSelectionScreen : MonoBehaviour
         UiSkin.Panel(card.gameObject.AddComponent<Image>(), new Color(.075f, .12f, .13f, .96f), 28);
         status = SelectionScreenView.Label(SelectionScreenView.Rect("Status", card, new Vector2(.08f,.87f), new Vector2(.92f,.96f)), "", 14, true);
         status.alignment = TextAlignmentOptions.Center;
-        currentBase = SelectionScreenView.Rect("CurrentLevelBase", card, new Vector2(.5f,.67f), new Vector2(.5f,.67f));
-        currentBase.sizeDelta = new Vector2(132,132);
+        currentBase = SelectionScreenView.Rect("CurrentLevelBase", card, new Vector2(.5f,.72f), new Vector2(.5f,.72f));
+        currentBase.sizeDelta = new Vector2(110,110);
         basePreview = SelectionIslandPreview.Create(currentBase);
-        selection = SelectionScreenView.Label(SelectionScreenView.Rect("SelectedLevel", card, new Vector2(.08f,.43f), new Vector2(.92f,.55f)), "", 32, true);
+        missionTitle = SelectionScreenView.Label(SelectionScreenView.Rect("MissionTitle", card, new Vector2(.07f,.46f), new Vector2(.93f,.575f)), "", 22, true);
+        missionTitle.fontSizeMin=18;missionTitle.alignment=TextAlignmentOptions.Center;
+        selection = SelectionScreenView.Label(SelectionScreenView.Rect("SelectedLevel", card, new Vector2(.08f,.355f), new Vector2(.92f,.435f)), "", 24, true);
         selection.alignment = TextAlignmentOptions.Center;
-        detailStars = SelectionScreenView.Rect("BestStars", card, new Vector2(.5f,.38f), new Vector2(.5f,.38f));
-        description = SelectionScreenView.Label(SelectionScreenView.Rect("Description", card, new Vector2(.09f,.22f), new Vector2(.91f,.31f)), "", 17);
+        detailStars = SelectionScreenView.Rect("BestStars", card, new Vector2(.5f,.32f), new Vector2(.5f,.32f));
+        description = SelectionScreenView.Label(SelectionScreenView.Rect("Description", card, new Vector2(.09f,.20f), new Vector2(.91f,.29f)), "", 17);
+        description.fontSizeMin=16;
         description.alignment = TextAlignmentOptions.Center;
-        play = SelectionScreenView.Button(SelectionScreenView.Rect("Play", card, new Vector2(.08f,.055f), new Vector2(.92f,.19f)), "PLAY", UiSkin.Primary, Play);
+        play = SelectionScreenView.Button(SelectionScreenView.Rect("Play", card, new Vector2(.08f,.055f), new Vector2(.92f,.19f)), "PLAY", UiSkin.Primary, Play, displayLabel:true);
         previous = SelectionScreenView.Button(SelectionScreenView.Rect("PreviousPage", view.Root, new Vector2(.25f,.025f), new Vector2(.30f,.095f)), "", UiSkin.Neutral, () => ChangePage(-1));
         next = SelectionScreenView.Button(SelectionScreenView.Rect("NextPage", view.Root, new Vector2(.42f,.025f), new Vector2(.47f,.095f)), "", UiSkin.Neutral, () => ChangePage(1));
         EnvironmentsScreen.Arrow(previous, false); EnvironmentsScreen.Arrow(next, true);
@@ -184,7 +195,10 @@ public class LevelSelectionScreen : MonoBehaviour
             fill.a=1;
             entry.Value.GetComponent<Image>().color=fill;
             entry.Value.transform.Find("Rim/Face").GetComponent<Image>().color=fill;
-            entry.Value.GetComponentInChildren<TMP_Text>().color=unlocked && entry.Key==selectedIndex ? UiSkin.TextDark : (unlocked ? UiSkin.TextPrimary : new Color(.73f,.78f,.71f));
+            var label=entry.Value.GetComponentInChildren<TMP_Text>();
+            bool selectedOption=unlocked && entry.Key==selectedIndex;
+            if(selectedOption)UiFont.ApplyReadable(label,true);else UiFont.ApplyControl(label);
+            label.color=selectedOption ? UiSkin.TextDark : (unlocked ? UiSkin.TextPrimary : new Color(.73f,.78f,.71f));
         }
         if(!levelButtons.TryGetValue(selectedIndex,out var selected)) return;
         if(selectionRing==null)
@@ -244,13 +258,17 @@ public class LevelSelectionScreen : MonoBehaviour
         LevelConfig level = levels[index];
         bool unlocked = LevelProgress.IsLevelUnlocked(level.environmentName, level.levelNumber);
         selection.text = $"LEVEL {level.levelNumber}";
+        missionTitle.text = string.IsNullOrWhiteSpace(level.challengeTitle) ? "COLONY DEFENSE" : level.challengeTitle.ToUpperInvariant();
         int waves = level.waveConfig != null && level.waveConfig.waves != null ? level.waveConfig.waves.Length : 0;
         status.text = !unlocked ? "KEEP EXPLORING" : index == nextIndex ? "YOUR NEXT LEVEL" : "READY TO REPLAY";
         status.color = unlocked ? new Color(.75f,.81f,.46f) : SelectionScreenView.Muted;
         for(int i=detailStars.childCount-1;i>=0;i--) { var child=detailStars.GetChild(i).gameObject; child.SetActive(false); if(Application.isPlaying) Destroy(child); else DestroyImmediate(child); }
         StarSprite.BuildRow(detailStars, Mathf.Clamp(LevelProgress.GetStars(level.environmentName,level.levelNumber),0,3), 24);
-        description.text = unlocked ? $"{waves} waves to defend"
-          : index > 0 ? $"Complete level {levels[index - 1].levelNumber} to unlock" : "Locked";
+        int best = LevelProgress.GetStars(level.environmentName,level.levelNumber);
+        description.text = !unlocked ? (index > 0 ? $"Complete level {levels[index - 1].levelNumber} to unlock" : "Locked")
+          : best == 0 ? $"{waves} waves to defend"
+          : best >= 3 ? "3 stars earned"
+          : $"{best+1} stars: {LevelProgress.HealthForStars(best+1,level.startingHealth)}+ health";
         play.interactable = unlocked;
         SelectionScreenView.ButtonText(play, unlocked ? "PLAY LEVEL" : "LOCKED");
         SelectionScreenView.ButtonIcon(play, unlocked ? UiSprites.Play() : UiSprites.Lock());

@@ -41,6 +41,24 @@ public class Enemy : MonoBehaviour
   private Vector3[] waypoints;
 
   private int currentWaypointIndex = 0;
+  private float[] distanceToExit;
+
+  public bool IsTargetable => !isRemoved && health > 0 && gameObject.activeInHierarchy;
+  public float RemainingStrength => health + shield;
+
+  // Distance along the remaining route, not a shortcut across a winding path.
+  // Cached suffix lengths make each tower's priority scan O(enemies).
+  public float DistanceToExit
+  {
+    get
+    {
+      if (waypoints == null || distanceToExit == null || currentWaypointIndex >= waypoints.Length)
+        return float.PositiveInfinity;
+      Vector3 offset = waypoints[currentWaypointIndex] - transform.position;
+      offset.y = 0;
+      return offset.magnitude + distanceToExit[currentWaypointIndex];
+    }
+  }
 
   private float slowAmount = 0f;
   private float slowDuration = 2f;
@@ -64,15 +82,17 @@ public class Enemy : MonoBehaviour
   // either matters more than taking damage they can already see in the numbers.
   private void RefreshStatusAppearance()
   {
-    int state = IsFrozen ? 3 : slowAmount > 0 ? 2 : IsPoisoned ? 1 : 0;
+    int state = (IsFrozen ? 3 : slowAmount > 0 ? 2 : IsPoisoned ? 1 : 0) + (int)Phase*4;
     if(state == statusAppearance) return;
     statusAppearance = state;
     if(bodyRenderer == null) return;
     propertyBlock ??= new MaterialPropertyBlock();
     bodyRenderer.GetPropertyBlock(propertyBlock);
-    Color color = state == 3 ? Color.Lerp(bodyColor,new Color(.65f,.9f,1f),.7f)
-      : state == 2 ? Color.Lerp(bodyColor,slowTint,.55f)
-      : state == 1 ? Color.Lerp(bodyColor,poisonTint,.5f) : bodyColor;
+    Color phaseColor=Phase==BossStage.Fortified?Color.Lerp(bodyColor,new Color(.64f,.49f,.27f),.14f)
+      :Phase==BossStage.Rushing?Color.Lerp(bodyColor,new Color(.76f,.27f,.24f),.18f):bodyColor;
+    Color color = state%4 == 3 ? Color.Lerp(phaseColor,new Color(.65f,.9f,1f),.7f)
+      : state%4 == 2 ? Color.Lerp(phaseColor,slowTint,.55f)
+      : state%4 == 1 ? Color.Lerp(phaseColor,poisonTint,.5f) : phaseColor;
     propertyBlock.SetColor(BaseColorId,color);
     propertyBlock.SetColor(ColorId,color);
     bodyRenderer.SetPropertyBlock(propertyBlock);
@@ -81,7 +101,7 @@ public class Enemy : MonoBehaviour
   private float normalSpeed;
   private bool isRemoved = false;
   private int maxHealth;
-  private int pendingDamage, pendingShield;
+  private int pendingDamage, pendingShield, pendingHeal;
   private float nextDamagePopup;
   private EnemyHealthBar healthBar;
 
@@ -101,6 +121,17 @@ public class Enemy : MonoBehaviour
   private float shieldMax;
   private float lastDamagedAt = -999f;
   private float nextHealAt;
+  public enum BossStage { Stable, Fortified, Rushing }
+  public BossStage Phase { get; private set; }
+  public bool IsBossWarning => pendingBossStage != Phase;
+  private BossStage pendingBossStage;
+  private float bossWarningLeft;
+  private BossCue bossCue;
+  private CombatPulse bossWarningPulse;
+  private FloatingText bossWarningText;
+  private uint warningPulseRevision,warningTextRevision;
+  private float birthStartedAt = -1;
+  public float BodyRadius => bodyRenderer!=null ? Mathf.Clamp(Mathf.Max(bodyRenderer.bounds.extents.x,bodyRenderer.bounds.extents.z),.35f,4f) : .6f;
   private SpawnOverride spawnOverride = SpawnOverride.Default;
 
   private MeshRenderer bodyRenderer;
@@ -152,7 +183,11 @@ public class Enemy : MonoBehaviour
 
   private void Awake()
   {
-    baseScale = transform.localScale;
+    // Awake runs inside Instantiate, before EnemyPool can change the scale.
+    // Apply the shared visual size here once; Initialize always uses this
+    // cached rest scale, including when a splitter child returns to the pool.
+    baseScale = transform.localScale * UnitScale.Enemy;
+    transform.localScale = baseScale;
     currentScale = baseScale;
 
     traits = GetComponentsInChildren<EnemyTrait>(true);
@@ -191,7 +226,7 @@ public class Enemy : MonoBehaviour
     MeshRenderer[] all = root.GetComponentsInChildren<MeshRenderer>(true);
     foreach (MeshRenderer r in all)
     {
-      if (r != null && r.GetComponentInParent<EnemyTrait>() == null) return r;
+      if (r != null && r.GetComponentInParent<EnemyTrait>(true) == null) return r;
     }
     return all.Length > 0 ? all[0] : null;
   }
@@ -213,7 +248,9 @@ public class Enemy : MonoBehaviour
     // Full reset: instances come back from the pool with stale state
     StopAllCoroutines();
     isRemoved = false;
-    pendingDamage=pendingShield=0; nextDamagePopup=0;
+    pendingDamage=pendingShield=pendingHeal=0; nextDamagePopup=0;
+    ClearBossWarning();
+    Phase=pendingBossStage=BossStage.Stable;bossWarningLeft=0;birthStartedAt=-1;
     slowAmount = 0f;
     slowedUntil = 0f;
     // Same trap as frozenUntil below: a poisoned enemy that died mid-dose would
@@ -238,6 +275,13 @@ public class Enemy : MonoBehaviour
     motionPhase = (GetInstanceID() & 1023) / 1023f * Mathf.PI * 2f;
 
     waypoints = path;
+    distanceToExit = new float[waypoints.Length];
+    for (int i = waypoints.Length - 2; i >= 0; i--)
+    {
+      Vector3 segment = waypoints[i + 1] - waypoints[i];
+      segment.y = 0;
+      distanceToExit[i] = distanceToExit[i + 1] + segment.magnitude;
+    }
     currentWaypointIndex = Mathf.Clamp(ov.startWaypoint, 0, waypoints.Length - 1);
 
     // Scaled per wave: the shared EnemyConfig assets are identical on level 1
@@ -272,6 +316,8 @@ public class Enemy : MonoBehaviour
       if (healthBar == null) healthBar = gameObject.AddComponent<EnemyHealthBar>();
     }
     UpdateHealthBar();
+    if(enemyConfig.hasBossPhases && bossCue==null) bossCue=gameObject.AddComponent<BossCue>();
+    bossCue?.Pose(BodyRadius*1.1f,Phase,false);
 
     transform.position = waypoints[currentWaypointIndex];
 
@@ -347,6 +393,8 @@ public class Enemy : MonoBehaviour
     bool up = shield > 0f;
     if (up == shieldWasUp) return;
     shieldWasUp = up;
+    if(up) CombatPulse.Emit(new Vector3(transform.position.x,.15f,transform.position.z),BodyRadius,
+      ShieldColor,.35f,CombatPulse.Shape.Ring);
     shieldSkin?.Apply(up);
     if (traits == null) return;
     foreach (EnemyTrait t in traits)
@@ -405,7 +453,9 @@ public class Enemy : MonoBehaviour
   private void ApplyMotion(float time)
   {
     Vector3 scale = WaddleScale(currentScale, time, motionPhase);
-    transform.localScale = scale * (1f + hitPunch * 0.18f) * EmergeScale();
+    float birth=birthStartedAt<0?1:Mathf.Lerp(.8f,1,Mathf.Clamp01((time-birthStartedAt)/.22f));
+    transform.localScale=Vector3.Scale(scale,new Vector3(1+hitPunch*.06f,1-hitPunch*.05f,1+hitPunch*.06f))*EmergeScale()*birth;
+    bossCue?.Pose(BodyRadius*1.1f,Phase,IsBossWarning);
 
     transform.rotation = yawRotation * WaddleRoll(time, motionPhase);
 
@@ -450,7 +500,9 @@ public class Enemy : MonoBehaviour
     if(slowAmount > 0 && Time.time >= slowedUntil) { slowAmount=0; speed=normalSpeed; }
     TickPoison(Time.deltaTime);
     RefreshStatusAppearance();
-    if (waypoints == null) return;
+    if (isRemoved || waypoints == null || currentWaypointIndex >= waypoints.Length) return;
+
+    StepBoss(Time.deltaTime);
 
     // Move towards the next path point
     Vector3 targetPosition = waypoints[currentWaypointIndex];
@@ -502,6 +554,7 @@ public class Enemy : MonoBehaviour
     if (config == null || !config.isHealer || Time.time < nextHealAt) return;
     nextHealAt = Time.time + config.healInterval;
 
+    bool healed=false;
     float radiusSqr = config.healRadius * config.healRadius;
     for (int i = 0; i < active.Count; i++)
     {
@@ -512,25 +565,27 @@ public class Enemy : MonoBehaviour
 
       int amount = Mathf.Max(1,
         Mathf.RoundToInt(other.maxHealth * config.healShareOfMaxHealth));
-      other.ReceiveHeal(amount);
+      other.ReceiveHeal(amount);healed=true;
     }
+    if(healed) CombatPulse.Emit(new Vector3(transform.position.x,.15f,transform.position.z),Mathf.Min(4,config.healRadius),
+      new Color(.42f,.76f,.43f),.48f,CombatPulse.Shape.Ring,false,transform);
   }
 
   public void ReceiveHeal(int amount)
   {
-    if (isRemoved || health >= maxHealth) return;
+    if (isRemoved || health >= maxHealth || amount <= 0) return;
 
+    int before=health;
     health = Mathf.Min(maxHealth, health + amount);
+    pendingHeal+=health-before;
     UpdateHealthBar();
-    FloatingText.Spawn(
-      transform.position + Vector3.up * (currentScale.y + 0.5f), $"+{amount}", HealColor);
   }
 
   private void DealDamageToBase()
   {
     if (GameManager.Instance != null)
     {
-      GameManager.Instance.TakeDamage(damage);
+      GameManager.Instance.TakeDamage(damage, config, config != null && config.isSplitter && !spawnOverride.canSplit);
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.BaseDamage);
       Debug.Log($"Base took {damage} damage!");
     }
@@ -543,14 +598,19 @@ public class Enemy : MonoBehaviour
     healthBar?.SetShield(shieldMax > 0 ? shield / shieldMax : 0, shieldMax > 0);
   }
 
+  private Vector3 PopupPosition => bodyRenderer!=null
+    ? new Vector3(transform.position.x,bodyRenderer.bounds.max.y+.5f,transform.position.z)
+    : transform.position+Vector3.up*(currentScale.y+.5f);
+
   private void FlushDamageText()
   {
-    if(pendingDamage==0 && pendingShield==0) return;
-    Vector3 position=transform.position+Vector3.up*(currentScale.y+.5f);
+    if(pendingDamage==0 && pendingShield==0 && pendingHeal==0) return;
+    Vector3 position=PopupPosition;
     if(pendingDamage>0) FloatingText.Spawn(position,pendingDamage.ToString(),DamageColor);
     if(pendingShield>0) FloatingText.Spawn(position+Vector3.up*.35f,pendingShield.ToString(),ShieldColor,4f);
-    pendingDamage=pendingShield=0;
-    nextDamagePopup=Time.time+.2f;
+    if(pendingHeal>0) FloatingText.Spawn(position+Vector3.up*.25f,$"+{pendingHeal}",HealColor,4);
+    pendingDamage=pendingShield=pendingHeal=0;
+    nextDamagePopup=Time.time+.35f;
   }
 
   public void TakeDamage(int damageAmount) => TakeDamage(damageAmount, false);
@@ -566,7 +626,7 @@ public class Enemy : MonoBehaviour
     int dealt = Mathf.RoundToInt(reducedDamage);
     lastDamagedAt = Time.time;
 
-    Vector3 popupPos = transform.position + Vector3.up * (currentScale.y + 0.5f);
+    Vector3 popupPos = PopupPosition;
 
     // Shield absorbs first; only the overflow reaches health.
     if (shield > 0f)
@@ -575,7 +635,12 @@ public class Enemy : MonoBehaviour
       shield -= absorbed;
       dealt -= Mathf.RoundToInt(absorbed);
       pendingShield += Mathf.RoundToInt(absorbed);
-      if(shield<=0) FloatingText.Spawn(popupPos+Vector3.up*.7f,"SHIELD BROKEN",ShieldColor,3f);
+      if(shield<=0)
+      {
+        FloatingText.Spawn(popupPos+Vector3.up*.7f,"SHIELD BROKEN",ShieldColor,8f,true);
+        CombatPulse.Emit(new Vector3(transform.position.x,.18f,transform.position.z),BodyRadius*1.1f,
+          ShieldColor,.45f,CombatPulse.Shape.BrokenShield,true);
+      }
       SyncShieldCue();
     }
 
@@ -587,13 +652,14 @@ public class Enemy : MonoBehaviour
 
     UpdateHealthBar();
     hitPunch = 1f;
+    if(health>0) BeginBossWarning();
 
     if (health <= 0)
     {
       FlushDamageText();
       GameManager.Instance?.AddGold(goldReward);
       FloatingText.Spawn(popupPos + Vector3.up * 0.4f, $"+{goldReward}", GoldColor, 6f);
-      DeathEffect.Spawn(transform.position + Vector3.up * currentScale.y * 0.5f, bodyColor, currentScale.y);
+      DeathEffect.Spawn(bodyRenderer!=null?bodyRenderer.bounds.center:transform.position,bodyColor,BodyRadius*2);
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.EnemyDeath);
       SpawnSplitChildren();
       Remove();
@@ -616,14 +682,64 @@ public class Enemy : MonoBehaviour
       canSplit = false,
     };
 
+    CombatPulse.Emit(new Vector3(transform.position.x,.15f,transform.position.z),BodyRadius*1.1f,
+      new Color(.91f,.63f,.25f),.4f,CombatPulse.Shape.Ring,true);
     EnemySpawner.Instance.SpawnSplitChildren(config, waypoints, childOverride,
       Mathf.Max(0, config.splitCount), maxHealth, goldReward);
+  }
+
+  public void PlaySplitBirth() { birthStartedAt=Time.time;transform.localScale=currentScale*.8f; }
+
+  private void ClearBossWarning()
+  {
+    if(bossWarningPulse!=null) bossWarningPulse.Cancel(warningPulseRevision);
+    if(bossWarningText!=null) bossWarningText.Cancel(warningTextRevision);
+    bossWarningPulse=null;bossWarningText=null;
+  }
+
+  private void BeginBossWarning()
+  {
+    if(config==null || !config.hasBossPhases || maxHealth<=0 || isRemoved) return;
+    float remaining=health/(float)maxHealth;
+    BossStage desired=remaining<=.33f?BossStage.Rushing:remaining<=.66f?BossStage.Fortified:BossStage.Stable;
+    if((int)desired<=(int)Phase || desired==pendingBossStage) return;
+    ClearBossWarning();
+    pendingBossStage=desired;
+    bossCue?.Pose(BodyRadius*1.1f,Phase,true);
+    bossWarningLeft=Mathf.Max(.2f,config.bossWarningDuration);
+    bossWarningText=FloatingText.Spawn(PopupPosition+Vector3.up*.2f,
+      desired==BossStage.Fortified?"FORTIFYING":"RUSH INCOMING",new Color(.94f,.73f,.29f),12f,true,bossWarningLeft,transform);
+    bossWarningPulse=CombatPulse.Emit(new Vector3(transform.position.x,.15f,transform.position.z),BodyRadius*1.25f,
+      new Color(.93f,.71f,.28f),bossWarningLeft,CombatPulse.Shape.Warning,true,transform);
+    warningPulseRevision=bossWarningPulse!=null?bossWarningPulse.Revision:0;
+    warningTextRevision=bossWarningText!=null?bossWarningText.Revision:0;
+  }
+
+  // Scaled dt keeps telegraphs consistent with pause and speed controls. A
+  // lethal burst cancels the transition; poison can skip a fortified phase.
+  public void StepBoss(float dt)
+  {
+    if(!IsTargetable || config==null || !config.hasBossPhases) return;
+    BeginBossWarning();
+    if(!IsBossWarning) return;
+    bossWarningLeft-=Mathf.Max(0,dt);
+    if(bossWarningLeft>0) return;
+    ClearBossWarning();
+    Phase=pendingBossStage;
+    bossCue?.Pose(BodyRadius*1.1f,Phase,false);
+    armorDamageReduction=Phase==BossStage.Fortified?config.bossFortifiedArmor:config.bossRushArmor;
+    normalSpeed=config.moveSpeed*spawnOverride.speedScale*(Phase==BossStage.Rushing?config.bossRushSpeed:1);
+    speed=normalSpeed*(1-slowAmount);
+    statusAppearance=-1;RefreshStatusAppearance();
+    CombatPulse.Emit(new Vector3(transform.position.x,.15f,transform.position.z),BodyRadius*1.1f,
+      Phase==BossStage.Fortified?new Color(.80f,.60f,.27f):new Color(.85f,.31f,.23f),.45f,CombatPulse.Shape.Ring,true,transform);
   }
 
   private void Remove()
   {
     if (isRemoved) return;
     isRemoved = true;
+    ClearBossWarning();
 
     active.Remove(this);
     GameManager.Instance?.OnEnemyRemoved();
@@ -642,8 +758,7 @@ public class Enemy : MonoBehaviour
     if (isRemoved) return;
 
     health = 0;
-    DeathEffect.Spawn(transform.position + Vector3.up * currentScale.y * 0.5f,
-      bodyColor, currentScale.y);
+    DeathEffect.Spawn(bodyRenderer!=null?bodyRenderer.bounds.center:transform.position,bodyColor,BodyRadius*2);
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.EnemyDeath);
     Remove();
   }

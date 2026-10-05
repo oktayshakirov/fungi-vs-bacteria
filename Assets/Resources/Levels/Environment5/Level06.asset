@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 139951c5fd9b64c548b227d8f8626066, type: 2}
   startingGold: 1580
   startingHealth: 100
+  challengeTitle: Split Colony
+  challengeBrief: Cover the exit with area damage for Splitter children.

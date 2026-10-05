@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: e87a0aea06ece431d9962f6d51558fdc, type: 2}
   startingGold: 524
   startingHealth: 100
+  challengeTitle: Catch the Runners
+  challengeBrief: Pair Ice with damage to catch runners.

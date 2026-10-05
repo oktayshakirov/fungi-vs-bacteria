@@ -28,20 +28,7 @@ public class WaveBanner : MonoBehaviour
   }
   public static string Describe(WaveConfig.Wave wave)
   {
-    if(wave?.enemyGroups==null) return "";
-    int count=0; var traits=new List<string>();
-    void Add(bool condition,string text) { if(condition && !traits.Contains(text)) traits.Add(text); }
-    foreach(var g in wave.enemyGroups)
-    {
-      if(g==null || g.enemyConfig==null || g.count<=0) continue;
-      count+=g.count; var c=g.enemyConfig;
-      Add(c.hasShield,"SHIELDED");
-      Add(c.isHealer,"HEALERS");
-      Add(c.isSplitter,"SPLITTERS");
-      Add(c.isArmored,"ARMORED"); Add(c.isFast,"FAST");
-    }
-    string hint=traits.Contains("SHIELDED") ? "Burst damage breaks shields before they recharge." : traits.Contains("HEALERS") ? "Concentrate your fire to beat their healing." : traits.Contains("SPLITTERS") ? "Leave defenses near the exit for the smaller enemies." : "Defend your base.";
-    return $"{count} incoming" + (traits.Count==0 ? "" : "  /  "+string.Join(", ",traits)) + "\n" + hint;
+    return $"{WaveIntel.Count(wave)} incoming\n{WaveIntel.Hint(wave)}";
   }
   private void Update()
   {

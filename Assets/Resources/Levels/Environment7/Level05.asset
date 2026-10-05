@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: c011c6941f43b4b87bfe9c3b9d22f4bc, type: 2}
   startingGold: 2036
   startingHealth: 100
+  challengeTitle: Shield Line
+  challengeBrief: Keep shields under continuous fire to stop regeneration.

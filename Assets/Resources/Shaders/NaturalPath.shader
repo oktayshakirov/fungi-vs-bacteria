@@ -46,10 +46,11 @@ Shader "Fungi/NaturalPath"
                 // Fade directly into the real ground, with no separate dark outline.
                 half edgeDistance = min(input.uv.y,1-input.uv.y);
                 half irregularity = clamp((patch-.93)*.8,-.025,.025);
-                half alpha = smoothstep(.015,.14,edgeDistance+irregularity);
+                half alpha = smoothstep(.015,.065,edgeDistance+irregularity);
                 half centre = smoothstep(.12,.42,edgeDistance);
                 half wear = saturate((patch-.88)*8) * centre;
-                half3 color = _BaseColor.rgb * (grain*.94 + wear*.10);
+                half bank = 1.h - smoothstep(.06,.14,edgeDistance+irregularity);
+                half3 color = _BaseColor.rgb * (grain*.94 + wear*.10) * lerp(1.h,.79h,bank);
                 // Reuse the existing sun shadow map so shadows continue across
                 // the feathered road instead of stopping at its edge.
                 Light sun = GetMainLight(TransformWorldToShadowCoord(input.positionWS));

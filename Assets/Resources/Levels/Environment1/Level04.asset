@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 9882f4ae3648144a78c38d9c7a6157a0, type: 2}
   startingGold: 572
   startingHealth: 100
+  challengeTitle: Mycelium Links
+  challengeBrief: Link adjacent fungi; save Ice for the boss rush.

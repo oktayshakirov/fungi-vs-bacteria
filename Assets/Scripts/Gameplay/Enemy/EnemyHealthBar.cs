@@ -20,7 +20,8 @@ public class EnemyHealthBar : MonoBehaviour
   private bool shieldPresent;
   private MeshRenderer fillRenderer;
   private Camera mainCamera;
-  private float verticalOffset;
+  private Renderer body;
+  private Renderer[] silhouette = new Renderer[0];
 
   private void Awake()
   {
@@ -31,10 +32,16 @@ public class EnemyHealthBar : MonoBehaviour
   private void CreateBar()
   {
     // Measure the body before the bar quads add their own renderers
-    // Must skip trait geometry, or a spore crown parks the bar above the cap
-    // instead of above the body. See Enemy.FindBodyRenderer.
-    Renderer bodyRenderer = Enemy.FindBodyRenderer(gameObject);
-    verticalOffset = (bodyRenderer != null ? bodyRenderer.bounds.size.y : 1f) + HeightMargin;
+    // Floating/orbiting effects stay out of the measurement. Solid crests
+    // explicitly opt in so the strip cannot obscure the role marker.
+    body = Enemy.FindBodyRenderer(gameObject);
+    var solidParts=new System.Collections.Generic.List<Renderer>();
+    foreach(var renderer in GetComponentsInChildren<Renderer>(true))
+    {
+      var trait=renderer.GetComponentInParent<EnemyTrait>();
+      if(trait != null && trait.includeInHealthBarBounds)solidParts.Add(renderer);
+    }
+    silhouette=solidParts.ToArray();
 
     barRoot = new GameObject("HealthBar").transform;
     barRoot.SetParent(transform, false);
@@ -130,8 +137,17 @@ public class EnemyHealthBar : MonoBehaviour
   {
     if (barRoot == null || mainCamera == null) return;
 
-    barRoot.position = transform.position + Vector3.up * verticalOffset;
+    // Pooled instances can return as smaller splitter children. Follow the
+    // current body bounds, and keep the strip a consistent world size instead
+    // of inheriting the authored root scale (which varies across archetypes).
+    float top = body != null ? body.bounds.max.y : transform.position.y + 1f;
+    foreach(var part in silhouette)
+      if(part != null && part.enabled && part.gameObject.activeInHierarchy) top=Mathf.Max(top,part.bounds.max.y);
+    barRoot.position = new Vector3(transform.position.x, top + HeightMargin, transform.position.z);
     barRoot.rotation = Quaternion.LookRotation(barRoot.position - mainCamera.transform.position);
+    Vector3 scale = transform.lossyScale;
+    barRoot.localScale = new Vector3(1f / Mathf.Max(.001f, scale.x),
+      1f / Mathf.Max(.001f, scale.y), 1f / Mathf.Max(.001f, scale.z));
   }
 
 }

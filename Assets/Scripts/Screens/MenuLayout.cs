@@ -96,7 +96,7 @@ public static class MenuLayout
     if (label == null) return;
 
     // White, with a dark outline so it still reads on the bright green
-    UiSkin.Label(label, UiSkin.Role.ButtonLabel, UiSkin.TextPrimary);
+    UiSkin.Label(label, UiSkin.Role.DisplayButton, UiSkin.TextPrimary);
     label.fontSizeMin = 48f;
     label.fontSizeMax = 72f;
     label.fontSize = 72f;

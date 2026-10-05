@@ -97,7 +97,9 @@ public class LoadingScreen : MonoBehaviour
 
     if (tipText != null)
     {
-      tipText.text = $"<color=#9ED0FF>TIP</color>   {Tips[Random.Range(0, Tips.Length)]}";
+      tipText.text = named && !string.IsNullOrWhiteSpace(level.challengeBrief)
+        ? $"<color=#9ED0FF>PLAN</color>   {level.challengeBrief}"
+        : $"<color=#9ED0FF>TIP</color>   {Tips[Random.Range(0, Tips.Length)]}";
     }
 
     if (progressBar != null) progressBar.value = 0f;

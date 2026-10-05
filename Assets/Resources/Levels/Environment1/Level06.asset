@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 1d4083e4a596f4fae97c6eedc2a31353, type: 2}
   startingGold: 620
   startingHealth: 100
+  challengeTitle: Crossfire
+  challengeBrief: Combine control and damage across several road sections.

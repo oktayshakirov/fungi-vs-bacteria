@@ -25,6 +25,32 @@ public class GroundManager : MonoBehaviour
     instance = this;
   }
 
+  // Only the scenery border is reshaped; the full rectangular grid remains
+  // covered by the same horizontal ground collider, including corner cells.
+  public void ApplyIslandOutline()
+  {
+    GridManager grid = GridManager.Instance;
+#if UNITY_EDITOR
+    if(grid == null) grid = FindFirstObjectByType<GridManager>();
+#endif
+    if(grid == null) return;
+    float w=grid.gridSize.x*grid.cellSize*.5f+BoardDecor.Margin;
+    float d=grid.gridSize.y*grid.cellSize*.5f+BoardDecor.Margin;
+    Mesh turf=MeshFactory.IslandSurface(w,d,0,0);
+    var filter=GetComponent<MeshFilter>();
+    if(filter != null) filter.sharedMesh=turf;
+    transform.localScale=Vector3.one;
+    var collider=GetComponent<MeshCollider>();
+    if(collider != null) collider.sharedMesh=turf;
+    GameObject soil=GameObject.Find("BoardBase");
+    if(soil != null)
+    {
+      var soilFilter=soil.GetComponent<MeshFilter>();
+      if(soilFilter != null) soilFilter.sharedMesh=MeshFactory.IslandSurface(w,d,BoardDecor.SoilTop,BoardDecor.SoilTop-BoardDecor.SoilThickness);
+      soil.transform.localScale=Vector3.one;soil.transform.position=Vector3.zero;
+    }
+  }
+
   public float GetGroundHeight(Vector3 position, float raycastHeight = 10f)
   {
     Ray ray = new Ray(position + Vector3.up * raycastHeight, Vector3.down);

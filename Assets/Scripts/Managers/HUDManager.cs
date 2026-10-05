@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System;
+using UnityEngine.EventSystems;
 
 public class HUDManager : MonoBehaviour
 {
@@ -45,6 +46,9 @@ public class HUDManager : MonoBehaviour
 
   private EnemySpawner spawner;
   private TowerPlacement placement;
+  private WavePreview wavePreview;
+  private int displayedWaveSeconds = -1;
+  public bool HasTowerSelection => selectedTower != null || (towerActionsPanel != null && towerActionsPanel.activeInHierarchy);
 
   private void Awake()
   {
@@ -143,6 +147,12 @@ public class HUDManager : MonoBehaviour
       gameOverScreen.gameObject.SetActive(false);
     }
 
+    if (timerText != null)
+    {
+      wavePreview = WavePreview.Create(uiRoot, timerText, this);
+      if (spawner != null) RefreshWavePlanning(spawner);
+    }
+
     if (TutorialOverlay.ShouldShow())
     {
       TutorialOverlay.Show(uiRoot, uiRoot.Find("TowersPanel") as RectTransform, startWaveButton!=null ? (RectTransform)startWaveButton.transform : null);
@@ -190,7 +200,10 @@ public class HUDManager : MonoBehaviour
 
   private void HandleTowerSelection()
   {
-    if (!Input.GetMouseButtonDown(0)) return;
+    if (!Input.GetMouseButtonDown(0) || mainCamera == null) return;
+    if (EventSystem.current != null && (Input.touchCount > 0
+      ? EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)
+      : EventSystem.current.IsPointerOverGameObject())) return;
 
     Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
@@ -251,6 +264,7 @@ public class HUDManager : MonoBehaviour
   public void StartWave()
   {
     Debug.Log("Start Wave Button clicked");
+    if (spawner == null || !spawner.CanStartWave) return;
     spawner.StartGame();
     Debug.Log("Starting game");
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.StartWave);
@@ -300,21 +314,30 @@ public class HUDManager : MonoBehaviour
 
   public void ShowPathClear() => WaveBanner.Show(HudUiRoot(),"PATH CLEAR","A moment to strengthen your defenses");
 
-  public void UpdateWaveTimer(float timeRemaining)
+  public void RefreshWavePlanning(EnemySpawner source)
   {
-    if (timerText != null)
-    {
-      timerText.text = timeRemaining > 0 ? $"Next Wave in: {timeRemaining:0}" : "";
-    }
-  }
-
-  public void UpdateStartWaveButton()
-  {
+    spawner = source;
+    bool ready = source.CanStartWave;
     if (startWaveButton != null)
     {
-      startWaveButton.interactable = false;
-      startWaveButtonText.text = "WAVE STARTED";
+      startWaveButton.interactable = ready;
+      startWaveButtonText.text = ready ? (source.WavesStarted == 0 ? "START WAVE" : "SEND NEXT WAVE")
+        : source.IsWaveInProgress ? "DEFEAT THIS WAVE" : "ALL WAVES SENT";
     }
+    wavePreview?.Bind(source.NextWave, source.WavesStarted + 1, ready);
+    displayedWaveSeconds = -1;
+    UpdateWaveTimer(source.PreparationRemaining);
+  }
+
+  public void UpdateWaveTimer(float timeRemaining)
+  {
+    if (wavePreview == null) return;
+    int seconds = Mathf.CeilToInt(timeRemaining);
+    if (seconds == displayedWaveSeconds) return;
+    displayedWaveSeconds = seconds;
+    string status = timeRemaining > 0 ? $"NEXT IN {seconds}s  /  SCOUT"
+      : spawner != null && spawner.NextWave != null ? "SCOUT NEXT WAVE" : "FINAL WAVE";
+    wavePreview.SetStatus(status);
   }
 
   public void ShowPauseScreen()

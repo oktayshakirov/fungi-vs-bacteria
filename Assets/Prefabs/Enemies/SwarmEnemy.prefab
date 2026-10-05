@@ -100,7 +100,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
   accentColor: {r: 0.97, g: 0.58, b: 0.22, a: 1}
   tintWithBiome: 0
@@ -208,7 +208,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6de2eee452c8a4189974a201c3014510, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyTrait
   accentColor: {r: 0.99, g: 0.7, b: 0.3, a: 1}
   tintWithBiome: 0

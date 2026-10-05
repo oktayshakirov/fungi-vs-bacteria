@@ -22,6 +22,7 @@ public class CameraViewButton : MonoBehaviour
     var button = UiSkin.IconButton(gameObject, UiSprites.Camera(), UiSkin.Neutral, out label);
     button.onClick.AddListener(OnClick);
     label.text = "1";
+    label.fontSize=label.fontSizeMax=20f;label.fontSizeMin=16f;label.margin=Vector4.zero;
   }
 
   private void OnClick()

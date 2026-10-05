@@ -66,7 +66,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -343250382394476861, guid: 57ffabbe6ae004a5ebf60b7db23cb3a9, type: 3}
       propertyPath: m_Mesh
-      value: 
+      value:
       objectReference: {fileID: 4300000, guid: 8dd2810d30fe94a36862e253b59acac8, type: 2}
     - target: {fileID: 919132149155446097, guid: 57ffabbe6ae004a5ebf60b7db23cb3a9, type: 3}
       propertyPath: m_Name
@@ -105,8 +105,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f693a77478432443aa5aaac7167c2662, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotationOffset: 0
   turnSpeed: 12
 --- !u!54 &4474815295544775566

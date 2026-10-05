@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 1a923118e1c2c41379f7d21110e615a1, type: 2}
   startingGold: 2156
   startingHealth: 100
+  challengeTitle: Colony Finale
+  challengeBrief: Defend six waves, then counter the Colony Boss and escort.

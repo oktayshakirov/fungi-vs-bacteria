@@ -11,12 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8894d49a13ce5490cacb3f77d468834a, type: 3}
   m_Name: ArcherTower
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   towerName: Archer Tower
   towerPrefab: {fileID: 866867751868613847, guid: dc9e0c19cac69004e85eb3b192d1c352, type: 3}
   towerIcon: {fileID: 21300000, guid: 5f917da079107cc4ebb96b72ecd2c25d, type: 3}
   cost: 100
-  description: Cheap, fast and reliable. Your opening pick and the backbone of any line.
+  description: Cheap, fast and reliable. Your opening pick and the backbone of any
+    line.
   range: 7
   fireRate: 1.5
   damage: 15
@@ -24,3 +25,23 @@ MonoBehaviour:
   splashRadius: 0
   slowsEnemies: 0
   slowAmount: 0
+  isSupport: 0
+  damageBoost: 0
+  fireRateBoost: 0
+  maxLevel: 3
+  upgradeDamageStep: 0.6
+  upgradeFireRateStep: 0.15
+  upgradeRangeStep: 0.1
+  upgradeBoostStep: 0.35
+  upgradeCostScale: 3.5
+  upgradeCostGrowth: 1.5
+  slowTint: {r: 0.42, g: 0.82, b: 1, a: 1}
+  chainTargets: 0
+  chainRadius: 0
+  chainFalloff: 0.25
+  chainTint: {r: 0.77, g: 0.55, b: 1, a: 1}
+  poisonDamagePerSecond: 0
+  poisonDuration: 0
+  poisonTint: {r: 0.6, g: 0.86, b: 0.24, a: 1}
+  myceliumLinkBoost: 0.1
+  supportsArcherSpecialization: 1

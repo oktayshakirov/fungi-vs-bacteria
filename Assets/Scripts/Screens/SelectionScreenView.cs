@@ -27,7 +27,7 @@ public sealed class SelectionScreenView
         Root = Rect("SelectionContent", screen, Vector2.zero, Vector2.one);
         Root.gameObject.AddComponent<SafeArea>();
         if(Application.isPlaying) screen.gameObject.AddComponent<SelectionMenuBudget>();
-        var backRect = Rect("Back", Root, new Vector2(.025f, .88f), new Vector2(.13f, .975f));
+        var backRect = Rect("Back", Root, new Vector2(.025f, .88f), new Vector2(.15f, .975f));
         ButtonIcon(Button(backRect, "BACK", UiSkin.Neutral, back), UiSprites.Chevron(), -90);
         Title = Label(Rect("Title", Root, new Vector2(.16f, .89f), new Vector2(.79f, .98f)), title, 32, true);
         ProgressBadge = Rect("StarsBadge", Root, new Vector2(.79f, .90f), new Vector2(.975f, .975f));
@@ -51,7 +51,7 @@ public sealed class SelectionScreenView
             Color c = t < .45f ? Color.Lerp(p.skyBottom, p.skyHorizon, t / .45f)
               : Color.Lerp(p.skyHorizon, p.skyTop, (t - .45f) / .55f);
             // Calm, readable header/footer while retaining each palette's identity.
-            c = Color.Lerp(c, new Color(.035f, .065f, .075f), .30f);
+            c = Color.Lerp(c, new Color(.035f, .065f, .075f), .48f);
             c.a = 1;
             gradient.SetPixel(0, y, c);
         }
@@ -73,7 +73,7 @@ public sealed class SelectionScreenView
     public static TMP_Text Label(RectTransform rect, string text, float size, bool display = false)
     {
         var label = rect.gameObject.AddComponent<TextMeshProUGUI>();
-        UiFont.Apply(label, display);
+        UiFont.ApplyReadable(label, display);
         label.text = text;
         label.color = Paper;
         label.fontSize = size;
@@ -85,7 +85,7 @@ public sealed class SelectionScreenView
         label.raycastTarget = false;
         return label;
     }
-    public static Button Button(RectTransform rect, string text, Color fill, UnityAction action)
+    public static Button Button(RectTransform rect, string text, Color fill, UnityAction action, bool displayLabel = false)
     {
         Image image = rect.gameObject.AddComponent<Image>();
         UiSkin.Panel(image, fill, 18);
@@ -96,6 +96,7 @@ public sealed class SelectionScreenView
         label.alignment = TextAlignmentOptions.Center;
         label.textWrappingMode = TextWrappingModes.NoWrap;
         UiSkin.StyleButton(button, fill);
+        if(displayLabel)UiSkin.Label(label,UiSkin.Role.DisplayButton,Ink);
         label.fontSizeMin = 15; label.fontSizeMax = 24;
         label.margin = Vector4.zero;
         if (action != null) button.onClick.AddListener(action);

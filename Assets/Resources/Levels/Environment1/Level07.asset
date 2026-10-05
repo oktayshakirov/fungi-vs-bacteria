@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 8022f810a58754bb5be3006aeb60a732, type: 2}
   startingGold: 644
   startingHealth: 100
+  challengeTitle: Exit Watch
+  challengeBrief: Keep damage near the exit for enemies leaving the pack.

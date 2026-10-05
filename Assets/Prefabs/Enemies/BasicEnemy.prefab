@@ -74,7 +74,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8276472368963358418, guid: 9906d0a1795704445aedf1115838392d, type: 3}
       propertyPath: m_Mesh
-      value: 
+      value:
       objectReference: {fileID: 4300000, guid: 7ff33d6365a7840fc97ff04b79da41cb, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -105,8 +105,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f693a77478432443aa5aaac7167c2662, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   rotationOffset: 0
   turnSpeed: 12
 --- !u!54 &6393701597337267572

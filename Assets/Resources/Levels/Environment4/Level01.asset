@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 6fd1d1af03793488b9860a4e79796fe5, type: 2}
   startingGold: 1220
   startingHealth: 100
+  challengeTitle: Small but Many
+  challengeBrief: Use area damage for swarms and Splitter children.

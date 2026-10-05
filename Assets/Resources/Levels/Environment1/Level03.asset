@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 26da72c23a50d405caa33b9cf31294a9, type: 2}
   startingGold: 548
   startingHealth: 100
+  challengeTitle: Armor Answers
+  challengeBrief: Poison bypasses armor. FIRST catches runners.

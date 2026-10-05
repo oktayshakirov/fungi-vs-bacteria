@@ -314,6 +314,7 @@ public class LevelDecorator : MonoBehaviour
 
     bool Clear(Vector3 position,float radius)
     {
+      if(Mathf.Pow((Mathf.Abs(position.x)+radius)/outerW,4f)+Mathf.Pow((Mathf.Abs(position.z)+radius)/outerD,4f)>.98f) return false;
       if(Mathf.Abs(position.x)+radius>outerW-.25f || Mathf.Abs(position.z)+radius>outerD-.25f) return false;
       if(Mathf.Abs(position.x)<halfW+radius+.35f && Mathf.Abs(position.z)<halfD+radius+.35f) return false;
       foreach(var landmark in landmarks)
@@ -373,6 +374,12 @@ public class LevelDecorator : MonoBehaviour
       for(int r=1;r<renderers.Length;r++) bounds.Encapsulate(renderers[r].bounds);
       bool overlaps=bounds.min.x<halfW+.15f && bounds.max.x>-halfW-.15f && bounds.min.z<halfD+.15f && bounds.max.z>-halfD-.15f;
       bool outside=bounds.min.x < -outerW || bounds.max.x>outerW || bounds.min.z < -outerD || bounds.max.z>outerD;
+      for(int corner=0;corner<4;corner++)
+      {
+        float x=(corner&1)==0?bounds.min.x:bounds.max.x;
+        float z=(corner&2)==0?bounds.min.z:bounds.max.z;
+        if(Mathf.Pow(Mathf.Abs(x)/outerW,4f)+Mathf.Pow(Mathf.Abs(z)/outerD,4f)>1f)outside=true;
+      }
       foreach(var landmark in landmarks)
       {
         float dx=Mathf.Max(bounds.min.x-landmark.x,0,landmark.x-bounds.max.x);
@@ -400,6 +407,7 @@ public class LevelDecorator : MonoBehaviour
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
       if (Mathf.Abs(x) < halfW - 0.5f && Mathf.Abs(z) < halfD - 0.5f) continue;
+      if (Mathf.Pow(Mathf.Abs(x)/outerW,4f)+Mathf.Pow(Mathf.Abs(z)/outerD,4f) > .96f) continue;
       if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       SpawnProp(new Vector3(x, 0f, z), Mathf.InverseLerp(-outerD, outerD, z), rng);
@@ -412,6 +420,7 @@ public class LevelDecorator : MonoBehaviour
     {
       float x = Mathf.Lerp(-outerW, outerW, (i + 0.5f) / 9f) + (float)(rng.NextDouble() * 2 - 1) * 3f;
       float z = outerD - (float)rng.NextDouble() * 3.5f;
+      if (Mathf.Pow(Mathf.Abs(x)/outerW,4f)+Mathf.Pow(Mathf.Abs(z)/outerD,4f) > .96f) continue;
       if (NearLandmark(new Vector3(x, 0f, z))) continue;
       SpawnTree(new Vector3(x, 0f, z), rng);
     }
@@ -426,6 +435,7 @@ public class LevelDecorator : MonoBehaviour
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
       if (Mathf.Abs(x) < halfW + 1f && Mathf.Abs(z) < halfD + 1f) continue;
+      if (Mathf.Pow(Mathf.Abs(x)/outerW,4f)+Mathf.Pow(Mathf.Abs(z)/outerD,4f) > .96f) continue;
       if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       GameObject mound = Piece("Mound", MeshFactory.Mound(rng.Next(Variants)), moundMat, new Vector3(x, 0.02f, z));
@@ -453,6 +463,7 @@ public class LevelDecorator : MonoBehaviour
       float x = (float)(rng.NextDouble() * 2 - 1) * outerW;
       float z = (float)(rng.NextDouble() * 2 - 1) * outerD;
       if (Mathf.Abs(x) < halfW - 0.5f && Mathf.Abs(z) < halfD - 0.5f) continue;
+      if (Mathf.Pow(Mathf.Abs(x)/outerW,4f)+Mathf.Pow(Mathf.Abs(z)/outerD,4f) > .96f) continue;
       if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       GameObject patch = Piece("Grass", MeshFactory.GrassPatch(rng.Next(Variants)), grassMat, new Vector3(x, 0f, z));
@@ -522,6 +533,7 @@ public class LevelDecorator : MonoBehaviour
       if (Mathf.Abs(x) < halfW + 0.5f && Mathf.Abs(z) < halfD + 0.5f) continue;
       float depth = Mathf.InverseLerp(-outerD, outerD, z);
       if (depth < 0.22f) continue;
+      if (Mathf.Pow(Mathf.Abs(x)/outerW,4f)+Mathf.Pow(Mathf.Abs(z)/outerD,4f) > .96f) continue;
       if (NearLandmark(new Vector3(x, 0f, z))) continue;
 
       Material mat = orbMats[rng.Next(orbMats.Length)];

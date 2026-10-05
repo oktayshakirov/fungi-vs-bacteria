@@ -677,17 +677,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8e70413c57614ab1aa176b84ec4db46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraRig
-  fieldOfView: 50
+  fieldOfView: 35
   edgePadding: 0.02
-  hudTopReserve: 0.09
+  hudTopReserve: 0.12
   hudBottomReserve: 0.15
+  hudRightWidth: 252
   towerHeadroom: 5
-  playPitch: 34
+  playPitch: 42
   playYaw: 0
   viewPresets:
+  - {x: 42, y: 0, z: 1}
+  - {x: 50, y: 0, z: 1}
   - {x: 34, y: 0, z: 1}
-  - {x: 52, y: 0, z: 1}
-  - {x: 26, y: 26, z: 1}
   adaptPitchToAspect: 0
   minPitch: 24
   maxPitch: 40

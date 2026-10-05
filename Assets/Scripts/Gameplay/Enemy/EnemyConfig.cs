@@ -67,4 +67,12 @@ public class EnemyConfig : ScriptableObject
   public bool overrideBodyColor = false;
   public Color bodyColor = Color.white;
   public float scaleMultiplier = 1f;
+  public string portraitResourceName;
+
+  [Header("Boss encounter prototype")]
+  public bool hasBossPhases;
+  [Min(.2f)] public float bossWarningDuration = 1.25f;
+  [Range(0, .8f)] public float bossFortifiedArmor = .45f;
+  [Range(0, .8f)] public float bossRushArmor = .15f;
+  [Min(1)] public float bossRushSpeed = 1.4f;
 }

@@ -18,3 +18,5 @@ MonoBehaviour:
   waveConfig: {fileID: 11400000, guid: 9c4601eb7ba97412981eaaaa7cb600be, type: 2}
   startingGold: 1700
   startingHealth: 100
+  challengeTitle: Linked Defense
+  challengeBrief: Build overlapping damage and prepare for the Colony Boss.

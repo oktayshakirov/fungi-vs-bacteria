@@ -97,10 +97,9 @@ public static class UiPreview
   // camera on. Runs first and manages its own scene/camera for exactly that
   // reason, then gets out of the way so Render() can start the empty scene
   // every other shot expects.
-  private static void ShootMainMenu()
+  private static void ShootMainMenu(int width=1920,int height=1080,string name="screen-mainmenu")
   {
-    const int width = 1920, height = 1080;
-    const string name = "screen-mainmenu";
+
 
     Scene scene = EditorSceneManager.OpenScene("Assets/Scenes/MainMenu.unity", OpenSceneMode.Single);
 
@@ -162,6 +161,7 @@ public static class UiPreview
     shot.Apply();
     RenderTexture.active = previous;
 
+    TypographyReview.Audit(name);
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
 
     cam.targetTexture = null;
@@ -171,7 +171,7 @@ public static class UiPreview
   // Instantiates a prefab and drives its Start(), so screens that build their
   // content at runtime can be captured as the player actually sees them.
   private static void ShootLive(Camera cam, string prefabPath, string name,
-    int width = 1920, int height = 1080)
+    int width = 1920, int height = 1080, int selectedLevel = 0)
   {
     ClearCanvases();
 
@@ -227,12 +227,23 @@ public static class UiPreview
       catch (System.Exception e) { Debug.LogWarning($"UI PREVIEW: {behaviour.GetType().Name}.Start -> {e.InnerException?.Message ?? e.Message}"); }
     }
 
+    var levelScreen=go.GetComponentInChildren<LevelSelectionScreen>();
+    if(levelScreen!=null && selectedLevel>0)
+    {
+      var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
+      int currentPage=(int)typeof(LevelSelectionScreen).GetField("page",flags).GetValue(levelScreen);
+      int wantedPage=(selectedLevel-1)/levelScreen.PageSize;
+      if(wantedPage!=currentPage)typeof(LevelSelectionScreen).GetMethod("ChangePage",flags).Invoke(levelScreen,new object[]{wantedPage-currentPage});
+      typeof(LevelSelectionScreen).GetMethod("Select",flags).Invoke(levelScreen,new object[]{selectedLevel-1});
+    }
+
     // The loading screen's content is set per show by SceneController; show it
     // the way it looks going into a level.
     var loading = go.GetComponentInChildren<LoadingScreen>(true);
     if (loading != null)
     {
-      GameSession.SelectedLevel = AssetDatabase.LoadAssetAtPath<LevelConfig>(
+      if(selectedLevel==0)
+        GameSession.SelectedLevel = AssetDatabase.LoadAssetAtPath<LevelConfig>(
         "Assets/Resources/Levels/Environment1/Level03.asset");
       loading.Prepare(true);
       loading.UpdateProgress(0.55f);
@@ -264,6 +275,13 @@ public static class UiPreview
     shot.Apply();
     RenderTexture.active = previous;
 
+    TypographyReview.Audit(name);
+    if(selectedLevel>0)foreach(var label in go.GetComponentsInChildren<TMP_Text>())
+    {
+      label.ForceMeshUpdate();
+      if(label.isTextOverflowing || label.textBounds.size.x>label.rectTransform.rect.width+3 || label.textBounds.size.y>label.rectTransform.rect.height+3)
+        throw new System.InvalidOperationException("Mission screen text overflows: "+name+" / "+label.name+" / "+label.text);
+    }
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
 
     cam.targetTexture = null;
@@ -295,6 +313,7 @@ public static class UiPreview
     shot.Apply();
     RenderTexture.active = previous;
 
+    TypographyReview.Audit(name);
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
 
     cam.targetTexture = null;
@@ -759,15 +778,15 @@ public static class UiPreview
     shot.ReadPixels(new Rect(0, 0, width, height), 0, 0);
     shot.Apply();
     RenderTexture.active = previous;
+    TypographyReview.Audit(name);
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
   }
 
   // The store and Get Coins have no prefab — both are built entirely in code —
   // so they are constructed here the same way the game constructs them.
   private static void ShootWallet(Camera cam, string name, bool coins = false,
-    int tab = WalletScreen.TabFree)
+    int tab = WalletScreen.TabFree, int width=1920, int height=1080)
   {
-    const int width = 1920, height = 1080;
     ClearCanvases();
 
     // Must happen BEFORE the wallet builds itself: WalletScreen.Panel() sizes
@@ -809,6 +828,7 @@ public static class UiPreview
     shot.Apply();
     RenderTexture.active = previous;
 
+    TypographyReview.Audit(name);
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
 
     // A second shot with the dialog scrolled to the bottom. The card is taller
@@ -836,9 +856,8 @@ public static class UiPreview
   }
 
   private static void ShootScreen(Camera cam, string prefabPath, string primaryName, string name,
-    bool settings = false)
+    bool settings = false, int width=1920, int height=1080)
   {
-    const int width = 1920, height = 1080;
     ClearCanvases();
 
     var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
@@ -872,6 +891,7 @@ public static class UiPreview
     // Initialize also runs ScreenTheme itself, so nothing else is needed here.
     var gameOver = go.GetComponent<GameOverScreen>();
     var victory = go.GetComponent<VictoryScreen>();
+    var pause = go.GetComponent<PauseGameScreen>();
     if (gameOver != null)
     {
       gameOver.Initialize();
@@ -884,6 +904,11 @@ public static class UiPreview
         GameSession.SelectedLevel = AssetDatabase.LoadAssetAtPath<LevelConfig>(
           "Assets/Resources/Levels/Environment1/Level01.asset");
       victory.Initialize(2, 150);
+    }
+    else if(pause != null)
+    {
+      // Include the runtime Store button and icon labels when reviewing weight.
+      pause.Initialize(null);
     }
     else if (settings)
     {
@@ -928,6 +953,7 @@ public static class UiPreview
     shot.Apply();
     RenderTexture.active = previous;
 
+    TypographyReview.Audit(name);
     File.WriteAllBytes($"{OutputDir}/{name}.png", shot.EncodeToPNG());
 
     cam.targetTexture = null;
@@ -1104,16 +1130,21 @@ public static class UiPreview
         UiSkin.RadiusButton);
 
       RectTransform nameRect = Child(rect, "TowerNameText");
-      Anchor(nameRect, new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(120f, 24f));
+      nameRect.anchorMin = new Vector2(.04f,.78f);
+      nameRect.anchorMax = new Vector2(.96f,.98f);
+      nameRect.offsetMin = nameRect.offsetMax = Vector2.zero;
       TMP_Text label = nameRect.gameObject.AddComponent<TextMeshProUGUI>();
       label.text = card.name;
       label.alignment = TextAlignmentOptions.Center;
       UiSkin.Label(label, UiSkin.Role.Caption);
+      label.fontSizeMin = 12f; label.fontSizeMax = 17f;
 
       // The real tower art, so the preview shows what the rail actually draws.
       RectTransform iconRect = Child(rect, "TowerIcon");
       // As TowerButton sizes it: 140 x 88, behind the labels.
-      Anchor(iconRect, new Vector2(0.5f, 0.5f), new Vector2(0f, -2f), new Vector2(140f, 88f));
+      iconRect.anchorMin = new Vector2(.08f,.25f);
+      iconRect.anchorMax = new Vector2(.92f,.78f);
+      iconRect.offsetMin = iconRect.offsetMax = Vector2.zero;
       iconRect.SetAsFirstSibling();
       var icon = iconRect.gameObject.AddComponent<Image>();
       string file = card.name == "Shock" ? "SchockTower" : card.name + "Tower";
@@ -1123,7 +1154,7 @@ public static class UiPreview
       icon.color = new Color(1f, 1f, 1f, card.affordable ? 1f : 0.45f);
 
       RectTransform costRect = Child(rect, "TowerCostText");
-      Anchor(costRect, new Vector2(0.5f, 0f), new Vector2(16f, 16f), new Vector2(58f, 28f));
+      Anchor(costRect, new Vector2(0.5f, 0f), new Vector2(12f, 6f), new Vector2(48f, 24f));
       TMP_Text cost = costRect.gameObject.AddComponent<TextMeshProUGUI>();
       cost.text = card.cost.ToString();
       cost.alignment = TextAlignmentOptions.MidlineLeft;
@@ -1131,7 +1162,7 @@ public static class UiPreview
 
       Image coin = UiSkin.Icon(rect, UiSprites.Coin(),
         card.affordable ? UiSkin.Gold : UiSkin.Danger, 22f);
-      Anchor((RectTransform)coin.transform, new Vector2(0.5f, 0f), new Vector2(-26f, 19f), new Vector2(22f, 22f));
+      Anchor((RectTransform)coin.transform, new Vector2(0.5f, 0f), new Vector2(-26f, 9f), new Vector2(18f, 18f));
     }
   }
 

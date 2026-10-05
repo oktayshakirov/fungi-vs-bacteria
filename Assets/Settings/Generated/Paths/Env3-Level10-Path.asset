@@ -13,10 +13,9 @@ MonoBehaviour:
   m_Name: Env3-Level10-Path
   m_EditorClassIdentifier: Assembly-CSharp::PathConfig
   pathName: Env3 Level10 Path
-  description: 
+  description: 'Colony Finale: Defend six waves, then counter the Colony Boss and
+    escort.'
   pathGridCoordinates:
-  - {x: 0, y: 2}
-  - {x: 0, y: 3}
   - {x: 0, y: 4}
   - {x: 1, y: 4}
   - {x: 2, y: 4}
@@ -27,9 +26,11 @@ MonoBehaviour:
   - {x: 3, y: 0}
   - {x: 4, y: 0}
   - {x: 5, y: 0}
-  - {x: 5, y: 1}
+  - {x: 6, y: 0}
   - {x: 6, y: 1}
-  - {x: 7, y: 1}
-  - {x: 7, y: 0}
-  - {x: 8, y: 0}
-  - {x: 9, y: 0}
+  - {x: 6, y: 2}
+  - {x: 6, y: 3}
+  - {x: 6, y: 4}
+  - {x: 7, y: 4}
+  - {x: 8, y: 4}
+  - {x: 9, y: 4}

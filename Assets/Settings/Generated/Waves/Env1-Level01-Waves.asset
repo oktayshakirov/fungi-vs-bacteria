@@ -18,30 +18,25 @@ MonoBehaviour:
       count: 4
       healthMultiplier: 0.6
       rewardMultiplier: 0.6
-    timeBetweenSpawns: 1.548
-    timeToNextWave: 5
+    timeBetweenSpawns: 1.8
+    timeToNextWave: 12
     waveGoldReward: 25
+    planningHint: Start with Archer. Cover the bend to get more shots per enemy.
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 5
-      healthMultiplier: 0.73333335
-      rewardMultiplier: 0.73333335
-    timeBetweenSpawns: 1.508
-    timeToNextWave: 5
-    waveGoldReward: 29
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-      healthMultiplier: 0.8666667
-      rewardMultiplier: 0.8666667
-    timeBetweenSpawns: 1.468
-    timeToNextWave: 5
-    waveGoldReward: 33
+      healthMultiplier: 0.8
+      rewardMultiplier: 0.8
+    timeBetweenSpawns: 1.5
+    timeToNextWave: 12
+    waveGoldReward: 30
+    planningHint: Tap a placed fungus. Compare its next upgrade with another Archer.
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 6
-      healthMultiplier: 1
-      rewardMultiplier: 1
-    timeBetweenSpawns: 1.428
-    timeToNextWave: 5
-    waveGoldReward: 37
+      healthMultiplier: 1.1
+      rewardMultiplier: 1.1
+    timeBetweenSpawns: 1.2
+    timeToNextWave: 12
+    waveGoldReward: 40
+    planningHint: Stronger bacteria ahead. Upgrade a good spot or extend your coverage.

@@ -33,6 +33,7 @@ public class Tower : MonoBehaviour
   private bool isSelected = false;
   private bool isPreviewMode = false;
   public Vector2Int GridPosition { get; private set; }
+  public int MyceliumConnections { get; internal set; }
 
   // Multipliers contributed by nearby support towers; see TowerBuffs.
   private float damageMultiplier = 1f;
@@ -41,18 +42,38 @@ public class Tower : MonoBehaviour
   // Upgrade tier, 1..config.maxLevel. Every stat below reads through it, so
   // nothing else in the codebase has to know upgrades exist.
   public int Level { get; private set; } = 1;
+  public static event System.Action<Tower> OnTowerSelected;
+  public TargetPriority Priority => targeting != null ? targeting.Priority : TargetPriority.First;
+  public void SetPriority(TargetPriority priority) { if (!IsSupport) targeting?.SetPriority(priority); }
 
   private Vector3 baseScale = Vector3.one;
   private static MaterialPropertyBlock tierBlock;
   private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
   private static readonly int ColorId = Shader.PropertyToID("_Color");
 
-  public float Range => config?.RangeAt(Level) ?? 0f;
-  public float FireRate => config?.FireRateAt(Level) ?? 1f;
+  public ArcherSpecialization Specialization { get; private set; }
+  public bool SupportsSpecialization => config!=null && config.supportsArcherSpecialization && !IsSupport;
+  public bool CanSpecialize => SupportsSpecialization && Level>=2 && Specialization==ArcherSpecialization.Balanced && !isPreviewMode;
+  public float ProjectedRangeAt(int level) => (config?.RangeAt(level) ?? 0f)*ArcherBranches.Reach(Specialization);
+  public int UnbuffedDamageAt(int level) => config==null?0:Mathf.RoundToInt(config.DamageAt(level)*ArcherBranches.Damage(Specialization));
+  public float Range => ProjectedRangeAt(Level);
+  public float FireRate => (config?.FireRateAt(Level) ?? 1f)*ArcherBranches.Rate(Specialization);
+  public bool Specialize(ArcherSpecialization branch)
+  {
+    if(!CanSpecialize || (branch!=ArcherSpecialization.Flurry && branch!=ArcherSpecialization.Longshot)) return false;
+    Specialization=branch;targeting?.Initialize(Range);
+    fireCountdown=1f/Mathf.Max(.01f,EffectiveFireRate);
+    TowerBuffs.Recalculate();
+    CombatPulse.Emit(transform.position+Vector3.up*.15f,1.1f,new Color(.80f,.63f,.32f),.35f);
+    return true;
+  }
 
   public bool IsSupport => config != null && config.isSupport;
-  public int EffectiveDamage =>
-    config == null ? 0 : Mathf.RoundToInt(config.DamageAt(Level) * damageMultiplier);
+  public int ProjectedDamageAt(int level) => config == null ? 0 : Mathf.RoundToInt(config.DamageAt(level) * ArcherBranches.Damage(Specialization) * damageMultiplier);
+  public float ProjectedFireRateAt(int level) => config == null ? 1 : config.FireRateAt(level) * ArcherBranches.Rate(Specialization) * fireRateMultiplier * BoosterEffects.FireRateMultiplier;
+  public int EffectiveDamage => ProjectedDamageAt(Level);
+  public int ProjectedPoisonDamageAt(int level) => config==null || !config.Poisons ? 0 :
+    Mathf.RoundToInt(config.poisonDamagePerSecond*config.poisonDuration*(config.damage>0?ProjectedDamageAt(level)/(float)config.damage:1));
 
   // Everything this tower's damage has been multiplied by - its tier and any
   // support auras on it - as a float. The poison dose rides on this so that
@@ -68,10 +89,7 @@ public class Tower : MonoBehaviour
   // The last term is the Overclock booster, which is global and temporary: it
   // multiplies every tower at once, so it lives in BoosterEffects rather than
   // in each tower's own buff state (which TowerBuffs owns and recalculates).
-  public float EffectiveFireRate =>
-    config == null
-      ? 1f
-      : config.FireRateAt(Level) * fireRateMultiplier * BoosterEffects.FireRateMultiplier;
+  public float EffectiveFireRate => ProjectedFireRateAt(Level);
 
   // TowerBuffs reads these rather than the config directly, so an upgraded
   // support tower actually projects a stronger aura.
@@ -96,7 +114,6 @@ public class Tower : MonoBehaviour
 
   private void Awake()
   {
-    if(tower != null) headRestScale = tower.localScale;
     targeting = GetComponent<TowerTargeting>();
     if (targeting == null)
     {
@@ -111,11 +128,14 @@ public class Tower : MonoBehaviour
       return;
     }
 
-    if(recoiling && tower != null)
+    if(tower != null)
     {
-      float t = Mathf.Clamp01((recoilUntil-Time.time)/.14f);
-      tower.localScale = Vector3.Scale(headRestScale,new Vector3(1f-.055f*t,1f+.035f*t,1f+.035f*t));
-      if(t<=0) recoiling=false;
+      float recoil = recoiling ? Mathf.Clamp01((recoilUntil-Time.time)/.14f) : 0;
+      if(recoil<=0) recoiling=false;
+      float prepare = !recoiling && targeting!=null && targeting.CurrentTarget!=null && fireCountdown>0
+        ? Mathf.Clamp01(1-fireCountdown/.07f) : 0;
+      tower.localScale=Vector3.Scale(headRestScale,new Vector3(1-.055f*recoil+.025f*prepare,
+        1+.035f*recoil-.02f*prepare,1+.035f*recoil-.02f*prepare));
     }
 
     // A support tower has no weapon. Without this it would still run the
@@ -147,6 +167,7 @@ public class Tower : MonoBehaviour
   public void Initialize(TowerConfig towerConfig, bool preview = false)
   {
     this.config = towerConfig;
+    Specialization=ArcherSpecialization.Balanced;
     this.isPreviewMode = preview;
 
     if (config != null)
@@ -156,6 +177,10 @@ public class Tower : MonoBehaviour
       // Awake would bank the prefab's authored scale and the tier cue would
       // shrink every tower back down on its first upgrade.
       baseScale = transform.localScale;
+      // The aiming transform is the root on the authored fungi. Recoil must
+      // bank the factory's placed scale too, rather than the Awake prefab size.
+      if(tower != null) headRestScale = tower.localScale;
+      recoiling = false;
 
       if (targeting != null)
       {
@@ -225,6 +250,8 @@ public class Tower : MonoBehaviour
       recoilUntil=Time.time+.14f; recoiling=true;
       projectile.Initialize(projectileData);
       projectile.Seek(targeting.CurrentTarget);
+      Color shotColor=config.Poisons?config.poisonTint:config.Chains?config.chainTint:config.slowsEnemies?config.slowTint:new Color(.86f,.72f,.40f);
+      CombatPulse.Emit(projectileSpawnPoint.position,.28f,shotColor,.10f,CombatPulse.Shape.Shot);
     }
     else
     {
@@ -297,13 +324,16 @@ public class Tower : MonoBehaviour
   {
     if (isSelected || isPreviewMode) return;
     isSelected = true;
+    TowerBuffs.ShowLinksFor(this);
     HUDManager.Instance?.ShowTowerActions(this);
+    OnTowerSelected?.Invoke(this);
   }
 
   public void Deselect()
   {
     if (!isSelected || isPreviewMode) return;
     isSelected = false;
+    TowerBuffs.ShowLinksFor(null);
     HUDManager.Instance?.HideTowerActions();
   }
 
@@ -367,7 +397,10 @@ public class Tower : MonoBehaviour
     if (config == null) return;
 
     int steps = Mathf.Max(0, Level - 1);
+    if(recoiling && tower != null) tower.localScale = headRestScale;
     transform.localScale = baseScale * (1f + 0.08f * steps);
+    if(tower != null) headRestScale = tower.localScale;
+    recoiling = false;
 
     Transform model = tower != null ? tower : transform;
 

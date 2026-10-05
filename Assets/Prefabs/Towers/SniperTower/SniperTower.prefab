@@ -99,6 +99,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Iris-Right
       objectReference: {fileID: 0}
+    - target: {fileID: -7338594022215688393, guid: feee8976da269824a86f53a729e9ef42, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.12
+      objectReference: {fileID: 0}
+    - target: {fileID: -7338594022215688393, guid: feee8976da269824a86f53a729e9ef42, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.12
+      objectReference: {fileID: 0}
     - target: {fileID: -5849248108168824167, guid: feee8976da269824a86f53a729e9ef42, type: 3}
       propertyPath: m_Name
       value: Head
@@ -167,10 +175,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 06f94883213f245ffb40b7917a0f569c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   tower: {fileID: 3441025856313458694}
   projectileSpawnPoint: {fileID: 8707836942898762025}
+  modelYawOffset: 90
   projectilePrefab: {fileID: 7595532313293581449, guid: e49bba5a96310d84b99044095bf9dcc2, type: 3}
   tileIndicatorPrefab: {fileID: 8015606089559125091, guid: 17fd0f3a0f81a4a2e91549ce6e7f5e1e, type: 3}
 --- !u!114 &-6563068996091361824
@@ -183,8 +192,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe8090ae547d84e3b96ca8177a28147b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!136 &-3829815250892314016
 CapsuleCollider:
   m_ObjectHideFlags: 0

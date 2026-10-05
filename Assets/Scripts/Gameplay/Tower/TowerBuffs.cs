@@ -1,71 +1,73 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Support towers (Aura, Defense) do not shoot. They raise the damage and fire
-// rate of every attacking tower standing inside their radius, which is what
-// makes placing them centrally among your damage dealers worth 250-275 gold.
-//
-// Buffs are recomputed only when the set of towers CHANGES - a tower is built,
-// sold or upgraded - never per frame. The board tops out somewhere around thirty towers,
-// so the O(n^2) sweep is trivial at that cadence, and no tower has to poll its
-// neighbours in Update.
+// Event-driven support graph. Adjacent attackers get a small additional
+// bonus; ordinary aura coverage remains useful for a spread-out defense.
 public static class TowerBuffs
 {
   private static readonly List<Tower> Towers = new List<Tower>();
-
+  private static Tower selected;
   public static void Register(Tower tower)
   {
-    if (tower == null || Towers.Contains(tower)) return;
-    Towers.Add(tower);
-    Recalculate();
+    if(tower==null || Towers.Contains(tower)) return;
+    Towers.Add(tower); Recalculate();
   }
-
   public static void Unregister(Tower tower)
   {
-    if (!Towers.Remove(tower)) return;
+    if(!Towers.Remove(tower)) return;
+    if(selected==tower) selected=null;
     Recalculate();
   }
-
-  // This list is static, so it survives a scene load with every entry pointing
-  // at a destroyed tower. GameManager clears it when a level starts.
   public static void Clear()
   {
-    Towers.Clear();
+    foreach(var tower in Towers) if(tower!=null) tower.GetComponent<MyceliumRoots>()?.ShowFor(null);
+    Towers.Clear(); selected=null;
   }
-
+  public static void ShowLinksFor(Tower tower)
+  {
+    selected=tower;
+    foreach(var source in Towers) if(source!=null) source.GetComponent<MyceliumRoots>()?.ShowFor(tower);
+  }
+  public static bool Adjacent(Tower a,Tower b)
+  {
+    float cell=GridManager.Instance!=null?GridManager.Instance.cellSize:5f;
+    Vector3 delta=a.transform.position-b.transform.position;
+    return (Mathf.Abs(Mathf.Abs(delta.x)-cell)<.05f && Mathf.Abs(delta.z)<.05f)
+      || (Mathf.Abs(Mathf.Abs(delta.z)-cell)<.05f && Mathf.Abs(delta.x)<.05f);
+  }
   public static void Recalculate()
   {
-    Towers.RemoveAll(t => t == null);
-
-    foreach (Tower tower in Towers)
+    Towers.RemoveAll(t=>t==null);
+    foreach(var tower in Towers)
     {
-      // A support tower gets no benefit from another support tower - there is
-      // nothing to multiply, and letting them chain would make stacking two of
-      // them strictly better than covering more of the board.
-      if (tower.IsSupport)
+      tower.MyceliumConnections=0;
+      if(tower.IsSupport)
       {
-        tower.SetBuffs(1f, 1f);
-        continue;
+        var roots=tower.GetComponent<MyceliumRoots>();
+        if(roots==null) roots=tower.gameObject.AddComponent<MyceliumRoots>();
+        roots.Begin(tower);
       }
-
-      float damage = 1f;
-      float fireRate = 1f;
-
-      foreach (Tower source in Towers)
-      {
-        if (source == tower || !source.IsSupport) continue;
-
-        if (source.GetTowerConfig() == null) continue;
-        if (Vector3.Distance(source.transform.position, tower.transform.position) > source.Range) continue;
-
-        // Read through the tower, not its config: radius and aura strength both
-        // grow with the support tower's upgrade tier, and reading the config
-        // directly is how an upgraded support silently does nothing.
-        damage += source.EffectiveDamageBoost;
-        fireRate += source.EffectiveFireRateBoost;
-      }
-
-      tower.SetBuffs(damage, fireRate);
     }
+    foreach(var tower in Towers)
+    {
+      float damage=1, fireRate=1;
+      if(!tower.IsSupport) foreach(var source in Towers)
+      {
+        if(source==tower || !source.IsSupport) continue;
+        Vector3 delta=source.transform.position-tower.transform.position;delta.y=0;
+        if(delta.sqrMagnitude>source.Range*source.Range) continue;
+        damage+=source.EffectiveDamageBoost;
+        fireRate+=source.EffectiveFireRateBoost;
+        float link=source.GetTowerConfig().myceliumLinkBoost;
+        if(link<=0 || !Adjacent(source,tower)) continue;
+        if(source.EffectiveDamageBoost>0) damage+=link;
+        if(source.EffectiveFireRateBoost>0) fireRate+=link;
+        tower.MyceliumConnections++;
+        source.MyceliumConnections++;
+        source.GetComponent<MyceliumRoots>().Connect(tower);
+      }
+      tower.SetBuffs(damage,fireRate);
+    }
+    ShowLinksFor(selected);
   }
 }

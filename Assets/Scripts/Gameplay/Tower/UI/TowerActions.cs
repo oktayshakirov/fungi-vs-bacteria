@@ -32,6 +32,13 @@ namespace TowerDefense.UI
     private TMP_Text upgradePreviewText;
     private Button upgradeButton;
     private bool built;
+    private Button styleButton, sellButton;
+    private bool choosingBranch;
+    private Transform branchRow;
+    private TMP_Text branchHint;
+    private Transform priorityRow;
+    private TMP_Text priorityHint;
+    private readonly Button[] priorityButtons = new Button[3];
 
     private void Awake()
     {
@@ -41,6 +48,7 @@ namespace TowerDefense.UI
 
     public void ShowForTower(Tower tower)
     {
+      if(currentTower!=tower) choosingBranch=false;
       currentTower = tower;
       if (currentTower == null) return;
 
@@ -68,9 +76,20 @@ namespace TowerDefense.UI
       descriptionText.text = string.IsNullOrWhiteSpace(config.description)
         ? string.Empty
         : config.description;
+      if(tower.IsSupport && config.myceliumLinkBoost>0)
+        descriptionText.text=$"Boosts nearby fungi. Adjacent attackers link for +{Mathf.RoundToInt(config.myceliumLinkBoost*100)}% extra " +
+          (config.damageBoost>0?"damage.":"fire rate.");
       towerStatsText.text = StatLine(config, tower);
 
+      if(tower.Specialization!=ArcherSpecialization.Balanced)
+      {
+        towerNameText.text=$"Archer: {tower.Specialization}  Lv {tower.Level}";
+        descriptionText.text=ArcherBranches.Description(tower.Specialization);
+      }
+      if(choosingBranch) descriptionText.text="Choose a style once for this fungus. No extra cost.";
+      RefreshSpecialization();
       RefreshUpgradeButton(tower);
+      RefreshPriority();
 
       gameObject.SetActive(true);
     }
@@ -98,11 +117,12 @@ namespace TowerDefense.UI
       if (upgradeButton == null) return;
 
       bool available = tower.MaxLevel > 1 && !tower.IsMaxLevel;
-      upgradeButton.gameObject.SetActive(available);
+      upgradeButton.gameObject.SetActive(available && !choosingBranch);
+      if(sellButton!=null)sellButton.gameObject.SetActive(!choosingBranch);
 
       if (upgradePreviewText != null)
       {
-        upgradePreviewText.gameObject.SetActive(available);
+        upgradePreviewText.gameObject.SetActive(available && !choosingBranch);
         if (available) upgradePreviewText.text = NextTierLine(tower);
       }
 
@@ -110,7 +130,8 @@ namespace TowerDefense.UI
       // ContentSizeFitter: it is anchored into a corner with an explicit
       // sizeDelta, and a fitter would fight that every frame.
       TowerInfoPanel.Place((RectTransform)transform,
-        TowerInfoPanel.BaseHeight + (available ? TowerInfoPanel.ExtraLineHeight : 0f));
+        TowerInfoPanel.BaseHeight + (available && !choosingBranch ? TowerInfoPanel.ExtraLineHeight : 0f)
+          + (choosingBranch ? 108f : !tower.IsSupport ? 72f : 0f));
 
       if (!available) return;
 
@@ -140,10 +161,10 @@ namespace TowerDefense.UI
       }
 
       string damage = config.Poisons
-        ? $"Damage {config.DamageAt(next)}+{config.PoisonDamageAt(next)}"
-        : $"Damage {config.DamageAt(next)}";
-      return $"Next: {damage}   Range {config.RangeAt(next):0.#}" +
-             $"   {config.FireRateAt(next):0.#}/s";
+        ? $"Damage {tower.ProjectedDamageAt(next)}+{tower.ProjectedPoisonDamageAt(next)}"
+        : $"Damage {tower.ProjectedDamageAt(next)}";
+      return $"Next: {damage}   Range {tower.ProjectedRangeAt(next):0.#}" +
+             $"   {tower.ProjectedFireRateAt(next):0.#}/s";
     }
 
     // Reports the tower's EFFECTIVE numbers, not its authored ones: a tower
@@ -157,11 +178,11 @@ namespace TowerDefense.UI
         string boost = config.damageBoost > 0f
           ? $"+{Mathf.RoundToInt(tower.EffectiveDamageBoost * 100f)}% damage"
           : $"+{Mathf.RoundToInt(tower.EffectiveFireRateBoost * 100f)}% fire rate";
-        return $"Range {tower.Range:0.#}   {boost} to nearby towers";
+        return $"Range {tower.Range:0.#}   {boost}   {tower.MyceliumConnections} linked";
       }
 
       string damage = config.Poisons
-        ? $"Damage {tower.EffectiveDamage}+{config.PoisonDamageAt(tower.Level)}"
+        ? $"Damage {tower.EffectiveDamage}+{tower.ProjectedPoisonDamageAt(tower.Level)}"
         : $"Damage {tower.EffectiveDamage}";
       string line = $"{damage}   Range {tower.Range:0.#}" +
                     $"   {tower.EffectiveFireRate:0.#}/s";
@@ -173,8 +194,8 @@ namespace TowerDefense.UI
       // Compared against the tower's OWN tier, not against the config: an
       // upgraded tower is not "buffed", and labelling it so would make the
       // support towers look like they were doing something they are not.
-      bool buffed = tower.EffectiveDamage != config.DamageAt(tower.Level)
-                 || !Mathf.Approximately(tower.EffectiveFireRate, config.FireRateAt(tower.Level));
+      bool buffed = tower.EffectiveDamage != tower.UnbuffedDamageAt(tower.Level)
+                 || !Mathf.Approximately(tower.EffectiveFireRate, tower.FireRate);
       if (buffed) line += "   (buffed)";
       return line;
     }
@@ -207,11 +228,17 @@ namespace TowerDefense.UI
       foreach (Button button in GetComponentsInChildren<Button>(true))
       {
         bool isUpgrade = button.name.ToLowerInvariant().Contains("upgrade");
-        if (isUpgrade) upgradeButton = button;
+        if (isUpgrade) upgradeButton = button;else sellButton=button;
 
         button.transform.SetParent(actions, false);
         TowerInfoPanel.StyleAction(button, isUpgrade ? UiSkin.Primary : UiSkin.Neutral);
       }
+
+      var styleRect=new GameObject("Specialize",typeof(RectTransform));styleRect.transform.SetParent(actions,false);
+      styleRect.AddComponent<Image>();styleButton=styleRect.AddComponent<Button>();
+      var styleText=new GameObject("Label",typeof(RectTransform),typeof(TextMeshProUGUI));styleText.transform.SetParent(styleRect.transform,false);
+      UiSkin.Label(styleText.GetComponent<TMP_Text>(),UiSkin.Role.Caption);TowerInfoPanel.StyleAction(styleButton,UiSkin.Neutral);
+      styleButton.onClick.AddListener(()=>{if(currentTower!=null && currentTower.CanSpecialize){choosingBranch=!choosingBranch;ShowForTower(currentTower);}});
 
       // Order: header, description, stats, preview, buttons. The scene's own
       // order puts the buttons in the middle.
@@ -220,6 +247,77 @@ namespace TowerDefense.UI
       if (towerStatsText != null) towerStatsText.transform.SetSiblingIndex(3);
       upgradePreviewText.transform.SetSiblingIndex(4);
       actions.SetAsLastSibling();
+      priorityRow = TowerInfoPanel.Actions(transform, "TargetPriority");
+      priorityRow.name = "TargetPriority";
+      priorityRow.GetComponent<LayoutElement>().preferredHeight = 38f;
+      for (int i = 0; i < priorityButtons.Length; i++)
+      {
+        TargetPriority mode = (TargetPriority)i;
+        var rect = new GameObject(mode.ToString(), typeof(RectTransform));
+        rect.transform.SetParent(priorityRow, false);
+        rect.AddComponent<Image>();
+        var button = rect.AddComponent<Button>();
+        var text = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        text.transform.SetParent(rect.transform, false);
+        UiSkin.Stretch((RectTransform)text.transform);
+        UiSkin.Label(text.GetComponent<TMP_Text>(), UiSkin.Role.Caption);
+        text.GetComponent<TMP_Text>().text = mode.ToString().ToUpperInvariant();
+        text.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Center;
+        TowerInfoPanel.StyleAction(button, UiSkin.Neutral);
+        button.onClick.AddListener(() => { currentTower?.SetPriority(mode); RefreshPriority(); });
+        priorityButtons[i] = button;
+      }
+      priorityHint = TowerInfoPanel.Note(transform, "PriorityHint");
+      branchRow=TowerInfoPanel.Actions(transform,"ArcherBranches");
+      branchRow.GetComponent<LayoutElement>().preferredHeight=56f;
+      foreach(var branch in new[]{ArcherSpecialization.Flurry,ArcherSpecialization.Longshot})
+      {
+        var rect=new GameObject(branch.ToString(),typeof(RectTransform));rect.transform.SetParent(branchRow,false);
+        rect.AddComponent<Image>();var button=rect.AddComponent<Button>();
+        var text=new GameObject("Label",typeof(RectTransform),typeof(TextMeshProUGUI));text.transform.SetParent(rect.transform,false);
+        var label=text.GetComponent<TMP_Text>();UiSkin.Label(label,UiSkin.Role.Caption);
+        label.text=branch==ArcherSpecialization.Flurry ? "<b>FLURRY</b>\n+40% rate, -15% reach" : "<b>LONGSHOT</b>\n+35% hit, +25% reach";
+        TowerInfoPanel.StyleAction(button,UiSkin.Primary);UiFont.ApplyReadable(label);label.richText=true;label.fontSize=label.fontSizeMax=18;label.fontSizeMin=16;
+        button.onClick.AddListener(()=>{if(currentTower!=null && currentTower.Specialize(branch)){choosingBranch=false;ShowForTower(currentTower);}});
+      }
+      branchHint=TowerInfoPanel.Note(transform,"BranchHint");branchHint.color=UiSkin.TextMuted;
+    }
+
+    private void RefreshSpecialization()
+    {
+      bool choose=currentTower!=null && currentTower.CanSpecialize && choosingBranch;
+      bool eligible=currentTower!=null && currentTower.SupportsSpecialization && currentTower.Specialization==ArcherSpecialization.Balanced;
+      styleButton.gameObject.SetActive(eligible);styleButton.interactable=eligible && currentTower.CanSpecialize;
+      styleButton.GetComponentInChildren<TMP_Text>().text=choose?"BACK":currentTower.Level<2?"STYLE LV 2":"STYLE";
+      // Emphasize Upgrade and an available Style choice; Sell/Back stay medium. Keep the three
+      // actions compact without shrinking the letters below 16 canvas units.
+      foreach(var button in new[]{sellButton,upgradeButton,styleButton})
+      {
+        if(button==null)continue;
+        var label=button.GetComponentInChildren<TMP_Text>(true);if(label==null)continue;
+        UiFont.ApplyControl(label,button==upgradeButton);
+        if(button==styleButton && !choose && currentTower.CanSpecialize)UiFont.ApplyReadable(label,true);label.fontSize=label.fontSizeMax=eligible?18:26;label.fontSizeMin=16;
+      }
+      branchRow.gameObject.SetActive(choose);branchHint.gameObject.SetActive(choose);
+      branchHint.GetComponent<LayoutElement>().preferredHeight=44;
+      branchHint.text="Flurry: -20% hit. Longshot: -25% rate.\nChoose once; no extra cost.";
+    }
+
+    private void RefreshPriority()
+    {
+      bool show = currentTower != null && !currentTower.IsSupport && !choosingBranch;
+      priorityRow.gameObject.SetActive(show);
+      priorityHint.gameObject.SetActive(show);
+      if (!show) return;
+      for (int i = 0; i < priorityButtons.Length; i++)
+      {
+        bool selected=(int)currentTower.Priority == i;
+        UiSkin.StyleButton(priorityButtons[i], selected ? UiSkin.Primary : UiSkin.Neutral);
+        if(selected)UiFont.ApplyReadable(priorityButtons[i].GetComponentInChildren<TMP_Text>(true),true);
+      }
+      priorityHint.text = currentTower.Priority == TargetPriority.First ? "Target: closest to the exit along the path"
+        : currentTower.Priority == TargetPriority.Strong ? "Target: most health + shield remaining"
+        : "Target: closest to this fungus";
     }
 
     public void SellTower()
@@ -248,7 +346,7 @@ namespace TowerDefense.UI
 
     public void Hide()
     {
-      currentTower = null;
+      currentTower = null;choosingBranch=false;
       gameObject.SetActive(false);
     }
   }

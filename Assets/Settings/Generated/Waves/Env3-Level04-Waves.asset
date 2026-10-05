@@ -15,129 +15,63 @@ MonoBehaviour:
   waves:
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
+      count: 5
+      healthMultiplier: 1.2016664
+      rewardMultiplier: 1.2016664
+    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
+      count: 1
+      healthMultiplier: 1.0814997
+      rewardMultiplier: 1.2016664
+    timeBetweenSpawns: 1.2
+    timeToNextWave: 12
+    waveGoldReward: 50
+    planningHint: Cover the bends. Use the first clear reward to prepare for the
+      next threat.
+  - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
+      count: 6
+      healthMultiplier: 1.3901631
+      rewardMultiplier: 1.3901631
+    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 3
-      healthMultiplier: 1.0602939
-      rewardMultiplier: 1.0602939
-    timeBetweenSpawns: 1.2720001
-    timeToNextWave: 5
-    waveGoldReward: 48
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-      healthMultiplier: 1.2016664
-      rewardMultiplier: 1.2016664
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 1
-      healthMultiplier: 1.2016664
-      rewardMultiplier: 1.2016664
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 4
-      healthMultiplier: 1.2016664
-      rewardMultiplier: 1.2016664
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 1
-      healthMultiplier: 1.2016664
-      rewardMultiplier: 1.2016664
-    timeBetweenSpawns: 1.232
-    timeToNextWave: 5
-    waveGoldReward: 52
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 4
-      healthMultiplier: 1.3430388
-      rewardMultiplier: 1.3430388
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 1
-      healthMultiplier: 1.3430388
-      rewardMultiplier: 1.3430388
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 1
-      healthMultiplier: 1.3430388
-      rewardMultiplier: 1.3430388
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 5
-      healthMultiplier: 1.3430388
-      rewardMultiplier: 1.3430388
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 1
-      healthMultiplier: 1.3430388
-      rewardMultiplier: 1.3430388
-    timeBetweenSpawns: 1.192
-    timeToNextWave: 5
-    waveGoldReward: 56
-  - enemyGroups:
-    - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-      healthMultiplier: 1.4844114
-      rewardMultiplier: 1.4844114
-    - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 2
-      healthMultiplier: 1.4844114
-      rewardMultiplier: 1.4844114
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 1
-      healthMultiplier: 1.4844114
-      rewardMultiplier: 1.4844114
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 5
-      healthMultiplier: 1.4844114
-      rewardMultiplier: 1.4844114
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 1
-      healthMultiplier: 1.4844114
-      rewardMultiplier: 1.4844114
-    timeBetweenSpawns: 1.1520001
-    timeToNextWave: 5
+      healthMultiplier: 1.3901631
+      rewardMultiplier: 1.3901631
+    timeBetweenSpawns: 0.65
+    timeToNextWave: 12
     waveGoldReward: 60
+    planningHint: Shock chains and Inferno splash damage punish tightly spaced swarms.
   - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
+      count: 7
+      healthMultiplier: 1.5786597
+      rewardMultiplier: 1.5786597
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 5
-      healthMultiplier: 1.6257839
-      rewardMultiplier: 1.6257839
+      count: 3
+      healthMultiplier: 1.5786597
+      rewardMultiplier: 1.5786597
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
       count: 2
-      healthMultiplier: 1.6257839
-      rewardMultiplier: 1.6257839
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 2
-      healthMultiplier: 1.6257839
-      rewardMultiplier: 1.6257839
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 5
-      healthMultiplier: 1.6257839
-      rewardMultiplier: 1.6257839
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 2
-      healthMultiplier: 1.6257839
-      rewardMultiplier: 1.6257839
-    timeBetweenSpawns: 1.112
-    timeToNextWave: 5
-    waveGoldReward: 64
+      healthMultiplier: 1.4207937
+      rewardMultiplier: 1.5786597
+    timeBetweenSpawns: 0.65
+    timeToNextWave: 12
+    waveGoldReward: 70
+    planningHint: Shock chains and Inferno splash damage punish tightly spaced swarms.
   - enemyGroups:
+    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
+      count: 8
+      healthMultiplier: 1.7671564
+      rewardMultiplier: 1.7671564
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
-      count: 6
+      count: 3
       healthMultiplier: 1.7671564
       rewardMultiplier: 1.7671564
     - enemyConfig: {fileID: 11400000, guid: 6bcc0a5debdd24e38ae8505f42a3f489, type: 2}
-      count: 2
-      healthMultiplier: 1.7671564
+      count: 3
+      healthMultiplier: 1.5904406
       rewardMultiplier: 1.7671564
-    - enemyConfig: {fileID: 11400000, guid: 537ac2d8265d14519a642f067826c33c, type: 2}
-      count: 2
-      healthMultiplier: 1.7671564
-      rewardMultiplier: 1.7671564
-    - enemyConfig: {fileID: 11400000, guid: 228e4be963724b5f9dcd9ee4347e2818, type: 2}
-      count: 6
-      healthMultiplier: 1.7671564
-      rewardMultiplier: 1.7671564
-    - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
-      count: 2
-      healthMultiplier: 1.7671564
-      rewardMultiplier: 1.7671564
-    - enemyConfig: {fileID: 11400000, guid: bb6d18ca637fe404ab0ee24e4f17ee8a, type: 2}
-      count: 1
-      healthMultiplier: 1.7671564
-      rewardMultiplier: 1.7671564
-    timeBetweenSpawns: 1.072
-    timeToNextWave: 5
-    waveGoldReward: 68
+    timeBetweenSpawns: 0.65
+    timeToNextWave: 12
+    waveGoldReward: 80
+    planningHint: 'Final pack: Shock chains and Inferno splash damage punish tightly
+      spaced swarms.'
