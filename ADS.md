@@ -166,9 +166,9 @@ not - is exactly what a correctly integrated, not-yet-published app looks like.
 2. Publish the app, then set **Store availability -> Live app** on the
    dashboard.
 3. Re-enable Google bidding and confirm fill once AdMob has approved the app.
-4. **Before release, turn test mode off** for both ironSource and AdMob, and
-   set `verboseLogging` (and `launchTestSuiteOnInit`, already off) to false on
-   the `Ads` component.
+4. **Before release, turn test mode off** for both ironSource and AdMob on
+   their dashboards. The in-app side is done: `verboseLogging` and
+   `launchTestSuiteOnInit` are both false on the `Ads` component (2026-10-05).
 
 Keep the device registered in **both** test-device lists, for different
 reasons:

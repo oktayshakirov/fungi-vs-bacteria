@@ -23,11 +23,13 @@
 
 ### Google Play
 - [ ] Google Play Console account ($25 one-time)
-- [ ] Create a keystore (`Player Settings → Publishing Settings`) and **back it up** —
+- [x] Create a keystore (`Player Settings → Publishing Settings`) and **back it up** —
       losing it means losing the ability to update the app
 - [ ] Store listing: title, short + full description, category (Strategy)
 - [ ] Screenshots (min 2, landscape), feature graphic 1024×500
-- [ ] Privacy policy URL — required, and it must name the ad SDKs (see **Privacy** below)
+- [x] Privacy policy URL — https://oktayshakirov.com/privacy-policy/fungi-vs-bacteria
+      (also opened from Settings → PRIVACY POLICY). It must name the ad SDKs and
+      RevenueCat (see **Privacy** below) — check it does
 - [ ] Data-safety form — the game ships ad SDKs that DO collect data; answer it from
       **Privacy** below, not "no data collected"
 - [ ] Content rating questionnaire (should land at PEGI 3 / Everyone) — and see
@@ -41,6 +43,10 @@
 - [ ] Privacy nutrition label — see **Privacy** below; the app tracks (ATT prompt)
 
 ### Before submitting anywhere
+- [ ] Ads: test mode OFF on the LevelPlay and AdMob dashboards (the in-app debug
+      flags `verboseLogging` / `launchTestSuiteOnInit` are already off — see ADS.md)
+- [ ] Build a release build, not a Development Build — `LevelProgress.UnlockAll`
+      is on in development builds
 - [ ] Playtest the difficulty curve across the 7 biomes x 10 levels (at least each
       biome's levels 1, 5 and 10) and report tuning needs
 - [x] App icon and environment card art (cards are rendered from each biome's level 1)
@@ -176,10 +182,10 @@ because the player opts into those and they pay coins.
 
 - [ ] Create all four products in **App Store Connect** and **Google Play Console**
       as consumables with exactly the IDs above
-- [ ] Create the RevenueCat project and add both apps
+- [x] Create the RevenueCat project and add both apps
 - [ ] Put all four products in an **offering** so they can be reordered later
       without a build
-- [ ] Paste the RevenueCat **public SDK keys** into `Assets/Editor/IapSetup.cs`
+- [x] Paste the RevenueCat **public SDK keys** into `Assets/Editor/IapSetup.cs`
       and run **Tools → IAP → Apply Keys**. Never put the *secret* key in this
       project — it can read and modify purchase data and belongs on a server
 - [ ] iOS: agree to the Paid Applications agreement in App Store Connect, or no

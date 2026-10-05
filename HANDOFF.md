@@ -1,14 +1,14 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-10-03 (phase 32, combat allocations, enemy mesh cost and the
-three tower roles). Phase 29 was a distinct base and nest per environment;
-phase 30, the neutral nest mouth and the spawn effect; phase 31, its
-polish pass.
-Render-checked; committed and pushed on `main`.
+Last updated 2026-10-05 (phase 33, the battle debrief, wave scouting, the
+Archer branches, mycelium links, boss phases and Nunito Sans - built by Codex,
+committed as `4c3d4df`; then test ads off and the privacy policy linked).
+Phase 32 was combat allocations, enemy mesh cost and the three tower roles.
+Committed and pushed on `main`.
 
-**`LevelProgress.UnlockAll` is TRUE right now, deliberately** - phase 32 is
-going onto a device and nearly everything it changed is late-game. **Turn it off
-before any store build.**
+**`LevelProgress.UnlockAll` is compile-gated now** - `true` in the editor and in
+any **Development Build**, `false` in a release build. There is nothing left to
+remember to turn off; just make sure the store build is not a Development Build.
 An earlier state is bookmarked as branch `handoff/2026-08-visual-overhaul`.
 
 **Start here if you are a new session.** Read this file first; it supersedes the
@@ -16,6 +16,69 @@ per-phase notes elsewhere. Section 5 is the work queue, section 6 is every trap
 that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
+
+**Status 2026-10-05: waiting on the owner's first real-device playtest.** They
+are testing on a physical device and will come back with findings. Do not tune
+balance, economy or performance further until those arrive - every open item
+below is "built, never played". Feed the findings into section 5.
+
+**Latest: phase 33 — the game explains itself.** Built by Codex, compile- and
+render-checked, **none of it played by a human**:
+- **Battle debrief** (`BattleReport`, `BattleDebrief`). The victory and game-over
+  screens share one safe-area layout showing the run: which enemies escaped and
+  how much health each cost, ranked, a one-line lesson and the next star goal.
+  The report covers the whole scene including continues and stores nothing.
+- **Wave scouting** (`WaveIntel`, `WavePreview`). A persistent forecast of the
+  next wave's composition in the bottom-left info slot (tower and booster panels
+  take precedence), plus a scout button in the timer's top-HUD slot. The same
+  button starts the first wave and sends a prepared wave early; only `Update`
+  owns the timer, so a manual start can no longer double-send a wave.
+- **Archer specialization** (`ArcherSpecialization`). A one-time per-tower
+  choice once upgraded: Flurry (x0.8 damage, x1.4 rate, x0.85 reach) or Longshot
+  (x1.35 damage, x0.75 rate, x1.25 reach). Never mutates the shared config.
+- **Mycelium links** (`MyceliumRoots`, `TowerBuffs`). Support is an
+  event-driven graph now: adjacent attackers get a small extra bonus on top of
+  ordinary aura coverage, and selecting a tower draws its real connections on
+  the ground. No Update, colliders or particles.
+- **Boss phases** (`BossCue`, `Enemy.BossStage` Stable/Fortified/Rushing) - only
+  on the one opted-in encounter, Environment 1 Level 04, through the new
+  `BossEncounterEnemy` asset (`Tools/Levels/Apply Phase 4 Encounter`). Every
+  other boss keeps its old behaviour until this one has been played.
+- **Combat pulses** (`CombatPulse`). Small ground cues with a hard live budget
+  and reserved slots, so ordinary hits cannot crowd out shield breaks, split
+  births and boss warnings.
+- **Authored levels.** `CampaignChallenges` keeps ten hand-authored openings and
+  `BiomeChallenges` one transition challenge per biome (each Level01), both
+  re-applied in place after regeneration (`Tools/Levels/Apply ...`).
+- **Typography.** Nunito Sans (OFL, licence in `Assets/Fonts/NunitoSans/`) is
+  the UI font via `UiFont`, as TMP assets in `Resources/Fonts`. New
+  splitter daughter-cell and healer-plus meshes, and rendered enemy portraits in
+  `Resources/EnemyPortraits`.
+- New editor checks/previews for all of the above (`*Checks`, `*PlayChecks`,
+  `*Preview` in `Assets/Editor`).
+
+**Store prep done the same day:**
+- **Ad debug off.** `verboseLogging` is `0` on the `Ads` component in
+  `MainMenu.unity` (it was `1`, which also turned on adapter debug and logged
+  the advertising ID); `launchTestSuiteOnInit` was already off. **Still on the
+  owner, on the dashboards:** test mode off in LevelPlay and AdMob. Keep the
+  test device registered in both lists so playtesting does not tap real ads.
+- **Privacy policy linked**: `https://oktayshakirov.com/privacy-policy/fungi-vs-bacteria`,
+  `SettingScreen.PrivacyPolicyUrl`, opened by a **PRIVACY POLICY** corner button
+  bottom-right of Settings, shown to everyone (the UMP **PRIVACY OPTIONS** button
+  stays bottom-left, EEA/UK only).
+- Android keystore and the RevenueCat project exist; the RevenueCat public SDK
+  keys are already in `IapSetup.cs`.
+
+**What still stands between this and a store submission** (`DISTRIBUTION.md`
+has the full checklist): the device playtest and whatever it turns up; the four
+coin-pack products created in both stores and put in a RevenueCat offering, then
+a sandbox purchase on a device; the iOS Paid Applications agreement; the Play
+data-safety form, Apple privacy label and target-audience/content-rating answers;
+store text and screenshots; ad test mode off on the dashboards. After launch:
+mark the app live on LevelPlay and re-enable Google bidding.
+
+### Phase 32 (previous)
 
 **Latest: phase 32 — the combat code stopped allocating, the two heavy enemy
 bodies stopped costing five million triangles, and three towers that were the
@@ -1401,7 +1464,7 @@ Both are verified in `screen-environments` / `screen-levels`. What a human still
 has to do is finish Environment 1 and watch Environment 2 actually open — the
 write path (`MarkLevelCompleted`) is exercised, the transition is not.
 
-**Before release:** `LevelProgress.UnlockAll = false` (**done**); the
+**Before release:** `LevelProgress.UnlockAll = false` (**done** - compile-gated, off in release builds); the
 **THEREN Trial** font is **deleted** (done — see below); analytics + crash
 reporting; real app icon and store art; replace the synthesized SFX. See
 `DISTRIBUTION.md`.

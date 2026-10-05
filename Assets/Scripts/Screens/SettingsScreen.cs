@@ -5,6 +5,10 @@ using TMPro;
 
 public class SettingScreen : MonoBehaviour
 {
+    // Linked from both store listings too; Google Play and the App Store want
+    // it reachable from inside the app as well.
+    public const string PrivacyPolicyUrl = "https://oktayshakirov.com/privacy-policy/fungi-vs-bacteria";
+
     [Header("Setting Screen")]
     [SerializeField] private Toggle backgroundMusicToggle;
     [SerializeField] private Toggle sfxToggle;
@@ -35,6 +39,12 @@ public class SettingScreen : MonoBehaviour
                 LevelPlayAds.Instance?.ShowPrivacyOptionsForm();
             });
         }
+
+        BuildPolicyButton(transform, () =>
+        {
+            AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+            Application.OpenURL(PrivacyPolicyUrl);
+        });
     }
 
     // GDPR, and Google's EU user consent policy that the UMP SDK exists to
@@ -65,17 +75,26 @@ public class SettingScreen : MonoBehaviour
     //
     // Public and static so UiPreview can build it without a live consent state,
     // which never exists in the editor.
-    public static Button BuildPrivacyButton(Transform root, Action onClick)
+    public static Button BuildPrivacyButton(Transform root, Action onClick) =>
+        BuildCornerButton(root, "PrivacyOptions", "PRIVACY OPTIONS", false, onClick);
+
+    // The policy itself, bottom-right, shown everywhere: unlike the consent
+    // form it applies to every player, not just the EEA/UK.
+    public static Button BuildPolicyButton(Transform root, Action onClick) =>
+        BuildCornerButton(root, "PrivacyPolicy", "PRIVACY POLICY", true, onClick);
+
+    private static Button BuildCornerButton(Transform root, string name, string text, bool right, Action onClick)
     {
         Transform host = root.Find("SafeArea") ?? root;
 
-        var go = new GameObject("PrivacyOptions", typeof(RectTransform));
+        var go = new GameObject(name, typeof(RectTransform));
         go.transform.SetParent(host, false);
         var rect = (RectTransform)go.transform;
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.zero;
-        rect.pivot = Vector2.zero;
-        rect.anchoredPosition = new Vector2(ScreenTheme.HeaderInset, ScreenTheme.HeaderInset);
+        var corner = new Vector2(right ? 1f : 0f, 0f);
+        rect.anchorMin = corner;
+        rect.anchorMax = corner;
+        rect.pivot = corner;
+        rect.anchoredPosition = new Vector2(right ? -ScreenTheme.HeaderInset : ScreenTheme.HeaderInset, ScreenTheme.HeaderInset);
         rect.sizeDelta = new Vector2(250f, 64f);
 
         go.AddComponent<Image>();
@@ -84,7 +103,7 @@ public class SettingScreen : MonoBehaviour
         var labelGo = new GameObject("Label", typeof(RectTransform));
         labelGo.transform.SetParent(go.transform, false);
         var label = labelGo.AddComponent<TextMeshProUGUI>();
-        label.text = "PRIVACY OPTIONS";
+        label.text = text;
 
         ScreenTheme.CornerButton(button);
         label.enableAutoSizing = true;
