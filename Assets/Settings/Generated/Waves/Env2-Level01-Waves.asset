@@ -21,7 +21,7 @@ MonoBehaviour:
     timeBetweenSpawns: 1.4
     timeToNextWave: 12
     waveGoldReward: 35
-    planningHint: Cover both bends. Upgrade an Archer to unlock Flurry or Longshot.
+    planningHint: Cover both bends. Upgraded Archers hit harder and reach further.
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: ba60700f5b71649c69ab1c8ecbdd6b2d, type: 2}
       count: 3
@@ -51,5 +51,4 @@ MonoBehaviour:
     timeBetweenSpawns: 0.7
     timeToNextWave: 12
     waveGoldReward: 60
-    planningHint: Flurry favors a bend; Longshot covers more road. Give runners enough
-      damage.
+    planningHint: Archers on a bend cover the most road. Give runners enough damage.

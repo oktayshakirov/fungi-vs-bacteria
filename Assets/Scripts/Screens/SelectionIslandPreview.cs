@@ -99,9 +99,17 @@ public class SelectionIslandPreview : MonoBehaviour, IBeginDragHandler, IEndDrag
             ground.SetTexture("_BaseMap", EnvironmentTheme.ResolveGround(p.ground));
             float tiling = p.groundTiling > 0 ? p.groundTiling : 3;
             ground.mainTextureScale = new Vector2(tiling, tiling);
-            Surface(root.transform, "Ground", board.groundMesh, board.groundPosition, board.groundRotation, board.groundScale, ground);
-            Surface(root.transform, "Soil", board.soilMesh, board.soilPosition, board.soilRotation, board.soilScale,
-              Material(p.soilColor, false, owned));
+            // The same rounded turf and soil the level itself builds
+            // (GroundManager.ApplyIslandOutline). The scene's own meshes are a
+            // rectangular plane and slab, which the level replaces at load - in
+            // the preview they read as a flat map laid on top of the island.
+            float halfW = board.gridSize.x * board.cellSize * .5f + BoardDecor.Margin;
+            float halfD = board.gridSize.y * board.cellSize * .5f + BoardDecor.Margin;
+            Surface(root.transform, "Ground", MeshFactory.IslandSurface(halfW, halfD, 0, 0),
+              board.groundPosition, Quaternion.identity, Vector3.one, ground);
+            Surface(root.transform, "Soil",
+              MeshFactory.IslandSurface(halfW, halfD, BoardDecor.SoilTop, BoardDecor.SoilTop - BoardDecor.SoilThickness),
+              Vector3.zero, Quaternion.identity, Vector3.one, Material(p.soilColor, false, owned));
             Vector3[] smooth = PathVisualizer.GenerateSmoothPath(points);
             if (smooth != null)
             {

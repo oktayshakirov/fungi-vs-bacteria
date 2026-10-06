@@ -24,6 +24,7 @@ public class GameSpeedButton : MonoBehaviour
 
     button = UiSkin.IconButton(gameObject, UiSprites.FastForward(), UiSkin.Neutral, out label);
     glyph = GetComponentInChildren<Image>() != null ? FindGlyph() : null;
+    HudTheme.SizeStackedGlyph(glyph);
     button.onClick.AddListener(OnClick);
 
     UpdateLabel(GameManager.Instance != null ? GameManager.Instance.PlaySpeed : 1f);
@@ -59,7 +60,7 @@ public class GameSpeedButton : MonoBehaviour
     Color tint = fast ? UiSkin.Accent : UiSkin.Neutral;
     UiSkin.StyleButton(button, tint, UiSkin.RadiusChip, emphasized: fast);
     if(fast)UiFont.ApplyReadable(label,true);
-    label.fontSize=label.fontSizeMax=20f;label.fontSizeMin=16f;label.margin=Vector4.zero;
+    label.fontSize=label.fontSizeMax=HudTheme.StackedLabelSize;label.fontSizeMin=16f;label.margin=Vector4.zero;
     if (glyph != null) glyph.color = fast ? UiSkin.TextDark : UiSkin.TextPrimary;
   }
 }

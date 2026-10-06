@@ -78,10 +78,10 @@ public static class CampaignPlayChecks
         counter=threat.hasShield?"ArcherTower":threat.isSplitter?"InfernoTower":threat.isHealer?"PoisonTower":threat.isArmored?"PoisonTower":threat.isFast?"IceTower":threat.name=="SwarmEnemy"?"ShockTower":"ArcherTower";
         if(branch)
         {
-          // Reserve the counter before paying for a style: an early upgrade
+          // Reserve the counter before paying for an upgrade: an early upgrade
           // alone leaves the Wetland armor mission without its Poison answer.
           if(counter!="ArcherTower")Build(counter);
-          var archer=Build("ArcherTower");if(!archer.Upgrade() || !archer.Specialize(item.x%2==0?ArcherSpecialization.Flurry:ArcherSpecialization.Longshot))throw new InvalidOperationException("Legal Archer specialization failed");upgrades++;
+          var archer=Build("ArcherTower");if(!archer.Upgrade())throw new InvalidOperationException("Legal Archer upgrade failed");upgrades++;
           if(manager.CanAfford(Config("IceTower").cost))Build("IceTower");
         }
         Spend(false);built=true;Time.timeScale=8;spawner.StartGame();

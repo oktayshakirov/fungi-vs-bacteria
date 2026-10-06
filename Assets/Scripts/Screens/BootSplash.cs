@@ -52,6 +52,22 @@ public class BootSplash : MonoBehaviour
     var backdrop = gameObject.AddComponent<Image>();
     backdrop.color = new Color(0.04f, 0.05f, 0.09f, 1f);
 
+    // The same dimmed biome art the level loads sit on, so the very first
+    // screen is not the one flat-colour screen in the game. The solid colour
+    // above stays as the fallback underneath it.
+    Sprite art = EnvironmentInfo.CardArt(LoadingScreen.BackdropEnvironment());
+    if (art != null)
+    {
+      var artGo = new GameObject("Art", typeof(RectTransform));
+      artGo.transform.SetParent(transform, false);
+      var image = artGo.AddComponent<Image>();
+      image.sprite = art;
+      image.color = LoadingScreen.ArtDim;
+      image.raycastTarget = false;
+      // Cover, not stretch: the art is not the screen's aspect ratio.
+      artGo.AddComponent<BackgroundFill>();
+    }
+
     var titleGo = new GameObject("Title", typeof(RectTransform));
     titleGo.transform.SetParent(transform, false);
     var title = titleGo.AddComponent<TextMeshProUGUI>();

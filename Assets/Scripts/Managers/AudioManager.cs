@@ -251,14 +251,16 @@ public class AudioManager : MonoBehaviour
     {
         switch (type)
         {
-            // Toggles and list selections: the lightest tick.
-            case SoundType.Toggle:
+            // List selections: the lightest tick.
             case SoundType.EnvironmentPicked:
             case SoundType.LevelPicked:
                 Haptics.Play(Haptics.Style.Selection);
                 break;
 
-            // Ordinary taps.
+            // Ordinary taps, and settings switches. A switch used the lightest
+            // tick too, which on Android is too short to feel at all - flipping
+            // a setting felt like nothing happened.
+            case SoundType.Toggle:
             case SoundType.ButtonClick:
             case SoundType.TowerDrag:
                 Haptics.Play(Haptics.Style.Light);

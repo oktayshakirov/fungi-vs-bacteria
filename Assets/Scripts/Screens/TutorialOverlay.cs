@@ -22,14 +22,36 @@ public class TutorialOverlay : MonoBehaviour
     var coach=root.AddComponent<TutorialOverlay>();
     coach.startButton=startButton;
     coach.Highlight(towerPanel);
+    coach.SitAbove(canvasParent.Find("BoosterBar") as RectTransform);
+  }
+
+  // Clear of the booster countdown dials, which ride the bar's top edge.
+  private const float BarGap = 34f;
+  private const float FallbackBottom = 140f;
+  private RectTransform coach;
+
+  // Centred on the booster bar's column rather than on the screen: that strip
+  // is already kept clear of the tower panels on the left and the towers rail
+  // on the right (see BoosterBar.Build), so the card inherits the same room.
+  private void SitAbove(RectTransform bar)
+  {
+    if (coach == null || bar == null) return;
+    coach.anchorMin = coach.anchorMax = Vector2.zero;
+    coach.anchoredPosition = new Vector2(bar.anchoredPosition.x, bar.anchoredPosition.y + bar.sizeDelta.y + BarGap);
   }
 
   private void Awake()
   {
     UiSkin.Stretch((RectTransform)transform);
     // No scrim or full-screen raycast target: tower dragging and board taps pass through.
-    var card = SelectionScreenView.Rect("Coach", transform, new Vector2(.5f,.74f),new Vector2(.5f,.74f));
+    // Low on the board, just above the booster bar. It used to sit high and
+    // centred, straight across the wave countdown / scout button under the
+    // wave badge - the one control the coach is about to tell you to watch.
+    var card = SelectionScreenView.Rect("Coach", transform, new Vector2(.5f,0),new Vector2(.5f,0));
+    card.pivot = new Vector2(.5f,0);
+    card.anchoredPosition = new Vector2(0,FallbackBottom);
     card.sizeDelta = new Vector2(Mathf.Min(440, ScreenTheme.LayoutWidth((RectTransform)transform)-300),112);
+    coach = card;
     UiSkin.Panel(card.gameObject.AddComponent<Image>(),UiSkin.PanelDark);
     counterText = SelectionScreenView.Label(SelectionScreenView.Rect("Step",card,new Vector2(.04f,.68f),new Vector2(.74f,.94f)),"",16,true);
     counterText.color=UiSkin.Primary;

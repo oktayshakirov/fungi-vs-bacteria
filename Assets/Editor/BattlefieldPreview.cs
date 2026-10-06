@@ -133,7 +133,6 @@ public static class BattlefieldPreview
     HudTheme.Apply(stats, gold, health, wave, timer, start, pause, panel);
     GameSpeedButton.Create(safe, stats, 0);
     CameraViewButton.Create(safe, stats, 1);
-    StoreHudButton.Create(safe, stats, 2);
 
     var ui = new SerializedObject(Object.FindFirstObjectByType<TowerUI>());
     var database = (TowerDatabase)ui.FindProperty("towerDatabase").objectReferenceValue;
@@ -172,7 +171,6 @@ public static class BattlefieldPreview
     {
       var actions=fields.FindProperty("towerActionsPanel").objectReferenceValue.AsGameObject().GetComponent<TowerActions>();
       Invoke(actions,"Awake");actions.ShowForTower(feedbackSelected);
-      if(specialty==1) actions.transform.Find("Actions").Find("Specialize").GetComponent<Button>().onClick.Invoke();
       forecast.ApplyVisibility();
     }
     Canvas.ForceUpdateCanvases();

@@ -25,9 +25,9 @@ public static class BiomeChallenges
     WaveConfig.Wave W(float spacing,int reward,string hint,params WaveConfig.WaveEnemyGroup[] groups)
       =>new WaveConfig.Wave{enemyGroups=groups,timeBetweenSpawns=spacing,timeToNextWave=12,waveGoldReward=reward,planningHint=hint};
     if(biome==2)return new[]{
-      W(1.4f,35,"Cover both bends. Upgrade an Archer to unlock Flurry or Longshot.",G(basic,5,1.1f)),
+      W(1.4f,35,"Cover both bends. Upgraded Archers hit harder and reach further.",G(basic,5,1.1f)),
       W(.8f,45,"Runners overtake the pack. Ice and FIRST keep the exit safe.",G(basic,3,1.2f),G(fast,4,1)),
-      W(.7f,60,"Flurry favors a bend; Longshot covers more road. Give runners enough damage.",G(fast,5,1.15f),G(basic,4,1.3f),G(armor,1,1))};
+      W(.7f,60,"Archers on a bend cover the most road. Give runners enough damage.",G(fast,5,1.15f),G(basic,4,1.3f),G(armor,1,1))};
     if(biome==3)return new[]{
       W(1.3f,40,"Poison bypasses armor. STRONG keeps it on the toughest bacteria.",G(basic,5,1.3f)),
       W(1.1f,50,"An armored front needs sustained damage; Poison or a supported Archer helps.",G(armor,3,1.1f),G(basic,3,1.3f)),
@@ -49,7 +49,7 @@ public static class BiomeChallenges
       W(.7f,75,"Chains reach through a dense swarm; leave room for Ice near the final bend.",G(swarm,8,1.6f),G(shield,3,1.4f)),
       W(1.2f,95,"Colony Boss warns before armor and rush phases. Poison ignores armor; Ice slows the rush.",G(Phase4Encounter.BossConfig(),1,1.4f),G(fast,4,1.5f),G(basic,4,1.9f))};
     return new[]{
-      W(.9f,60,"Longshot reaches across bends; Flurry works best close to the road.",G(basic,6,2),G(fast,4,1.5f)),
+      W(.9f,60,"Snipers reach across bends; Archers work best close to the road.",G(basic,6,2),G(fast,4,1.5f)),
       W(.8f,70,"Shield and armor need different answers: sustained hits and Poison.",G(shield,3,1.5f),G(armor,3,1.7f)),
       W(.65f,85,"Healers and Splitters punish gaps in coverage. Keep pack damage near the exit.",G(heal,1,1.3f),G(split,3,1.5f),G(swarm,7,1.7f)),
       W(1.1f,105,"Mixed finale: watch the boss warning, catch runners, and finish healed armor.",G(Phase4Encounter.BossConfig(),1,1.7f),G(heal,1,1.4f),G(fast,4,1.6f),G(armor,2,1.8f))};
@@ -63,7 +63,7 @@ public static class BiomeChallenges
       level.pathConfig.pathGridCoordinates=Path(biome);level.pathConfig.description=EnvironmentInfo.DisplayName(level.environmentName)+": authored counter challenge.";
       level.waveConfig.waves=Waves(biome);EditorUtility.SetDirty(level.pathConfig);EditorUtility.SetDirty(level.waveConfig);
     }
-    var archer=AssetDatabase.LoadAssetAtPath<TowerConfig>("Assets/Settings/Towers/ArcherTower.asset");archer.supportsArcherSpecialization=true;EditorUtility.SetDirty(archer);
+
     AssetDatabase.SaveAssets();Debug.Log("BIOME CHALLENGES: six biome openings and Archer specializations applied in place; save identities retained.");
   }
 }

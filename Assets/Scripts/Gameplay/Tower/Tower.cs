@@ -51,26 +51,14 @@ public class Tower : MonoBehaviour
   private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
   private static readonly int ColorId = Shader.PropertyToID("_Color");
 
-  public ArcherSpecialization Specialization { get; private set; }
-  public bool SupportsSpecialization => config!=null && config.supportsArcherSpecialization && !IsSupport;
-  public bool CanSpecialize => SupportsSpecialization && Level>=2 && Specialization==ArcherSpecialization.Balanced && !isPreviewMode;
-  public float ProjectedRangeAt(int level) => (config?.RangeAt(level) ?? 0f)*ArcherBranches.Reach(Specialization);
-  public int UnbuffedDamageAt(int level) => config==null?0:Mathf.RoundToInt(config.DamageAt(level)*ArcherBranches.Damage(Specialization));
+  public float ProjectedRangeAt(int level) => config?.RangeAt(level) ?? 0f;
+  public int UnbuffedDamageAt(int level) => config==null?0:Mathf.RoundToInt(config.DamageAt(level));
   public float Range => ProjectedRangeAt(Level);
-  public float FireRate => (config?.FireRateAt(Level) ?? 1f)*ArcherBranches.Rate(Specialization);
-  public bool Specialize(ArcherSpecialization branch)
-  {
-    if(!CanSpecialize || (branch!=ArcherSpecialization.Flurry && branch!=ArcherSpecialization.Longshot)) return false;
-    Specialization=branch;targeting?.Initialize(Range);
-    fireCountdown=1f/Mathf.Max(.01f,EffectiveFireRate);
-    TowerBuffs.Recalculate();
-    CombatPulse.Emit(transform.position+Vector3.up*.15f,1.1f,new Color(.80f,.63f,.32f),.35f);
-    return true;
-  }
+  public float FireRate => config?.FireRateAt(Level) ?? 1f;
 
   public bool IsSupport => config != null && config.isSupport;
-  public int ProjectedDamageAt(int level) => config == null ? 0 : Mathf.RoundToInt(config.DamageAt(level) * ArcherBranches.Damage(Specialization) * damageMultiplier);
-  public float ProjectedFireRateAt(int level) => config == null ? 1 : config.FireRateAt(level) * ArcherBranches.Rate(Specialization) * fireRateMultiplier * BoosterEffects.FireRateMultiplier;
+  public int ProjectedDamageAt(int level) => config == null ? 0 : Mathf.RoundToInt(config.DamageAt(level) * damageMultiplier);
+  public float ProjectedFireRateAt(int level) => config == null ? 1 : config.FireRateAt(level) * fireRateMultiplier * BoosterEffects.FireRateMultiplier;
   public int EffectiveDamage => ProjectedDamageAt(Level);
   public int ProjectedPoisonDamageAt(int level) => config==null || !config.Poisons ? 0 :
     Mathf.RoundToInt(config.poisonDamagePerSecond*config.poisonDuration*(config.damage>0?ProjectedDamageAt(level)/(float)config.damage:1));
@@ -167,7 +155,6 @@ public class Tower : MonoBehaviour
   public void Initialize(TowerConfig towerConfig, bool preview = false)
   {
     this.config = towerConfig;
-    Specialization=ArcherSpecialization.Balanced;
     this.isPreviewMode = preview;
 
     if (config != null)
@@ -324,6 +311,8 @@ public class Tower : MonoBehaviour
   {
     if (isSelected || isPreviewMode) return;
     isSelected = true;
+    // Tapping a placed tower plays no sound, so the press is felt here.
+    Haptics.Play(Haptics.Style.Light);
     TowerBuffs.ShowLinksFor(this);
     HUDManager.Instance?.ShowTowerActions(this);
     OnTowerSelected?.Invoke(this);

@@ -81,7 +81,7 @@ public static class BiomePlayChecks
           if(name=="PoisonTower" || name=="SniperTower")unit.SetPriority(TargetPriority.Strong);
           if(upgraded)
           {
-            if(!unit.Upgrade() || !unit.Specialize(biome%2==0?ArcherSpecialization.Flurry:ArcherSpecialization.Longshot))throw new InvalidOperationException("Legal branch opening failed");
+            if(!unit.Upgrade())throw new InvalidOperationException("Legal upgrade opening failed");
           }
         }
         if(branches)

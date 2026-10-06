@@ -201,16 +201,46 @@ public class Iap : MonoBehaviour
 
   // Only ever call this straight from a button press - both stores require
   // that a purchase begins with a deliberate user action.
+  //
+  // One at a time. The store's sheet takes a second or two to appear, and in
+  // that gap a player who thought the first tap missed would tap another pack
+  // and get a second sheet queued behind the first. While a purchase is in
+  // flight further calls are ignored, and the store screen shows which pack is
+  // opening (PurchasingProduct) and locks the rest.
+  //
+  // Bounded, like every other wait in the game: a callback that never comes
+  // back must not leave the packs locked for the rest of the session.
+  private const float PurchaseTimeout = 120f;
+  private static string purchasingProduct;
+  private static float purchaseStarted;
+
+  public static string PurchasingProduct =>
+    purchasingProduct != null && Time.realtimeSinceStartup - purchaseStarted < PurchaseTimeout
+      ? purchasingProduct : null;
+
+  public static bool IsPurchasing => PurchasingProduct != null;
+
+  // Raised when a purchase starts, so the store can show it before the sheet.
+  public static event Action OnPurchaseStarted;
+
   public static void Purchase(string productIdentifier)
   {
+    if (IsPurchasing) return;
+
     if (Instance == null || !IsReady)
     {
       OnPurchaseFinished?.Invoke(false, "The store is not available right now.");
       return;
     }
 
+    purchasingProduct = productIdentifier;
+    purchaseStarted = Time.realtimeSinceStartup;
+    OnPurchaseStarted?.Invoke();
+
     Instance.purchases.PurchaseProduct(productIdentifier, result =>
     {
+      purchasingProduct = null;
+
       if (result.UserCancelled)
       {
         OnPurchaseFinished?.Invoke(false, null);

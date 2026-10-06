@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
 // HUD button that cycles the camera through its angle presets (cinematic /
@@ -22,7 +23,15 @@ public class CameraViewButton : MonoBehaviour
     var button = UiSkin.IconButton(gameObject, UiSprites.Camera(), UiSkin.Neutral, out label);
     button.onClick.AddListener(OnClick);
     label.text = "1";
-    label.fontSize=label.fontSizeMax=20f;label.fontSizeMin=16f;label.margin=Vector4.zero;
+    label.fontSize=label.fontSizeMax=HudTheme.StackedLabelSize;label.fontSizeMin=16f;label.margin=Vector4.zero;
+    // The glyph is the first child Image; the plate's own Image is on this object.
+    foreach (Transform child in transform)
+    {
+      var image = child.GetComponent<Image>();
+      if (image == null) continue;
+      HudTheme.SizeStackedGlyph(image);
+      break;
+    }
   }
 
   private void OnClick()

@@ -26,18 +26,16 @@ public class PauseGameScreen : MonoBehaviour
     }
 
     ScreenTheme.Apply(transform, resumeGameButton);
-    BuildStoreButton();
     LabelButtons();
   }
 
-  // The three buttons that come from the prefab were the only ones on the
-  // screen with no glyph, next to a STORE button that has one. Added after
+  // The three buttons that come from the prefab carry a glyph each. Added after
   // ScreenTheme.Apply, which is what sets each label's colour - the icon takes
   // that colour so it matches the word beside it on both the primary green
   // RESUME and the neutral plates.
   private void LabelButtons()
   {
-    // "RESUME GAME" next to "SETTINGS" and "STORE" was the only two-word label
+    // "RESUME GAME" next to "SETTINGS" was the only two-word label
     // on the card, and the second word says nothing the screen has not already.
     TMP_Text resume = resumeGameButton != null
       ? resumeGameButton.GetComponentInChildren<TMP_Text>(true) : null;
@@ -45,35 +43,6 @@ public class PauseGameScreen : MonoBehaviour
     UiSkin.AddButtonIcon(resumeGameButton, UiSprites.Play());
     UiSkin.AddButtonIcon(settingsButton, UiSprites.Gear());
     UiSkin.AddButtonIcon(returnToMainMenuButton, UiSprites.Home());
-  }
-
-  // A player paused mid-level to check the store had no way to reach it
-  // without abandoning the run through Return to Menu. Built at runtime and
-  // slotted right under Resume, in the same ButtonsPanel column ScreenTheme
-  // already sized and styled the other three buttons into.
-  private void BuildStoreButton()
-  {
-    Transform panel = resumeGameButton != null ? resumeGameButton.transform.parent : null;
-    if (panel == null) return;
-
-    var go = new GameObject("StoreButton", typeof(RectTransform));
-    go.transform.SetParent(panel, false);
-    go.transform.SetSiblingIndex(resumeGameButton.transform.GetSiblingIndex() + 1);
-
-    var element = go.AddComponent<LayoutElement>();
-    element.minHeight = 76f;
-    element.preferredHeight = 84f;
-
-    // Gold, matching the "VS" in the menu title.
-    Button button = UiSkin.IconButton(go, UiSprites.Store(), UiSkin.Gold, out TMP_Text label,
-      UiSkin.RadiusButton, UiSkin.TextDark, centered: true);
-    label.text = "STORE";
-
-    button.onClick.AddListener(() =>
-    {
-      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-      WalletScreen.OpenStore(transform);
-    });
   }
 
   public void Show()

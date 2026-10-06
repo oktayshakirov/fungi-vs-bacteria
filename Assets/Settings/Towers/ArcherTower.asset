@@ -44,4 +44,3 @@ MonoBehaviour:
   poisonDuration: 0
   poisonTint: {r: 0.6, g: 0.86, b: 0.24, a: 1}
   myceliumLinkBoost: 0.1
-  supportsArcherSpecialization: 1

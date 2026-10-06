@@ -79,7 +79,7 @@ public class VictoryScreen : MonoBehaviour
       replay.name = "ReplayButton";
       replay.transform.SetSiblingIndex(mainMenuButton.transform.GetSiblingIndex());
       TMP_Text label = replay.GetComponentInChildren<TMP_Text>(true);
-      if (label != null) label.text = "REPLAY";
+      if (label != null) label.text = "PLAY AGAIN";
     }
     replay.onClick.RemoveAllListeners();
     replay.onClick.AddListener(OnReplayClicked);

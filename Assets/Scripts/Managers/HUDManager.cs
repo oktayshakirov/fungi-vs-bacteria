@@ -116,9 +116,8 @@ public class HUDManager : MonoBehaviour
     // Stacked under the stats panel, so they can never overlap it
     GameSpeedButton.Create(uiRoot, statsRect, 0);
     CameraViewButton.Create(uiRoot, statsRect, 1);
-    // A player who runs dry on coins mid-wave used to have no way to reach the
-    // store without pausing out to the menu.
-    StoreHudButton.Create(uiRoot, statsRect, 2);
+    // No store inside a level: it lives on the main menu only. Boosters can
+    // still be bought one at a time from their own panel in the bar.
     // The booster bar positions itself independently from the bottom of the
     // screen (see BoosterBar.Build) - it does not consume a slot in this
     // stack, and `reference`/`slot` are only passed for symmetry.
@@ -321,7 +320,9 @@ public class HUDManager : MonoBehaviour
     if (startWaveButton != null)
     {
       startWaveButton.interactable = ready;
-      startWaveButtonText.text = ready ? (source.WavesStarted == 0 ? "START WAVE" : "SEND NEXT WAVE")
+      // One short label whenever a wave can go, first or early: "SEND NEXT
+      // WAVE" was the long one, and the rail-width plate shrank it to read it.
+      startWaveButtonText.text = ready ? "START WAVE"
         : source.IsWaveInProgress ? "DEFEAT THIS WAVE" : "ALL WAVES SENT";
     }
     wavePreview?.Bind(source.NextWave, source.WavesStarted + 1, ready);

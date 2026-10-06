@@ -190,8 +190,4 @@ public class TowerConfig : ScriptableObject
   [Header("Mycelium")]
   [Tooltip("Additional support bonus for orthogonally adjacent attacking fungi. No relays or support-to-support bonuses.")]
   [Range(0, .25f)] public float myceliumLinkBoost = .10f;
-
-  [Header("Archer prototype")]
-  [Tooltip("At tier 2 or later, this Archer can choose Flurry or Longshot once per placement.")]
-  public bool supportsArcherSpecialization;
 }

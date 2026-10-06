@@ -1057,9 +1057,6 @@ public static class UiPreview
     // The real runtime buttons, built by their own code
     GameSpeedButton.Create(safeArea, statsPanel, 0);
     CameraViewButton.Create(safeArea, statsPanel, 1);
-    // Placed beside pause rather than in the left stack, so the preview has to
-    // build it or the top-right corner is a shot short of the real HUD.
-    StoreHudButton.Create(safeArea, statsPanel, 2);
     // Builds nothing unless the player owns boosters, which is why the plain
     // HUD shots show no bar and ShootBoosters stocks the inventory first.
     BoosterBar.Create(safeArea, statsPanel, 2);

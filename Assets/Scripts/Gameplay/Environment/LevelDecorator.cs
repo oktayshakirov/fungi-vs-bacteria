@@ -118,9 +118,12 @@ public class LevelDecorator : MonoBehaviour
     BuildIslandCliff(p);
     if (!isPreview)
     {
-      BuildDistantClouds(p);
-      BuildDistantIslands(p);
-      BuildFloatingDebris(p);
+      // The sky pieces move (SkyDrift), so they are built under their own
+      // root OUTSIDE this object - the static batch below would freeze them.
+      SkyDrift sky = BuildSkyRoot();
+      BuildDistantClouds(p, sky);
+      BuildDistantIslands(p, sky);
+      BuildFloatingDebris(p, sky);
     }
     ScatterBiome(p);
 
@@ -194,12 +197,27 @@ public class LevelDecorator : MonoBehaviour
   // A wide field of soft clouds ringing the island in the distance and a little
   // below it, so they read as a far-off cloud layer in the sky rather than fog
   // clinging to the base. Kept out of the gap directly under the island.
-  private void BuildDistantClouds(EnvironmentTheme.Palette p)
+  private SkyDrift BuildSkyRoot()
+  {
+    var root = new GameObject("SkyDrift");
+    root.transform.SetParent(transform.parent, false);
+    spawned.Add(root);   // cleared with everything else on a rebuild
+
+    IslandExtent(out float halfW, out float halfD);
+    var sky = root.AddComponent<SkyDrift>();
+    sky.SetExtent(halfW, halfD);
+    // Off in edit mode: the editor previews are single frames.
+    sky.enabled = Application.isPlaying;
+    return sky;
+  }
+
+  private void BuildDistantClouds(EnvironmentTheme.Palette p, SkyDrift sky)
   {
     IslandExtent(out float halfW, out float halfD);
     Material cloudMat = CloudMat(p);
 
     System.Random rng = Rng(4);
+    System.Random drift = Rng(7);
     for (int i = 0; i < 30; i++)
     {
       // Ring from just past the island out to far away, gently below eye level
@@ -211,26 +229,28 @@ public class LevelDecorator : MonoBehaviour
       float y = -6f - (dist - 1.25f) * 8f + (float)(rng.NextDouble() * 2 - 1) * 4f;
 
       GameObject cloud = Piece("Cloud", MeshFactory.Cloud(rng.Next(Variants)), cloudMat,
-        new Vector3(x, y, z));
+        new Vector3(x, y, z), sky.transform);
       float s = 14f + (float)rng.NextDouble() * 22f;
       cloud.transform.localScale = new Vector3(s, s * (0.42f + (float)rng.NextDouble() * 0.3f), s * 0.8f);
       cloud.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
       // Far-off clouds throwing shadows across the board would be pure noise
       cloud.GetComponent<MeshRenderer>().shadowCastingMode =
         UnityEngine.Rendering.ShadowCastingMode.Off;
+      sky.AddCloud(cloud.transform, ang, dist, drift);
     }
   }
 
   // Small grass-topped islets floating in the distance around the play island —
   // the strongest "we are high in a sky full of floating lands" cue. Each is a
   // closed turf cap on a matching, tapering shell of rock.
-  private void BuildDistantIslands(EnvironmentTheme.Palette p)
+  private void BuildDistantIslands(EnvironmentTheme.Palette p, SkyDrift sky)
   {
     IslandExtent(out float halfW, out float halfD);
     Material turfMat = Lit(p.grassColor);
     Material stoneMat = Lit(Color.Lerp(p.cliffBottom, p.cliffTop, 0.55f));
 
     System.Random rng = Rng(5);
+    System.Random bob = Rng(9);
     const int count = 6;
     for (int i = 0; i < count; i++)
     {
@@ -242,10 +262,9 @@ public class LevelDecorator : MonoBehaviour
         Mathf.Sin(ang) * halfD * dist);
 
       var root = new GameObject("DistantIsland");
-      root.transform.SetParent(transform, false);
+      root.transform.SetParent(sky.transform, false);
       root.transform.position = pos;
       root.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
-      spawned.Add(root);
 
       float w = 6f + (float)rng.NextDouble() * 10f;
       int v = rng.Next(Variants);
@@ -259,16 +278,20 @@ public class LevelDecorator : MonoBehaviour
       rock.transform.localPosition = Vector3.zero;
       rock.transform.localRotation = Quaternion.identity;
       rock.transform.localScale = new Vector3(w, w, w * 0.8f);
+
+      // A slow, small heave - enough to read as floating, not as bouncing.
+      sky.AddFloater(root.transform, 0.5f + w * 0.04f, bob);
     }
   }
 
   // A few small rock chunks drifting around/below the island for depth and scale.
-  private void BuildFloatingDebris(EnvironmentTheme.Palette p)
+  private void BuildFloatingDebris(EnvironmentTheme.Palette p, SkyDrift sky)
   {
     IslandExtent(out float halfW, out float halfD);
     Material debrisMat = Lit(p.rockColor * 0.6f);
 
     System.Random rng = Rng(6);
+    System.Random bob = Rng(8);
     const int chunks = 7;
     for (int i = 0; i < chunks; i++)
     {
@@ -279,10 +302,12 @@ public class LevelDecorator : MonoBehaviour
         -6f - (float)rng.NextDouble() * 22f,
         Mathf.Sin(ang) * halfD * dist);
 
-      GameObject rock = Piece("Debris", MeshFactory.Boulder(rng.Next(Variants)), debrisMat, pos);
+      GameObject rock = Piece("Debris", MeshFactory.Boulder(rng.Next(Variants)), debrisMat, pos, sky.transform);
       rock.transform.localScale = Vector3.one * (2.5f + (float)rng.NextDouble() * 5f);
       rock.transform.rotation = Quaternion.Euler(
         (float)rng.NextDouble() * 40f, (float)rng.NextDouble() * 360f, (float)rng.NextDouble() * 40f);
+      // Own generator, so adding the bob leaves the debris layout unchanged.
+      sky.AddFloater(rock.transform, 0.35f, bob);
     }
   }
 

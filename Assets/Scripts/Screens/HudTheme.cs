@@ -30,6 +30,7 @@ public static class HudTheme
       PullInside((RectTransform)pauseButton.transform);
       InsetFromTop((RectTransform)pauseButton.transform, 62f);
       CompactPause((RectTransform)pauseButton.transform);
+      HoistToRightEdge((RectTransform)pauseButton.transform);
       PauseRect = (RectTransform)pauseButton.transform;
     }
     if (waveText != null) InsetFromTop(waveText.rectTransform, 0f);
@@ -187,8 +188,25 @@ public static class HudTheme
     glyphRect.anchoredPosition = Vector2.zero;
   }
 
-  // Gap between the two top-right controls.
-  private const float TopRightGap = 10f;
+  // Pause leaves the SafeArea for the canvas root, the same exception the
+  // towers rail makes (see StyleTowersPanel), and takes the rail's right edge
+  // so the two read as one column. Inside the safe area it sat a notch-width
+  // in from the edge on a phone - in landscape that strip is reserved on the
+  // side the notch is not even on. Only the horizontal place changes: the
+  // vertical offset is measured from the top, where the safe area has no
+  // inset in landscape, so the wave readout centred on it stays level.
+  private static void HoistToRightEdge(RectTransform rect)
+  {
+    if (rect == null) return;
+    SafeArea safeArea = rect.GetComponentInParent<SafeArea>();
+    if (safeArea == null || safeArea.transform.parent == null) return;
+
+    float y = rect.anchoredPosition.y;
+    rect.SetParent(safeArea.transform.parent, false);
+    rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
+    rect.pivot = new Vector2(1f, rect.pivot.y);
+    rect.anchoredPosition = new Vector2(-RailInset, y);
+  }
 
   // The pause button, once Apply has compacted and placed it. Everything else
   // that wants a spot in the top-right corner measures off this rather than
@@ -228,31 +246,6 @@ public static class HudTheme
     rect.anchoredPosition = new Vector2(0f, y);
   }
 
-  // Sizes a runtime button to match the pause button and parks it immediately
-  // to its left. Used by the store button, which is a sibling control and has
-  // no business being a different shape from the one beside it.
-  //
-  // Falls back to the top-right corner when Apply has not run (no pause button
-  // in the scene), so the caller never has to handle a null.
-  public static void PlaceLeftOfPause(RectTransform rect)
-  {
-    rect.anchorMin = rect.anchorMax = new Vector2(1f, 1f);
-    rect.pivot = new Vector2(1f, 1f);
-
-    if (PauseRect == null)
-    {
-      rect.sizeDelta = new Vector2(PauseSize + 18f, PauseSize);
-      rect.anchoredPosition = new Vector2(-14f, -EdgeMargin);
-      return;
-    }
-
-    rect.sizeDelta = PauseRect.sizeDelta;
-
-    float pauseLeft = PauseRect.anchoredPosition.x - PauseRect.rect.width;
-    float pauseTop = PauseRect.anchoredPosition.y + (1f - PauseRect.pivot.y) * PauseRect.rect.height;
-    rect.anchoredPosition = new Vector2(pauseLeft - TopRightGap, pauseTop);
-  }
-
   private static void StyleWaveReadout(TMP_Text waveText, TMP_Text timerText, RectTransform statsPanel)
   {
     if (waveText != null)
@@ -263,11 +256,9 @@ public static class HudTheme
       // padding was added on top. Nudged left of the button's ACTUAL edge
       // (post-PullInside) rather than a second hardcoded offset, so the two
       // cannot drift back out of sync the next time either one changes.
-      // Centred on the top edge, not tucked beside the pause button. The top
-      // right now carries TWO controls (store and pause), which left the
-      // readout squeezed between them and the stat chips; the middle of the
-      // top edge is the one place nothing else wants, and it is where a wave
-      // counter is looked for anyway.
+      // Centred on the top edge, not tucked beside the pause button: the
+      // middle of the top edge is the one place nothing else wants, and it is
+      // where a wave counter is looked for anyway.
       CentreOnTopEdge(waveText.rectTransform, PauseCentreY);
       if (timerText != null)
       {
@@ -332,7 +323,7 @@ public static class HudTheme
   private const float ScrollbarInset = 10f;
 
   // Start Wave, under the rail, at the rail's own width.
-  private const float StartWaveHeight = 66f;
+  private const float StartWaveHeight = 74f;
   private const float StartWaveGap = 10f;
 
   // Bigger than it would need to be inside the safe area: the rail is hoisted
@@ -649,21 +640,38 @@ public static class HudTheme
     rect.anchoredPosition = new Vector2(-rail.right, rail.bottom);
     rect.sizeDelta = new Vector2(rail.width, StartWaveHeight);
 
-    // The rail is narrow, so "START WAVE" has to shrink to fit rather than
-    // spill out of the plate or wrap to a second line inside a 66-unit button.
+    // The rail is narrow, so the label still auto-sizes rather than spill out
+    // of the plate or wrap - but the ceiling is higher and the tracking off,
+    // so the short "START WAVE" it now always says when ready fills the plate.
     TMP_Text label = rect.GetComponentInChildren<TMP_Text>(true);
     if (label != null)
     {
       label.textWrappingMode = TextWrappingModes.NoWrap;
       label.enableAutoSizing = true;
+      label.characterSpacing = 0f;
       label.fontSizeMin = 16f;
-      label.fontSizeMax = 30f;
-      label.margin = new Vector4(8f, 0f, 8f, 0f);
+      label.fontSizeMax = 40f;
+      label.margin = new Vector4(4f, 0f, 4f, 0f);
     }
   }
 
-  public const float StackedButtonWidth = 104f;
-  public const float StackedButtonHeight = 46f;
+  // Sized for a thumb, not a cursor: at 104x46 the speed and camera controls
+  // were easy to miss on a phone.
+  public const float StackedButtonWidth = 132f;
+  public const float StackedButtonHeight = 62f;
+  public const float StackedLabelSize = 28f;
+  public const float StackedGlyphSize = 34f;
+
+  // Grows the glyph IconButton built at its default 26 to the stacked size.
+  public static void SizeStackedGlyph(Image glyph)
+  {
+    if (glyph == null) return;
+    glyph.rectTransform.sizeDelta = new Vector2(StackedGlyphSize, StackedGlyphSize);
+    var element = glyph.GetComponent<LayoutElement>();
+    if (element == null) return;
+    element.preferredWidth = StackedGlyphSize;
+    element.preferredHeight = StackedGlyphSize;
+  }
   public const float EdgeMargin = 20f;
 
   // How much of the right edge the towers rail and Start Wave occupy, measured

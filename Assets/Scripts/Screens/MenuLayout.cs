@@ -70,6 +70,7 @@ public static class MenuLayout
   private const float NextUpBottomInset = 18f;
   private const float NextUpHeight = 32f;
   private const float NextUpAlpha = 0.72f;
+  private const float NextUpSideInset = 222f;
 
   public static void ApplyPlay(Button play)
   {
@@ -143,9 +144,11 @@ public static class MenuLayout
     rect.anchorMin = new Vector2(0f, 0f);
     rect.anchorMax = new Vector2(1f, 0f);
     rect.pivot = new Vector2(0.5f, 0f);
-    // Reserve the bottom-left corner for the independent Remove Ads action.
-    rect.offsetMin = new Vector2(222f, NextUpBottomInset);
-    rect.offsetMax = new Vector2(-CornerInset, NextUpBottomInset + NextUpHeight);
+    // Reserve the bottom-left corner for the independent Remove Ads action,
+    // and the same width on the right, so the strip stays centred under PLAY.
+    // A lopsided inset put the caption's centre ~100 units right of the button.
+    rect.offsetMin = new Vector2(NextUpSideInset, NextUpBottomInset);
+    rect.offsetMax = new Vector2(-NextUpSideInset, NextUpBottomInset + NextUpHeight);
 
     // Icon and caption sit on one centred row, so the pair stays centred
     // whatever the biome name's length.

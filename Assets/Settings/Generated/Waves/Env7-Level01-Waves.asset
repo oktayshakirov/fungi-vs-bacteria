@@ -25,7 +25,7 @@ MonoBehaviour:
     timeBetweenSpawns: 0.9
     timeToNextWave: 12
     waveGoldReward: 60
-    planningHint: Longshot reaches across bends; Flurry works best close to the road.
+    planningHint: Snipers reach across bends; Archers work best close to the road.
   - enemyGroups:
     - enemyConfig: {fileID: 11400000, guid: c047079e2dfe457eb368d5bd89e2590f, type: 2}
       count: 3

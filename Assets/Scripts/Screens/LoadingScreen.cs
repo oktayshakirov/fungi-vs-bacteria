@@ -13,6 +13,21 @@ public class LoadingScreen : MonoBehaviour
   private Image background;
   private Sprite defaultBackground;
   private Color defaultBackgroundColor;
+  private Image.Type defaultBackgroundType;
+
+  // How far biome art is darkened under loading text. Shared with BootSplash
+  // so the cold-launch screen and the level loads read as the same screen.
+  public static readonly Color ArtDim = new Color(0.30f, 0.32f, 0.38f, 1f);
+
+  // The biome behind a loading screen: the level being entered or just left,
+  // else wherever the player is up to, else the first biome.
+  public static string BackdropEnvironment()
+  {
+    LevelConfig level = GameSession.SelectedLevel;
+    if (level != null && !string.IsNullOrEmpty(level.environmentName)) return level.environmentName;
+    if (LevelProgress.TryGetNextUp(out string next, out _)) return next;
+    return "Environment 1";
+  }
 
   // Short, true, and each one about something the game does not otherwise
   // explain - the variety enemies, upgrades, the support towers, continues.
@@ -50,6 +65,7 @@ public class LoadingScreen : MonoBehaviour
     if (background != null)
     {
       defaultBackground = background.sprite;
+      defaultBackgroundType = background.type;
       defaultBackgroundColor = background.color;
     }
   }
@@ -69,19 +85,26 @@ public class LoadingScreen : MonoBehaviour
       loadingText.text = named ? ScreenTheme.RunSummary(withWave: false) : "LOADING...";
     }
 
+    // Always over biome art, both ways. Going back to the menu used to restore
+    // the prefab's own sprite - Unity's small rounded "Background" - but left
+    // the image type at Simple from the trip in, so that sprite was stretched
+    // across the screen with its soft transparent edges showing the white
+    // backdrop underneath as two pale strips down the sides.
     if (background != null)
     {
-      if (named)
+      Sprite art = EnvironmentInfo.CardArt(BackdropEnvironment());
+      if (art != null)
       {
-        background.sprite = EnvironmentInfo.CardArt(level.environmentName);
+        background.sprite = art;
         background.type = Image.Type.Simple;
         background.preserveAspect = false;
         // Dimmed well down: the labels sit straight on top of it.
-        background.color = new Color(0.30f, 0.32f, 0.38f, 1f);
+        background.color = ArtDim;
       }
       else
       {
         background.sprite = defaultBackground;
+        background.type = defaultBackgroundType;
         background.color = defaultBackgroundColor;
       }
     }

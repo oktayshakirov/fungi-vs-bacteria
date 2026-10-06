@@ -243,7 +243,8 @@ public class BoosterBar : MonoBehaviour
       // blocked one still has to be able to say "used this wave". The panel
       // itself decides whether it offers USE or BUY.
       entry.Value.interactable = true;
-      counts[kind].text = owned > 0 ? "x" + owned : string.Empty;
+      // "x0" rather than blank, so an empty slot reads as empty, not unknown.
+      counts[kind].text = "x" + owned;
 
       // Dimmed when it cannot be pressed into service right now - either none
       // are owned, or the per-level/per-wave limit is spent.

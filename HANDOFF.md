@@ -1,9 +1,9 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-10-05 (phase 33, the battle debrief, wave scouting, the
-Archer branches, mycelium links, boss phases and Nunito Sans - built by Codex,
-committed as `4c3d4df`; then test ads off and the privacy policy linked).
-Phase 32 was combat allocations, enemy mesh cost and the three tower roles.
+Last updated 2026-10-06 (phase 34, the fixes from the owner's first device
+playtest). Phase 33 was the battle debrief, wave scouting, mycelium links, boss
+phases and Nunito Sans, built by Codex (`4c3d4df`), then test ads off and the
+privacy policy linked.
 Committed and pushed on `main`.
 
 **`LevelProgress.UnlockAll` is compile-gated now** - `true` in the editor and in
@@ -17,12 +17,55 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Status 2026-10-05: waiting on the owner's first real-device playtest.** They
-are testing on a physical device and will come back with findings. Do not tune
-balance, economy or performance further until those arrive - every open item
-below is "built, never played". Feed the findings into section 5.
+**Latest: phase 34 — the first device playtest, answered (2026-10-06).** The
+owner played on a phone and sent fifteen findings; all fifteen are addressed in
+code, compile-checked, and **not yet seen on a device**. Next step: the owner
+plays the next build and confirms each one.
+- **Menu:** the "NEXT: ..." caption under PLAY is centred on the button
+  (`MenuLayout`, symmetric `NextUpSideInset`).
+- **Loading screens:** the cold-launch splash (`BootSplash`) and every level
+  load, both directions, sit on the same dimmed biome art
+  (`LoadingScreen.BackdropEnvironment` / `ArtDim`). The return-to-menu load used
+  to show white strips down both sides: it restored Unity's small rounded
+  "Background" sprite with the image type still Simple, so its transparent
+  edges showed the white plate under it.
+- **Store:** nothing is disabled for being unaffordable any more. Booster buys,
+  the Survival Kit and Remove Ads show a locked state (padlock for the coin,
+  red price, dimmed plate) and answer a press with the locked thud, a shake and
+  "N more needed" (`WalletScreen.PriceTag` / `RefuseShort`). Coin packs show
+  OPENING... on the pressed pack and lock the rest until the store answers;
+  `Iap.Purchase` refuses a second purchase while one is in flight
+  (`Iap.PurchasingProduct`, 120s safety timeout).
+- **In-game store removed** (`StoreHudButton` deleted, pause menu's STORE
+  gone). Still reachable mid-level: buying a single booster from its own panel,
+  and Get Coins when that purchase is short.
+- **Biome preview:** builds the same rounded turf and soil the level does
+  (`MeshFactory.IslandSurface`, as `GroundManager.ApplyIslandOutline`). It was
+  drawing the scene's rectangular plane and slab, which the level replaces at
+  load - a flat map pasted over the rounded island.
+- **Tutorial coach** sits low, centred above the booster bar, instead of across
+  the wave countdown under the wave badge.
+- **Sky motion** (`SkyDrift`): the cloud ring orbits the island on its own
+  ellipse and the distant islets and rock chunks bob. These ~50 renderers moved
+  out of the static batch into a `SkyDrift` root beside the decorator - SRP
+  batcher draws, one Update, no allocation. Check it in the device perf run.
+- **Haptics:** settings switches use Light instead of Selection (Selection on
+  Android is 8ms at amplitude 40, which nobody can feel); Android Light/Medium
+  are stronger; selecting a placed tower buzzes; tapping an unaffordable tower
+  card gives the locked thud and a shake instead of nothing.
+- **Archer specialization removed entirely** - the "STYLE LV 2" button, Flurry /
+  Longshot, `ArcherSpecialization.cs`, the config flag, the editor checks for
+  it, and the three level hints that mentioned it (Env 2 and Env 7 level 1).
+- **HUD:** Start Wave always reads START WAVE when a wave can go (no more "SEND
+  NEXT WAVE"), with a taller plate and a 40 font ceiling; speed and camera
+  buttons are 132x62 with 28 labels and 34 glyphs (`HudTheme.Stacked*`); pause
+  left the SafeArea for the screen's right edge, lined up with the towers rail
+  (`HudTheme.HoistToRightEdge`). Victory's REPLAY is PLAY AGAIN; empty boosters
+  read x0.
+- Open: on a 4:3 tablet the coach card may overlap the bottom-left wave
+  forecast; phones fit.
 
-**Latest: phase 33 — the game explains itself.** Built by Codex, compile- and
+**Phase 33 — the game explains itself.** Built by Codex, compile- and
 render-checked, **none of it played by a human**:
 - **Battle debrief** (`BattleReport`, `BattleDebrief`). The victory and game-over
   screens share one safe-area layout showing the run: which enemies escaped and
@@ -33,9 +76,8 @@ render-checked, **none of it played by a human**:
   take precedence), plus a scout button in the timer's top-HUD slot. The same
   button starts the first wave and sends a prepared wave early; only `Update`
   owns the timer, so a manual start can no longer double-send a wave.
-- **Archer specialization** (`ArcherSpecialization`). A one-time per-tower
-  choice once upgraded: Flurry (x0.8 damage, x1.4 rate, x0.85 reach) or Longshot
-  (x1.35 damage, x0.75 rate, x1.25 reach). Never mutates the shared config.
+- ~~Archer specialization~~ - removed in phase 34 after the playtest: it
+  crowded the tower panel.
 - **Mycelium links** (`MyceliumRoots`, `TowerBuffs`). Support is an
   event-driven graph now: adjacent attackers get a small extra bonus on top of
   ordinary aura coverage, and selecting a tower draws its real connections on

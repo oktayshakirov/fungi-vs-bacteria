@@ -58,8 +58,10 @@ public static class Haptics
     switch (style)
     {
       case Style.Selection: AndroidVibrate(8, 40); break;
-      case Style.Light: AndroidVibrate(12, 70); break;
-      case Style.Medium: AndroidVibrate(20, 130); break;
+      // Light is every ordinary press, so it has to be felt: at 12ms/70 it
+      // was below what most phone motors spin up to in time.
+      case Style.Light: AndroidVibrate(20, 120); break;
+      case Style.Medium: AndroidVibrate(26, 160); break;
       case Style.Heavy: AndroidVibrate(35, 200); break;
       case Style.Success: AndroidVibrate(18, 120); break;
       case Style.Warning: AndroidVibrate(28, 160); break;

@@ -675,28 +675,76 @@ public class WalletScreen : MonoBehaviour
     var priceLayout=buy.gameObject.AddComponent<HorizontalLayoutGroup>();
     priceLayout.childControlWidth=priceLayout.childControlHeight=true;
     priceLayout.childForceExpandWidth=priceLayout.childForceExpandHeight=true;
-    PricePlate(buy, BoosterCatalog.KitPrice,150);
+    PriceTag tag = PricePlate(buy, BoosterCatalog.KitPrice,150);
     kit.targetGraphic = buy.GetComponentInChildren<Image>();
 
     kit.onClick.AddListener(() =>
     {
-      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-      if (!BoosterInventory.BuyKit())
+      if (!tag.Affordable || !BoosterInventory.BuyKit())
       {
-        if (statusLabel != null) statusLabel.text = "Not enough coins.";
+        RefuseShort(BoosterCatalog.KitPrice, (RectTransform)tag.group.transform);
         return;
       }
 
+      AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
       Haptics.Play(Haptics.Style.Success);
       boosterRefreshers?.Invoke();
     });
 
-    boosterRefreshers += () => kit.interactable = Wallet.CanAffordOwn(BoosterCatalog.KitPrice);
+    boosterRefreshers += tag.Refresh;
+  }
+
+  // A price the player may not be able to pay yet. The button stays pressable
+  // when they are short - a disabled button swallowed the tap, so pressing it
+  // did nothing at all - and reads as locked instead: a padlock where the coin
+  // was, the price in red and the plate dimmed, while the name and description
+  // around it stay at full strength so it is still clear what it is.
+  private sealed class PriceTag
+  {
+    public CanvasGroup group;
+    public Image coin;
+    public Image padlock;
+    public TMP_Text value;
+    public int price;
+
+    public bool Affordable => Wallet.CanAffordOwn(price);
+
+    public void Refresh()
+    {
+      bool ok = Affordable;
+      if (coin != null) coin.gameObject.SetActive(ok);
+      if (padlock != null) padlock.gameObject.SetActive(!ok);
+      if (value != null) value.color = ok ? UiSkin.Gold : UiSkin.Danger;
+      if (group != null) group.alpha = ok ? 1f : 0.62f;
+    }
+  }
+
+  // The answer to pressing something the player cannot afford: the locked
+  // thud, a shake of the thing they pressed, and how far off they are.
+  private void RefuseShort(int price, RectTransform target)
+  {
+    AudioManager.Instance?.PlayLocked();
+    UiShake.Nudge(target);
+    int missing = Mathf.Max(0, price - Wallet.OwnCoins);
+    if (statusLabel != null)
+      statusLabel.text = missing > 0 ? $"Not enough coins - {missing:N0} more needed." : "Not enough coins.";
+  }
+
+  // A padlock sized to sit in a price row in place of the coin.
+  private static Image Padlock(Transform parent, float size)
+  {
+    Image padlock = UiSkin.Icon(parent, UiSprites.Lock(), UiSkin.Danger, size);
+    padlock.raycastTarget = false;
+    var element = padlock.gameObject.AddComponent<LayoutElement>();
+    element.preferredWidth = size;
+    element.preferredHeight = size;
+    padlock.gameObject.SetActive(false);
+    return padlock;
   }
 
   // A coin and a number on a dark plate, for prices that are not themselves a
   // button (the kit's, whose whole row is the button).
-  private static void PricePlate(Transform parent, int price, float width)
+  private static PriceTag PricePlate(Transform parent, int price, float width)
   {
     var go = new GameObject("Price", typeof(RectTransform));
     go.transform.SetParent(parent, false);
@@ -721,6 +769,7 @@ public class WalletScreen : MonoBehaviour
     var coinElement = coin.gameObject.AddComponent<LayoutElement>();
     coinElement.preferredWidth = 26f;
     coinElement.preferredHeight = 26f;
+    Image padlock = Padlock(go.transform, 26f);
 
     var valueGo = new GameObject("Value", typeof(RectTransform));
     valueGo.transform.SetParent(go.transform, false);
@@ -730,6 +779,14 @@ public class WalletScreen : MonoBehaviour
     value.fontSize = 28f;
     value.text = price.ToString("N0");
     value.raycastTarget = false;
+
+    var tag = new PriceTag
+    {
+      group = go.AddComponent<CanvasGroup>(),
+      coin = coin, padlock = padlock, value = value, price = price,
+    };
+    tag.Refresh();
+    return tag;
   }
 
   private void BuildBoosterRow(RectTransform parent, BoosterKind kind)
@@ -754,8 +811,8 @@ public class WalletScreen : MonoBehaviour
     var row=buttons.gameObject.AddComponent<HorizontalLayoutGroup>();
     row.spacing=8; row.childControlWidth=row.childControlHeight=true;
     row.childForceExpandWidth=row.childForceExpandHeight=true;
-    Button single = BuyButton(buttons, kind, 1);
-    Button bundle = BuyButton(buttons, kind, BoosterCatalog.BundleSize);
+    PriceTag single = BuyButton(buttons, kind, 1);
+    PriceTag bundle = BuyButton(buttons, kind, BoosterCatalog.BundleSize);
 
     // Keep ownership and affordability in sync with wallet changes.
     void RefreshRow()
@@ -763,8 +820,8 @@ public class WalletScreen : MonoBehaviour
       int owned = BoosterInventory.Count(kind);
       ownedLabel.text = $"Owned: {owned}";
 
-      single.interactable = Wallet.CanAffordOwn(BoosterCatalog.Price(kind));
-      bundle.interactable = Wallet.CanAffordOwn(BoosterCatalog.BundlePrice(kind));
+      single.Refresh();
+      bundle.Refresh();
     }
 
     boosterRefreshers += RefreshRow;
@@ -777,7 +834,7 @@ public class WalletScreen : MonoBehaviour
   // bundle's line carries its saving, which was the whole point of offering it
   // and was nowhere on screen - it used to render as "1530" over "x3" squeezed
   // into a single auto-sized label.
-  private Button BuyButton(Transform parent, BoosterKind kind, int amount)
+  private PriceTag BuyButton(Transform parent, BoosterKind kind, int amount)
   {
     bool bundle = amount >= BoosterCatalog.BundleSize;
     int price = bundle ? BoosterCatalog.BundlePrice(kind) : BoosterCatalog.Price(kind) * amount;
@@ -828,6 +885,7 @@ public class WalletScreen : MonoBehaviour
     var coinElement = coin.gameObject.AddComponent<LayoutElement>();
     coinElement.preferredWidth = 22f;
     coinElement.preferredHeight = 22f;
+    Image padlock = Padlock(priceGo.transform, 22f);
 
     var valueGo = new GameObject("Value", typeof(RectTransform));
     valueGo.transform.SetParent(priceGo.transform, false);
@@ -838,12 +896,17 @@ public class WalletScreen : MonoBehaviour
     value.text = price.ToString("N0");
     value.raycastTarget = false;
 
+    var tag = new PriceTag
+    {
+      group = go.AddComponent<CanvasGroup>(),
+      coin = coin, padlock = padlock, value = value, price = price,
+    };
+
     button.onClick.AddListener(() =>
     {
-      if (!BoosterInventory.Buy(kind, amount))
+      if (!tag.Affordable || !BoosterInventory.Buy(kind, amount))
       {
-        AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-        if (statusLabel != null) statusLabel.text = "Not enough coins.";
+        RefuseShort(price, (RectTransform)go.transform);
         return;
       }
 
@@ -853,7 +916,8 @@ public class WalletScreen : MonoBehaviour
     });
 
     boosterButtons.Add(button);
-    return button;
+    tag.Refresh();
+    return tag;
   }
 
   // ------------------------------------------------------------ purchases
@@ -972,9 +1036,52 @@ public class WalletScreen : MonoBehaviour
     UiSkin.StyleButton(button, UiSkin.Neutral, UiSkin.RadiusButton);
     button.onClick.AddListener(() =>
     {
+      if (Iap.IsPurchasing) return;
       AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
       Iap.Purchase(productId);
+      RefreshPackLock();
     });
+
+    packRows.Add(new PackRow
+    {
+      productId = productId, button = button, group = go.AddComponent<CanvasGroup>(),
+      price = priceLabel, priceText = price,
+    });
+  }
+
+  // The store's sheet takes a second or two to come up after a pack is
+  // pressed. Without an answer in that gap the press read as a miss, and a
+  // second tap queued a second purchase. So the pressed pack says it is
+  // opening and every pack is locked until the store answers - Iap itself
+  // also refuses a second purchase while one is in flight.
+  private struct PackRow
+  {
+    public string productId;
+    public Button button;
+    public CanvasGroup group;
+    public TMP_Text price;
+    public string priceText;
+  }
+
+  private readonly System.Collections.Generic.List<PackRow> packRows =
+    new System.Collections.Generic.List<PackRow>();
+  private int packDots = -1;
+
+  private void RefreshPackLock()
+  {
+    string pending = Iap.PurchasingProduct;
+    int dots = pending != null ? (int)(Time.unscaledTime * 3f) % 3 : -1;
+    if (dots == packDots && pending != null) return;
+    packDots = dots;
+
+    foreach (PackRow row in packRows)
+    {
+      if (row.button == null) continue;
+      bool opening = row.productId == pending;
+      row.button.interactable = pending == null;
+      row.group.alpha = pending == null || opening ? 1f : 0.45f;
+      row.price.text = opening ? "OPENING" + new string('.', dots + 1) : row.priceText;
+    }
   }
 
   // Remove Ads, bought with coins only (NoAds.CoinPrice) - there is no
@@ -987,6 +1094,7 @@ public class WalletScreen : MonoBehaviour
   private Button noAdsCoinsButton;
   private TMP_Text noAdsCoinsLabel;
   private GameObject noAdsDone;
+  private CanvasGroup noAdsCoinsGroup;
 
   private void NoAdsRow(RectTransform parent)
   {
@@ -1062,14 +1170,13 @@ public class WalletScreen : MonoBehaviour
 
   private void OnNoAdsWithCoins()
   {
-    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
-
-    if (!NoAds.BuyWithCoins())
+    if (!Wallet.CanAffordOwn(NoAds.CoinPrice) || !NoAds.BuyWithCoins())
     {
-      if (statusLabel != null) statusLabel.text = "Not enough coins.";
+      RefuseShort(NoAds.CoinPrice, (RectTransform)noAdsCoinsButton.transform);
       return;
     }
 
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     if (statusLabel != null) statusLabel.text = "Ads removed.";
     RefreshStore();
   }
@@ -1084,6 +1191,8 @@ public class WalletScreen : MonoBehaviour
     RefreshNoAdsRow();
     if (packsSection == null) return;
 
+    packRows.Clear();
+    packDots = -1;
     for (int i = packsSection.childCount - 1; i >= 0; i--)
     {
       Transform child = packsSection.GetChild(i);
@@ -1111,6 +1220,7 @@ public class WalletScreen : MonoBehaviour
     packsStatus.text = shown > 0 ? "" : "Coin packs are unavailable right now.";
     packsStatus.gameObject.SetActive(shown == 0);
     packsStatus.transform.SetAsFirstSibling();
+    RefreshPackLock();
   }
 
   private void RefreshNoAdsRow()
@@ -1122,9 +1232,18 @@ public class WalletScreen : MonoBehaviour
     noAdsDone.SetActive(removed);
     if (removed) return;
 
-    // Dimmed, not hidden, when the player is short, so the price reads as a
-    // goal rather than the button vanishing.
-    noAdsCoinsButton.interactable = Wallet.CanAffordOwn(NoAds.CoinPrice);
+    // Locked, not hidden or disabled, when the player is short: the price
+    // reads as a goal, and pressing it still answers (see RefuseShort).
+    bool affordable = Wallet.CanAffordOwn(NoAds.CoinPrice);
+    if (noAdsCoinsGroup == null) noAdsCoinsGroup = noAdsCoinsButton.gameObject.AddComponent<CanvasGroup>();
+    noAdsCoinsGroup.alpha = affordable ? 1f : 0.62f;
+    Transform icon = noAdsCoinsButton.transform.Find("Icon");
+    Image glyph = icon != null ? icon.GetComponent<Image>() : null;
+    if (glyph != null)
+    {
+      glyph.sprite = affordable ? UiSprites.Coin() : UiSprites.Lock();
+      glyph.color = affordable ? UiSkin.Gold : UiSkin.Danger;
+    }
   }
 
 
@@ -1205,6 +1324,10 @@ public class WalletScreen : MonoBehaviour
   // Drives the countdown. Realtime, because the menu can sit at timeScale 0.
   private void Update()
   {
+    // Every frame only while a purchase is opening, for the dots; it returns
+    // straight away when nothing has changed.
+    if (packRows.Count > 0 && (Iap.IsPurchasing || packDots >= 0)) RefreshPackLock();
+
     if (Time.unscaledTime < nextTick) return;
     nextTick = Time.unscaledTime + 1f;
 
@@ -1243,6 +1366,7 @@ public class WalletScreen : MonoBehaviour
     Ads.OnRewardedAvailabilityChanged += RefreshWatchButton;
     Iap.OnProductsChanged += OnStoreChanged;
     Iap.OnPurchaseFinished += OnPurchaseFinished;
+    Iap.OnPurchaseStarted += RefreshPackLock;
     NoAds.OnChanged += OnStoreChanged;
   }
 
@@ -1252,6 +1376,7 @@ public class WalletScreen : MonoBehaviour
     Ads.OnRewardedAvailabilityChanged -= RefreshWatchButton;
     Iap.OnProductsChanged -= OnStoreChanged;
     Iap.OnPurchaseFinished -= OnPurchaseFinished;
+    Iap.OnPurchaseStarted -= RefreshPackLock;
     NoAds.OnChanged -= OnStoreChanged;
   }
 

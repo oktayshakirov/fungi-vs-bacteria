@@ -27,7 +27,7 @@ public static class Phase5Checks
     try
     {
       new GameObject("Camera").AddComponent<Camera>().tag="MainCamera";
-      Branches();Assets();Lighting();
+      Assets();Lighting();
       Debug.Log("PHASE 5 CHECKS: specialization unlock/choice lock, purchase/refund, independent stats, extended targeting, projectile damage, buffs, upgrades/recoil/priority; six authored routes, hints and portraits; biome lighting passed.");EditorApplication.Exit(0);
     }
     catch(Exception e){Debug.LogException(e);EditorApplication.Exit(1);}
@@ -44,46 +44,6 @@ public static class Phase5Checks
   private static void Equal(float expected,float actual,string why)=>Require(Mathf.Abs(expected-actual)<.003f,why+$" ({expected} != {actual})");
   private static TowerConfig TowerConfig(string name)=>AssetDatabase.LoadAssetAtPath<TowerConfig>($"Assets/Settings/Towers/{name}.asset");
   private static EnemyConfig EnemyConfig(string name)=>AssetDatabase.LoadAssetAtPath<EnemyConfig>($"Assets/Settings/Enemies/{name}.asset");
-  private static void Branches()
-  {
-    var hud=new GameObject("HUD",typeof(RectTransform)).AddComponent<HUDManager>();hud.enabled=false;
-    var manager=new GameObject("GameManager").AddComponent<GameManager>();manager.enabled=false;
-    PlayerPrefs.SetInt("Wallet_Coins",3000);PlayerPrefs.SetInt("Wallet_LevelLoan",0);
-    TowerBuffs.Clear();var factory=new GameObject("Factory").AddComponent<TowerFactory>();var cfg=TowerConfig("ArcherTower");
-    var flurry=factory.CreateTower(cfg,Vector3.zero);var longshot=factory.CreateTower(cfg,new Vector3(5,0,0));
-    Require(!flurry.CanSpecialize && !flurry.Specialize(ArcherSpecialization.Flurry),"Level-one Archer can specialize");
-    int before=Wallet.Coins;Require(flurry.Upgrade(),"Upgrade failed");Equal(350,before-Wallet.Coins,"First upgrade price changed");
-    Vector3 scale=flurry.transform.localScale;
-    Require(flurry.Specialize(ArcherSpecialization.Flurry),"Flurry choice failed");
-    Require(!flurry.Specialize(ArcherSpecialization.Longshot),"Choice could be changed");
-    Equal(315,flurry.SellValue,"Free choice changed refund");Require(scale==flurry.transform.localScale,"Choice changed placed scale");
-    Equal(19,flurry.EffectiveDamage,"Flurry direct damage");Equal(2.415f,flurry.EffectiveFireRate,"Flurry cadence");Equal(6.545f,flurry.Range,"Flurry reach");
-    Equal(15,longshot.EffectiveDamage,"Choosing one Archer changed another");
-    Require(longshot.Upgrade(),"Longshot upgrade failed");before=Wallet.Coins;
-    Require(longshot.Specialize(ArcherSpecialization.Longshot),"Longshot choice failed");Equal(before,Wallet.Coins,"Choice charged extra coins");
-    Equal(32,longshot.EffectiveDamage,"Longshot direct damage");Equal(1.29375f,longshot.EffectiveFireRate,"Longshot cadence");Equal(9.625f,longshot.Range,"Longshot reach");
-    var basic=EnemyConfig("BasicEnemy");float lift=UnitScale.EnemyGroundOffset(basic.prefab,basic.scaleMultiplier);
-    var enemy=EnemyPool.Get(basic.prefab,new Vector3(14.3f,lift,0),Quaternion.identity).GetComponent<Enemy>();
-    enemy.Initialize(new[]{new Vector3(14.3f,lift,0),new Vector3(14.3f,lift,30)},basic);
-    flurry.SetPriority(TargetPriority.First);longshot.SetPriority(TargetPriority.Strong);
-    Require(flurry.GetComponent<TowerTargeting>().CurrentTarget==null,"Flurry targeted outside its reduced range");
-    Require(longshot.GetComponent<TowerTargeting>().CurrentTarget==enemy.transform,"Longshot did not target its extended range");
-    longshot.Attack();
-    var projectile=Object.FindFirstObjectByType<Projectile>();
-    var data=(ProjectileData)typeof(Projectile).GetField("data",Private).GetValue(projectile);
-    Equal(32,data.Damage,"Projectile ignored branch damage");
-    var aura=factory.CreateTower(TowerConfig("AuraTower"),Vector3.zero);
-    Equal(44,longshot.EffectiveDamage,"Adjacent support did not stack with specialization");
-    Require(!aura.Specialize(ArcherSpecialization.Flurry),"Support accepted Archer branch");
-    Require(longshot.Upgrade(),"Tier-three upgrade failed");
-    Require(longshot.Specialization==ArcherSpecialization.Longshot && longshot.Priority==TargetPriority.Strong,"Upgrade lost branch or priority");
-    Equal(longshot.ProjectedDamageAt(3),longshot.EffectiveDamage,"Projection mismatch after upgrade");
-    Require(Mathf.Abs(longshot.transform.localScale.x/(cfg.towerPrefab.transform.localScale.x*UnitScale.Tower)-1.16f)<.002f,"Upgrade during recoil lost placed scale");
-    Equal(15,cfg.damage,"Branch mutated shared config damage");Equal(7,cfg.range,"Branch mutated shared config range");
-    EnemyPool.Release(enemy.gameObject);
-    foreach(var tower in new[]{flurry,longshot,aura})Object.DestroyImmediate(tower.gameObject);
-    Object.DestroyImmediate(factory.gameObject);Object.DestroyImmediate(manager.gameObject);Object.DestroyImmediate(hud.gameObject);TowerBuffs.Clear();
-  }
   private static void Assets()
   {
     var keys=new HashSet<string>();

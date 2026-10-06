@@ -19,7 +19,7 @@ namespace TowerDefense.UI
   // No IDragHandler/IEndDragHandler needed: TowerPlacement.Update() already
   // polls the live pointer position and Input.GetMouseButtonUp every frame
   // once a tower is armed, regardless of what armed it.
-  public class TowerSelectionButton : MonoBehaviour, IBeginDragHandler
+  public class TowerSelectionButton : MonoBehaviour, IBeginDragHandler, IPointerClickHandler
   {
     [SerializeField] private Image towerIcon;
     [SerializeField] private Image goldIcon;
@@ -208,6 +208,16 @@ namespace TowerDefense.UI
     private void HandleClick()
     {
       onSelected?.Invoke(towerConfig);
+    }
+
+    // A card the player cannot afford is a disabled Button, which swallows the
+    // tap: pressing it did nothing, not even a buzz. It answers with the locked
+    // thud and a shake instead. Affordable cards are left to the Button.
+    public void OnPointerClick(PointerEventData eventData)
+    {
+      if (button == null || button.interactable) return;
+      AudioManager.Instance?.PlayLocked();
+      UiShake.Nudge((RectTransform)transform, 6f);
     }
 
     public void OnBeginDrag(PointerEventData eventData)
