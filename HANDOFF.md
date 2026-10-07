@@ -34,8 +34,7 @@ that has actually cost debugging time, section 7 has the house rules.
   the iOS build. Check with `xcrun -sdk iphoneos clang++ -x objective-c++
   -fobjc-arc -fno-objc-exceptions -c <file>` before shipping a plugin change. Each call logs
   `[Audio] Session: ...` to the Xcode console - read that first if sound goes
-  missing again. **Not verified on a device.** If the device was Android, this
-  was not the cause.
+  missing again. **Verified on the owner's iPhone 2026-10-07: sound plays.**
 - **Stars are scored on health LOST** (`LevelProgress.StarsForDamage`, from
   `BattleReport.HealthLost`, continues included), the usual tower-defense rule.
   Heals, reinforcements and Mend keep a run alive but no longer buy stars back.
