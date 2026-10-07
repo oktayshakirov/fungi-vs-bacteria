@@ -1,9 +1,10 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
-Last updated 2026-10-06 (phase 34, the fixes from the owner's first device
-playtest). Phase 33 was the battle debrief, wave scouting, mycelium links, boss
-phases and Nunito Sans, built by Codex (`4c3d4df`), then test ads off and the
-privacy policy linked.
+Last updated 2026-10-07 (phase 35, the second device playtest: base heal and
+reinforce, the shield dome, the victory celebration, the tower-panel tap fix).
+Phase 34 was the fixes from the first device playtest; phase 33 the battle
+debrief, wave scouting, mycelium links, boss phases and Nunito Sans, built by
+Codex (`4c3d4df`).
 Committed and pushed on `main`.
 
 **`LevelProgress.UnlockAll` is compile-gated now** - `true` in the editor and in
@@ -17,7 +18,41 @@ that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
 
-**Latest: phase 34 — the first device playtest, answered (2026-10-06).** The
+**Latest: phase 35 — the second device playtest (2026-10-07).** Six findings,
+all in code and compile-checked, **not yet seen on a device or in a render**
+(the Unity batch render fails on licensing in this environment - open Unity Hub
+and sign in before running it):
+- **Tower panel buttons "sometimes just closed the panel"** - a real bug, not a
+  missing requirement. `EventSystem.IsPointerOverGameObject(fingerId)` reads the
+  input module's stored touch state, which on the frame a finger lands may not
+  be updated yet, so a tap on SELL/UPGRADE/FIRST was also read as a board tap
+  that deselected the tower before the button's click landed. Order-dependent,
+  hence "sometimes". `UiHit` raycasts the UI directly; HUDManager and
+  TowerPlacement use it. The panel is taller (54-unit action row, 46-unit
+  priority row, a 14-unit gap between them) and the priority buttons click and
+  buzz.
+- **Base heal / reinforce** - tap the house (`BaseHouse` adds a sphere collider
+  on the Tower layer) to open `BasePanel`, same slot and rules as the tower and
+  booster panels. HEAL refills to the ceiling at `BaseUpgrades.CoinsPerHealth`
+  (8) per point; REINFORCE raises the ceiling by half the starting health, twice
+  (100 -> 150 -> 200) for 400 then 700. First-guess numbers. Reinforced health
+  counts toward stars the same way Mend does (stars read health remaining), so
+  coins can buy a third star - decide whether that is wanted. Mend now caps at
+  the reinforced ceiling.
+- **Shield booster** shows a translucent dome over the base (`BaseShield`):
+  swells in, breathes, flickers through its last 2s, flashes on each absorbed
+  hit (`GameManager.OnShieldAbsorbed`).
+- **Clouds and islets** run at the play speed (2x is twice as fast), still on
+  unscaled time so they move behind the pause and victory screens.
+- **Store** backdrop is opaque.
+- **Victory**: the camera swings low and close round the base and orbits
+  (`CameraRig.PlayVictoryView`, a `focus` field on `Pose`), the HUD fades out,
+  fireworks and confetti go up over the house (`VictoryCelebration` - two
+  dynamic quad meshes on `Sprites/Default`, no particle shader, no allocation),
+  and the victory screen comes up 2.8s later. Progress and coins are saved
+  before the show. Defeat keeps the old outro.
+
+**Phase 34 — the first device playtest, answered (2026-10-06).** The
 owner played on a phone and sent fifteen findings; all fifteen are addressed in
 code, compile-checked, and **not yet seen on a device**. Next step: the owner
 plays the next build and confirms each one.

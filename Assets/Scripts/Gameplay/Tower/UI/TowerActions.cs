@@ -34,6 +34,17 @@ namespace TowerDefense.UI
     private bool built;
     private Button sellButton;
     private Transform priorityRow;
+    private GameObject rowGap;
+
+    // Thumb-sized rows with clear air between them: at 46 and 38 units with 4
+    // between, SELL/UPGRADE and FIRST/STRONG/NEAREST read as one block and a
+    // thumb aimed at one row could land on the other.
+    private const float ActionRowHeight = 54f;
+    private const float PriorityRowHeight = 46f;
+    private const float RowGap = 14f;
+    // Everything the priority block adds under the actions: gap, row, hint,
+    // and the layout's 4-unit spacing before each of the three.
+    private const float PriorityBlockHeight = RowGap + PriorityRowHeight + TowerInfoPanel.ExtraLineHeight - 4f + 12f;
     private TMP_Text priorityHint;
     private readonly Button[] priorityButtons = new Button[3];
 
@@ -119,8 +130,9 @@ namespace TowerDefense.UI
       // ContentSizeFitter: it is anchored into a corner with an explicit
       // sizeDelta, and a fitter would fight that every frame.
       TowerInfoPanel.Place((RectTransform)transform,
-        TowerInfoPanel.BaseHeight + (available ? TowerInfoPanel.ExtraLineHeight : 0f)
-          + (!tower.IsSupport ? 72f : 0f));
+        TowerInfoPanel.BaseHeight + (ActionRowHeight - 46f)
+          + (available ? TowerInfoPanel.ExtraLineHeight : 0f)
+          + (!tower.IsSupport ? PriorityBlockHeight : 0f));
 
       if (!available) return;
 
@@ -231,9 +243,13 @@ namespace TowerDefense.UI
       if (towerStatsText != null) towerStatsText.transform.SetSiblingIndex(3);
       upgradePreviewText.transform.SetSiblingIndex(4);
       actions.SetAsLastSibling();
+      actions.GetComponent<LayoutElement>().preferredHeight = ActionRowHeight;
+      rowGap = new GameObject("RowGap", typeof(RectTransform));
+      rowGap.transform.SetParent(transform, false);
+      rowGap.AddComponent<LayoutElement>().preferredHeight = RowGap;
       priorityRow = TowerInfoPanel.Actions(transform, "TargetPriority");
       priorityRow.name = "TargetPriority";
-      priorityRow.GetComponent<LayoutElement>().preferredHeight = 38f;
+      priorityRow.GetComponent<LayoutElement>().preferredHeight = PriorityRowHeight;
       for (int i = 0; i < priorityButtons.Length; i++)
       {
         TargetPriority mode = (TargetPriority)i;
@@ -248,7 +264,14 @@ namespace TowerDefense.UI
         text.GetComponent<TMP_Text>().text = mode.ToString().ToUpperInvariant();
         text.GetComponent<TMP_Text>().alignment = TextAlignmentOptions.Center;
         TowerInfoPanel.StyleAction(button, UiSkin.Neutral);
-        button.onClick.AddListener(() => { currentTower?.SetPriority(mode); RefreshPriority(); });
+        // Click sound, and with it a light haptic (AudioManager.PlayHaptic):
+        // these were the only buttons in the panel with no feedback at all.
+        button.onClick.AddListener(() =>
+        {
+          AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
+          currentTower?.SetPriority(mode);
+          RefreshPriority();
+        });
         priorityButtons[i] = button;
       }
       priorityHint = TowerInfoPanel.Note(transform, "PriorityHint");
@@ -272,6 +295,7 @@ namespace TowerDefense.UI
     {
       bool show = currentTower != null && !currentTower.IsSupport;
       priorityRow.gameObject.SetActive(show);
+      if (rowGap != null) rowGap.SetActive(show);
       priorityHint.gameObject.SetActive(show);
       if (!show) return;
       for (int i = 0; i < priorityButtons.Length; i++)

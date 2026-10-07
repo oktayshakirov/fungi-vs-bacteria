@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using System.Collections.Generic;
 
 public class TowerPlacement : MonoBehaviour
@@ -72,15 +71,9 @@ public class TowerPlacement : MonoBehaviour
     HandlePlacementInput();
   }
 
-  private bool IsPointerOverUI()
-  {
-    if (EventSystem.current == null) return false;
-    if (Input.touchCount > 0)
-    {
-      return EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId);
-    }
-    return EventSystem.current.IsPointerOverGameObject();
-  }
+  // Raycast directly (UiHit): IsPointerOverGameObject is stale on the frame a
+  // touch ends, which is exactly when this is asked.
+  private bool IsPointerOverUI() => UiHit.OverPointer();
 
 
   public void StartPlacement(TowerConfig config)
@@ -88,6 +81,7 @@ public class TowerPlacement : MonoBehaviour
     // Arming a tower closes the booster panel: both live in the bottom-left
     // slot (see BoosterPanel).
     BoosterPanel.Hide();
+    BasePanel.Hide();
     if (currentTowerConfig != null) CancelPlacement();
     armedByDrag = false;
 

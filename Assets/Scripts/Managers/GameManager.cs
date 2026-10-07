@@ -15,6 +15,20 @@ public class GameManager : MonoBehaviour
 
   // Fired on every hit to the base, for board-side feedback (BaseFlinch).
   public static event System.Action<int> OnBaseDamaged;
+  // A hit the Shield booster swallowed, so the dome can flash (BaseShield).
+  public static event System.Action OnShieldAbsorbed;
+  // Health bought at the base - a heal or a reinforcement (BasePanel).
+  public static event System.Action OnBaseRepaired;
+
+  // Reinforcements bought at the base this level. Each one raises the health
+  // ceiling by BaseUpgrades.ReinforceAmount and fills the new room, the way a
+  // tower upgrade raises its stats - 100 becomes 150, then 200.
+  public int BaseLevel { get; private set; }
+  public int ReinforceStep => BaseUpgrades.ReinforceAmount(levelStartingHealth);
+  public int MaxHealth => levelStartingHealth + BaseLevel * ReinforceStep;
+  public int HealCost => Mathf.Max(0, MaxHealth - currentHealth) * BaseUpgrades.CoinsPerHealth;
+  public bool CanReinforce => BaseLevel < BaseUpgrades.ReinforceSteps;
+  public int ReinforceCost => BaseUpgrades.ReinforceCost(BaseLevel);
 
   private EnemySpawner spawner;
   private int aliveEnemies;
@@ -54,6 +68,7 @@ public class GameManager : MonoBehaviour
     currentHealth = level != null ? level.startingHealth : startingHealth;
 
     levelStartingHealth = currentHealth;
+    BaseLevel = 0;
     Report = new BattleReport(currentHealth, level != null ? LevelProgress.GetStars(level.environmentName,level.levelNumber) : 0);
     Boosters.BeginRun();
 
@@ -121,9 +136,43 @@ public class GameManager : MonoBehaviour
 
     Debug.Log($"Victory! All waves cleared. Stars: {stars}, coins: {coinsEarned}");
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.Victory);
-    CameraRig.Instance?.PlayEndOfLevelView();
+
+    // A moment on the board before the result screen: the camera swings in
+    // round the base, the HUD steps aside, and fireworks go up over the house.
+    // Progress and coins are already saved above, so leaving mid-show loses
+    // nothing.
+    Vector3 focus = BaseFocus(out float scale);
+    CameraRig.Instance?.PlayVictoryView(focus);
+    VictoryCelebration.Play(focus, scale);
+    HUDManager.Instance.BeginVictoryCelebration();
+    StartCoroutine(ShowVictoryAfterCelebration(stars, coinsEarned));
+  }
+
+  // Long enough for the camera move and the first few bursts; the show keeps
+  // going behind the screen after that.
+  private const float CelebrationSeconds = 2.8f;
+
+  private System.Collections.IEnumerator ShowVictoryAfterCelebration(int stars, int coinsEarned)
+  {
+    yield return new WaitForSecondsRealtime(CelebrationSeconds);
     HUDManager.Instance.ShowVictoryScreen(stars, coinsEarned);
     PauseGame();
+  }
+
+  // Where the base stands, and a size to scale the celebration by. Falls back
+  // to the end of the path if the house was never built.
+  private static Vector3 BaseFocus(out float scale)
+  {
+    scale = 2f;
+    BaseHouse house = BaseHouse.Current;
+    if (house != null && house.Bounds.size != Vector3.zero)
+    {
+      scale = Mathf.Clamp(Mathf.Max(house.Bounds.extents.x, house.Bounds.extents.z), 1f, 4f);
+      return new Vector3(house.Bounds.center.x, house.Bounds.min.y, house.Bounds.center.z);
+    }
+
+    Vector3[] path = PathManager.Instance != null ? PathManager.Instance.GetPathPoints() : null;
+    return path != null && path.Length > 0 ? path[path.Length - 1] : Vector3.zero;
   }
 
   private void UpdateUI()
@@ -146,15 +195,41 @@ public class GameManager : MonoBehaviour
     UpdateUI();
   }
 
-  // The Mend booster. Capped at the health the level STARTED with, so it can
-  // undo damage but never push the player above a clean run - the star rating
-  // is scored on health remaining (LevelProgress.StarsForHealth).
+  // The Mend booster. Capped at the base's current ceiling - the health the
+  // level started with, plus any reinforcement bought - so it undoes damage
+  // but never overfills.
   public void Repair(int amount)
   {
     if (amount <= 0 || gameEnded) return;
 
-    currentHealth = Mathf.Min(levelStartingHealth, currentHealth + amount);
+    currentHealth = Mathf.Min(MaxHealth, currentHealth + amount);
     UpdateUI();
+  }
+
+  // Back to the ceiling in one go, paid per point of health restored.
+  public bool TryHealBase()
+  {
+    if (gameEnded || currentHealth <= 0 || currentHealth >= MaxHealth) return false;
+    if (!TryPurchase(HealCost)) return false;
+
+    currentHealth = MaxHealth;
+    UpdateUI();
+    OnBaseRepaired?.Invoke();
+    return true;
+  }
+
+  // Raises the ceiling and fills the new room, so the base can soak a leak
+  // it otherwise could not. Two steps per level; resets with the level.
+  public bool TryReinforceBase()
+  {
+    if (gameEnded || currentHealth <= 0 || !CanReinforce) return false;
+    if (!TryPurchase(ReinforceCost)) return false;
+
+    BaseLevel++;
+    currentHealth += ReinforceStep;
+    UpdateUI();
+    OnBaseRepaired?.Invoke();
+    return true;
   }
 
   public void TakeDamage(int damage) => TakeDamage(damage,null,false);
@@ -165,7 +240,11 @@ public class GameManager : MonoBehaviour
     int lost = BoosterEffects.ShieldActive ? 0 : Mathf.Min(currentHealth,damage);
     // Record before showing the result: the fatal enemy is still on the board.
     Report?.RecordEscape(source,isChild,lost);
-    if (BoosterEffects.ShieldActive) return;
+    if (BoosterEffects.ShieldActive)
+    {
+      OnShieldAbsorbed?.Invoke();
+      return;
+    }
 
     currentHealth = Mathf.Max(0, currentHealth - lost);
     UpdateUI();

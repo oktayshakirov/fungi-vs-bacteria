@@ -9,8 +9,9 @@ using UnityEngine;
 // scenery kept OUT of LevelDecorator's static batch (a batched object cannot
 // move); with the SRP batcher on, the extra draw calls are the cheap kind.
 //
-// Unscaled time: the 2x/3x speed control should not make the weather race,
-// and the sky carrying on behind the pause menu is the point of it.
+// Unscaled time, so the sky carries on behind the pause menu and the victory
+// screen - but multiplied by the chosen play speed, so 2x visibly speeds the
+// weather up along with everything else.
 public class SkyDrift : MonoBehaviour
 {
   // Classes, not structs: a struct read out of a List is a copy, and writing
@@ -38,6 +39,7 @@ public class SkyDrift : MonoBehaviour
 
   private readonly List<Cloud> clouds = new List<Cloud>();
   private readonly List<Floater> floaters = new List<Floater>();
+  private float bobTime;
   private float halfW = 1f;
   private float halfD = 1f;
 
@@ -78,8 +80,12 @@ public class SkyDrift : MonoBehaviour
 
   private void Update()
   {
-    float dt = Time.unscaledDeltaTime;
-    float time = Time.unscaledTime;
+    float speed = GameManager.Instance != null ? GameManager.Instance.PlaySpeed : 1f;
+    float dt = Time.unscaledDeltaTime * speed;
+    // Accumulated rather than read off the clock, so changing speed mid-bob
+    // does not jump every islet to a new phase.
+    bobTime += dt;
+    float time = bobTime;
 
     for (int i = 0; i < clouds.Count; i++)
     {

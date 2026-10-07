@@ -65,7 +65,9 @@ public class WalletScreen : MonoBehaviour
     // Scrim, and a raycast blocker: without a graphic on the full-rect root the
     // menu behind stays clickable through the dialog.
     var scrim = gameObject.AddComponent<Image>();
-    scrim.color = UiSkin.Scrim;
+    // Opaque, not the usual see-through scrim: the store is a screen of its
+    // own, and the menu art showing through behind the cards was just noise.
+    scrim.color = new Color(UiSkin.Scrim.r, UiSkin.Scrim.g, UiSkin.Scrim.b, 1f);
 
     // This screen is a plain child of the menu's canvas, not its own Canvas, so
     // DisplaySetup's edit-time pass never wraps it in a SafeArea. The card is

@@ -149,7 +149,13 @@ public class LevelDecorator : MonoBehaviour
       int last = pathPoints.Length - 1;
       // Faces back up the path, toward what is coming.
       GameObject house = BuildBase(pathPoints[last], pathPoints[last - 1] - pathPoints[last]);
-      if (house != null && Application.isPlaying && !isPreview) house.AddComponent<BaseFlinch>();
+      if (house != null && Application.isPlaying && !isPreview)
+      {
+        house.AddComponent<BaseFlinch>();
+        // Tappable (opens BasePanel), and domed while the Shield booster runs.
+        house.AddComponent<BaseHouse>();
+        house.AddComponent<BaseShield>();
+      }
     }
     foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
     {

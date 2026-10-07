@@ -112,7 +112,8 @@ public class WavePreview : MonoBehaviour
   private void LateUpdate() { ApplyVisibility(); }
   public void ApplyVisibility()
   {
-    bool busy = PlacementCancelButton.IsOpen || BoosterPanel.IsOpen || (hud != null && hud.HasTowerSelection);
+    bool busy = PlacementCancelButton.IsOpen || BoosterPanel.IsOpen || BasePanel.IsOpen
+      || (hud != null && hud.HasTowerSelection);
     card.gameObject.SetActive(available && requested && !busy);
   }
 }

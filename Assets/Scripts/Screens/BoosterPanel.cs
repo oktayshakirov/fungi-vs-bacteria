@@ -40,6 +40,7 @@ public class BoosterPanel : MonoBehaviour
       instance.Build();
     }
 
+    BasePanel.Hide();
     instance.SetBooster(kind);
     instance.gameObject.SetActive(true);
     instance.transform.SetAsLastSibling();

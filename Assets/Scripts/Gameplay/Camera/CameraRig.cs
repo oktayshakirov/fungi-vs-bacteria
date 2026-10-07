@@ -20,13 +20,15 @@ public class CameraRig : MonoBehaviour
     public float yaw;
     public float zoom;   // 1 = fit the whole board, < 1 = closer
     public float height; // extra lift of the look-at pivot
+    public Vector3 focus; // look-at pivot's offset from the board centre
 
     public static Pose Lerp(Pose a, Pose b, float t) => new Pose
     {
       pitch = Mathf.Lerp(a.pitch, b.pitch, t),
       yaw = Mathf.Lerp(a.yaw, b.yaw, t),
       zoom = Mathf.Lerp(a.zoom, b.zoom, t),
-      height = Mathf.Lerp(a.height, b.height, t)
+      height = Mathf.Lerp(a.height, b.height, t),
+      focus = Vector3.Lerp(a.focus, b.focus, t)
     };
   }
 
@@ -73,6 +75,19 @@ public class CameraRig : MonoBehaviour
   [SerializeField] private float outroDuration = 2.5f;
   [SerializeField] private Pose outroPose = new Pose { pitch = 34f, yaw = 16f, zoom = 0.72f, height = 1.5f };
 
+  // A won level: the intro's move in reverse spirit - down low and in close,
+  // centred on the base, then a slow orbit round it while VictoryCelebration
+  // fires overhead. Focus is filled in from the base at the time.
+  [Header("Victory")]
+  [SerializeField] private float victoryDuration = 2.2f;
+  [SerializeField] private float victoryOrbitSpeed = 9f;   // degrees per second
+  [SerializeField] private Pose victoryPose = new Pose { pitch = 20f, yaw = 32f, zoom = 0.46f, height = 2f };
+
+  // The pose the outro is heading for or holding: outroPose after a loss,
+  // the base-centred victory pose after a win. Orbits while orbitSpeed is set.
+  private Pose outroTarget;
+  private float orbitSpeed;
+
   private Camera cam;
   private ViewState state = ViewState.Play;
   private Pose fromPose;
@@ -101,7 +116,7 @@ public class CameraRig : MonoBehaviour
   public int CycleView()
   {
     if (viewPresets == null || viewPresets.Length <= 1) return viewIndex;
-    Pose from = state == ViewState.Outro ? outroPose : PlayPose;
+    Pose from = state == ViewState.Outro ? outroTarget : PlayPose;
     viewIndex = (viewIndex + 1) % viewPresets.Length;
     BeginTransition(ViewState.Play, from, PlayPose, 0.9f);
     return viewIndex;
@@ -160,9 +175,12 @@ public class CameraRig : MonoBehaviour
       return;
     }
 
+    if (state == ViewState.Outro && orbitSpeed != 0f)
+      outroTarget.yaw += orbitSpeed * Time.unscaledDeltaTime;
+
     if (transitionDuration <= 0f)
     {
-      ApplyPose(state == ViewState.Outro ? outroPose : PlayPose);
+      ApplyPose(state == ViewState.Outro ? outroTarget : PlayPose);
       ApplyShake();
       return;
     }
@@ -173,7 +191,7 @@ public class CameraRig : MonoBehaviour
     // Smootherstep: gentle acceleration and a soft settle at the end
     float eased = t * t * t * (t * (6f * t - 15f) + 10f);
 
-    Pose target = state == ViewState.Outro ? outroPose : PlayPose;
+    Pose target = state == ViewState.Outro ? outroTarget : PlayPose;
     ApplyPose(Pose.Lerp(fromPose, target, eased));
     ApplyShake();
 
@@ -217,7 +235,22 @@ public class CameraRig : MonoBehaviour
   public void PlayEndOfLevelView()
   {
     if (!Application.isPlaying || state == ViewState.Outro) return;
-    BeginTransition(ViewState.Outro, CurrentPose(), outroPose, outroDuration);
+    Pose from = CurrentPose();
+    outroTarget = outroPose;
+    orbitSpeed = 0f;
+    BeginTransition(ViewState.Outro, from, outroTarget, outroDuration);
+  }
+
+  public void PlayVictoryView(Vector3 worldFocus)
+  {
+    if (!Application.isPlaying) return;
+    Pose from = CurrentPose();
+    Vector3 offset = worldFocus - GetBoardBounds().center;
+    offset.y = 0f;
+    outroTarget = victoryPose;
+    outroTarget.focus = offset;
+    orbitSpeed = victoryOrbitSpeed;
+    BeginTransition(ViewState.Outro, from, outroTarget, victoryDuration);
   }
 
   private void BeginTransition(ViewState next, Pose from, Pose to, float duration)
@@ -232,7 +265,7 @@ public class CameraRig : MonoBehaviour
   private Pose CurrentPose()
   {
     // Good enough for blending out of the play view
-    return state == ViewState.Outro ? outroPose : PlayPose;
+    return state == ViewState.Outro ? outroTarget : PlayPose;
   }
 
   private void ApplyPose(Pose pose)
@@ -250,7 +283,7 @@ public class CameraRig : MonoBehaviour
     float tanH = tanV * aspect;
 
     Rect viewport = GameplayViewport;
-    Vector3 pivot = board.center + Vector3.up * pose.height;
+    Vector3 pivot = board.center + pose.focus + Vector3.up * pose.height;
     float distance = RequiredDistance(board, pivot, rotation, tanH, tanV, viewport) * pose.zoom;
 
     Vector3 forward = rotation * Vector3.forward;

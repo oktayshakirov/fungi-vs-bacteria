@@ -2,7 +2,6 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System;
-using UnityEngine.EventSystems;
 
 public class HUDManager : MonoBehaviour
 {
@@ -200,11 +199,12 @@ public class HUDManager : MonoBehaviour
   private void HandleTowerSelection()
   {
     if (!Input.GetMouseButtonDown(0) || mainCamera == null) return;
-    if (EventSystem.current != null && (Input.touchCount > 0
-      ? EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)
-      : EventSystem.current.IsPointerOverGameObject())) return;
+    // A direct UI raycast, not IsPointerOverGameObject - see UiHit for why the
+    // latter let taps on the tower panel's buttons fall through to the board.
+    Vector2 pointer = UiHit.PointerPosition;
+    if (UiHit.Over(pointer)) return;
 
-    Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+    Ray ray = mainCamera.ScreenPointToRay(pointer);
 
     // Try to select a tower first
     if (TrySelectTower(ray)) return;
@@ -228,8 +228,27 @@ public class HUDManager : MonoBehaviour
         SelectTower(tower);
         return true;
       }
+
+      // The base shares the Tower layer for exactly this raycast.
+      if (hit.collider.GetComponentInParent<BaseHouse>() != null)
+      {
+        ShowBasePanel();
+        return true;
+      }
     }
     return false;
+  }
+
+  // The base's heal/reinforce panel. It shares the bottom-left slot with the
+  // tower, placement and booster panels, so opening it closes those.
+  private void ShowBasePanel()
+  {
+    if (GameManager.Instance == null || GameManager.Instance.HasEnded) return;
+    DeselectCurrentTower();
+    placement?.CancelPlacement();
+    BoosterPanel.Hide();
+    BasePanel.Show(HudUiRoot());
+    AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
   }
 
   private void TryDeselect(Ray ray)
@@ -237,8 +256,8 @@ public class HUDManager : MonoBehaviour
     // Only deselect if we hit deselectable layers (ground/path)
     if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, deselectLayerMask))
     {
-      Debug.Log($"Deselecting tower {deselectLayerMask}");
       DeselectCurrentTower();
+      BasePanel.Hide();
     }
   }
 
@@ -361,6 +380,7 @@ public class HUDManager : MonoBehaviour
     // panels that share the bottom-left slot can never be up together.
     placement?.CancelPlacement();
     BoosterPanel.Hide();
+    BasePanel.Hide();
 
     if (towerActions != null && towerActionsPanel != null)
     {
@@ -389,6 +409,37 @@ public class HUDManager : MonoBehaviour
     gameOverScreen.gameObject.SetActive(true);
     towerActionsPanel?.SetActive(false);
     DeselectCurrentTower();
+  }
+
+  // The win's few seconds on the board (GameManager.Victory): every panel
+  // closed and the HUD faded out of the shot, so the camera move and the
+  // fireworks have the screen. The level always unloads after a win, so
+  // nothing here ever has to be undone.
+  public void BeginVictoryCelebration()
+  {
+    DeselectCurrentTower();
+    placement?.CancelPlacement();
+    BoosterPanel.Hide();
+    BasePanel.Hide();
+    towerActionsPanel?.SetActive(false);
+
+    Canvas hud = goldText != null ? goldText.canvas.rootCanvas : null;
+    if (hud == null) return;
+    var group = hud.GetComponent<CanvasGroup>();
+    if (group == null) group = hud.gameObject.AddComponent<CanvasGroup>();
+    group.interactable = false;
+    group.blocksRaycasts = false;
+    StartCoroutine(FadeOut(group, 0.4f));
+  }
+
+  private static System.Collections.IEnumerator FadeOut(CanvasGroup group, float seconds)
+  {
+    for (float t = 0f; t < seconds && group != null; t += Time.unscaledDeltaTime)
+    {
+      group.alpha = 1f - t / seconds;
+      yield return null;
+    }
+    if (group != null) group.alpha = 0f;
   }
 
   public void ShowVictoryScreen(int stars, int coinsEarned = 0)
