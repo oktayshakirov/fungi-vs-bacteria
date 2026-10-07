@@ -263,6 +263,10 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     Debug.Log("[Ads] LevelPlay init succeeded.");
     initialized = true;
 
+    // The ad SDKs set up their own audio session while initialising; take it
+    // back, or a phone in silent mode loses the game's sound from here on.
+    AudioManager.Instance?.ApplyPlaybackAudioSession();
+
     LogAdvertisingId();
 
     // ironSource's own integration check: prints each adapter it found, its
@@ -285,6 +289,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
   private void OnInitFailed(com.unity3d.mediation.LevelPlayInitError error)
   {
     Debug.LogWarning($"[Ads] LevelPlay init failed: {error.ErrorCode} - {error.ErrorMessage}");
+    AudioManager.Instance?.ApplyPlaybackAudioSession();
 
     if (initRetryCount >= maxRetries) return;
     initRetryCount++;

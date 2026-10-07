@@ -117,7 +117,10 @@ public class GameManager : MonoBehaviour
     // Before the star payout, so the payout is never eaten by the repayment.
     Wallet.RepayLoan();
 
-    int stars = LevelProgress.StarsForHealth(currentHealth, levelStartingHealth);
+    // Health lost over the whole run, continues included - not health left,
+    // which heals and reinforcements can top up (see StarsForDamage).
+    int healthLost = Report != null ? Report.HealthLost : Mathf.Max(0, levelStartingHealth - currentHealth);
+    int stars = LevelProgress.StarsForDamage(healthLost, levelStartingHealth);
 
     LevelConfig level = GameSession.SelectedLevel;
     int coinsEarned = 0;
@@ -197,7 +200,8 @@ public class GameManager : MonoBehaviour
 
   // The Mend booster. Capped at the base's current ceiling - the health the
   // level started with, plus any reinforcement bought - so it undoes damage
-  // but never overfills.
+  // but never overfills. Like every heal it keeps a run alive without
+  // changing the stars, which count health lost (LevelProgress.StarsForDamage).
   public void Repair(int amount)
   {
     if (amount <= 0 || gameEnded) return;

@@ -1,7 +1,8 @@
 # Handoff — Fungi vs Bacteria (Unity Tower Defense)
 
 Last updated 2026-10-07 (phase 35, the second device playtest: base heal and
-reinforce, the shield dome, the victory celebration, the tower-panel tap fix).
+reinforce, the shield dome, the victory celebration, the tower-panel tap fix;
+then no sound on device, stars scored on health lost).
 Phase 34 was the fixes from the first device playtest; phase 33 the battle
 debrief, wave scouting, mycelium links, boss phases and Nunito Sans, built by
 Codex (`4c3d4df`).
@@ -17,6 +18,29 @@ per-phase notes elsewhere. Section 5 is the work queue, section 6 is every trap
 that has actually cost debugging time, section 7 has the house rules.
 
 ## 0. Where things stand, and the immediate next steps
+
+**Follow-up the same day:**
+- **No sound on the device** (iOS). The game sets the Playback audio category
+  natively at launch so it is audible with the ringer switch on silent - but
+  the ad SDKs reconfigure the shared session when they initialise (Google
+  Mobile Ads manages it itself by default), and it was only re-applied after a
+  full-screen ad. `AudioSession.mm` now tells the Google SDK the app owns the
+  session (`audioSessionIsApplicationManaged`, looked up at runtime so the file
+  builds without the framework), and `AudioManager.ApplyPlaybackAudioSession`
+  runs after LevelPlay init, on every scene load and whenever the app regains
+  focus, then restarts Unity's audio output if it was stopped. Each call logs
+  `[Audio] Session: ...` to the Xcode console - read that first if sound goes
+  missing again. **Not verified on a device.** If the device was Android, this
+  was not the cause.
+- **Stars are scored on health LOST** (`LevelProgress.StarsForDamage`, from
+  `BattleReport.HealthLost`, continues included), the usual tower-defense rule.
+  Heals, reinforcements and Mend keep a run alive but no longer buy stars back.
+  Thresholds unchanged (3 stars = lose at most 10% of starting health, 2 = at
+  most 50%). The level screen, debrief and replay goal now say "lose no more
+  than N health".
+- **Base panel buttons** are disabled when unaffordable, like the tower
+  panel's UPGRADE (both green, price on the button); the shake-and-refuse path
+  is gone.
 
 **Latest: phase 35 — the second device playtest (2026-10-07).** Six findings,
 all in code and compile-checked, **not yet seen on a device or in a render**
@@ -35,10 +59,9 @@ and sign in before running it):
   on the Tower layer) to open `BasePanel`, same slot and rules as the tower and
   booster panels. HEAL refills to the ceiling at `BaseUpgrades.CoinsPerHealth`
   (8) per point; REINFORCE raises the ceiling by half the starting health, twice
-  (100 -> 150 -> 200) for 400 then 700. First-guess numbers. Reinforced health
-  counts toward stars the same way Mend does (stars read health remaining), so
-  coins can buy a third star - decide whether that is wanted. Mend now caps at
-  the reinforced ceiling.
+  (100 -> 150 -> 200) for 400 then 700. First-guess numbers. Bought health
+  does not count toward stars (see the follow-up above). Mend now caps at the
+  reinforced ceiling.
 - **Shield booster** shows a translucent dome over the base (`BaseShield`):
   swells in, breathes, flickers through its last 2s, flashes on each absorbed
   hit (`GameManager.OnShieldAbsorbed`).
@@ -1658,10 +1681,13 @@ be in the results several times and take splash damage once per collider. Go
 does, and `CombatCheck` holds it to it.
 
 **Platform settings that only show up on a real device**
-- iOS audio is silenced by the **ringer switch** unless
-  `muteOtherAudioSources` is on, which puts the audio session in the Playback
-  category. This is why the first device test had no sound at all; the editor
-  and the simulator never reproduce it.
+- iOS audio is silenced by the **ringer switch** in Unity's own audio
+  categories (Ambient / SoloAmbient - `muteOtherAudioSources` only picks
+  between them). Only the Playback category ignores the switch, and only native
+  code can set it (`Assets/Plugins/iOS/AudioSession.mm`). The ad SDKs change the
+  session too, so it is re-applied after ad init, after ads, on scene loads and
+  on focus. This caused "no sound at all" on device twice; the editor and the
+  simulator never reproduce it.
 - The Unity splash screen is off (`m_ShowUnitySplashScreen: 0`). Unity 6 makes
   this legal on a Personal licence; on older versions it silently comes back.
 - Unity always names the exported Xcode project, main app target, workspace

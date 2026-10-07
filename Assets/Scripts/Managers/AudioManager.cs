@@ -54,6 +54,7 @@ public class AudioManager : MonoBehaviour
 
 #if UNITY_IOS && !UNITY_EDITOR
     [DllImport("__Internal")] private static extern void _fvbSetAudioSessionPlayback();
+    [DllImport("__Internal")] private static extern string _fvbAudioSessionDescription();
 #endif
 
     // iOS silences the Ambient and SoloAmbient categories when the hardware
@@ -62,8 +63,12 @@ public class AudioManager : MonoBehaviour
     // switched-off phone no matter what that setting said. Playback is the
     // category that ignores the switch, and it can only be selected natively.
     //
-    // Public because it has to be re-applied: a full-screen video ad
-    // reconfigures the shared session, leaving the game muted again afterwards.
+    // Public because it has to be re-applied: the ad SDKs reconfigure the
+    // shared session when they initialise and when they play, and iOS can hand
+    // it back changed after the app was in the background - each of which left
+    // the game silent on a phone in silent mode. Called at launch, after ad
+    // init, after every full-screen ad, on every scene load and whenever the
+    // app regains focus. Cheap and idempotent.
     public void ApplyPlaybackAudioSession()
     {
 #if UNITY_IOS && !UNITY_EDITOR
@@ -76,6 +81,43 @@ public class AudioManager : MonoBehaviour
             Debug.LogWarning($"[Audio] Could not apply the playback session: {e.Message}");
         }
 #endif
+#if (UNITY_IOS || UNITY_ANDROID) && !UNITY_EDITOR
+        if (isActiveAndEnabled) StartCoroutine(EnsureAudioOutput());
+#endif
+    }
+
+    // If something deactivated the session, Unity's audio thread can be left
+    // stopped with nothing to restart it - every Play() after that is silent.
+    // Checked once the native session change above has had time to land.
+    private IEnumerator EnsureAudioOutput()
+    {
+        yield return new WaitForSecondsRealtime(0.4f);
+
+        if (!AudioSettings.Mobile.audioOutputStarted)
+        {
+            Debug.Log("[Audio] Output was stopped; restarting it.");
+            AudioSettings.Mobile.StartAudioOutput();
+        }
+
+#if UNITY_IOS && !UNITY_EDITOR
+        string session = null;
+        try { session = _fvbAudioSessionDescription(); } catch (Exception) { }
+        Debug.Log($"[Audio] Session: {session ?? "unknown"}; output started: {AudioSettings.Mobile.audioOutputStarted}; " +
+                  $"music {(isMusicMuted ? "off" : "on")}, effects {(isSfxMuted ? "off" : "on")}");
+#endif
+    }
+
+    // Coming back from the background, a system prompt (ATT, the purchase
+    // sheet) or another app is exactly when the session may have changed.
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus && Instance == this) ApplyPlaybackAudioSession();
+    }
+
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene,
+        UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        if (Instance == this) ApplyPlaybackAudioSession();
     }
 
     private void Awake()
@@ -98,12 +140,14 @@ public class AudioManager : MonoBehaviour
         // Ads are the only thing in the game that takes the audio session away.
         Ads.OnFullScreenAdWillShow += DuckMusicForAd;
         Ads.OnFullScreenAdClosed += RestoreMusicAfterAd;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void OnDisable()
     {
         Ads.OnFullScreenAdWillShow -= DuckMusicForAd;
         Ads.OnFullScreenAdClosed -= RestoreMusicAfterAd;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     private Coroutine musicFade;

@@ -268,7 +268,7 @@ public class LevelSelectionScreen : MonoBehaviour
         description.text = !unlocked ? (index > 0 ? $"Complete level {levels[index - 1].levelNumber} to unlock" : "Locked")
           : best == 0 ? $"{waves} waves to defend"
           : best >= 3 ? "3 stars earned"
-          : $"{best+1} stars: {LevelProgress.HealthForStars(best+1,level.startingHealth)}+ health";
+          : $"{best+1} stars: lose {LevelProgress.MaxLossForStars(best+1,level.startingHealth)} health or less";
         play.interactable = unlocked;
         SelectionScreenView.ButtonText(play, unlocked ? "PLAY LEVEL" : "LOCKED");
         SelectionScreenView.ButtonIcon(play, unlocked ? UiSprites.Play() : UiSprites.Lock());

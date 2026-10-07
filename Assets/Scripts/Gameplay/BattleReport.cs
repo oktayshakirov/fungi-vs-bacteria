@@ -68,6 +68,9 @@ public sealed class BattleReport
     int target = stars >= 3 ? 3 : previousBest > stars ? previousBest : Mathf.Min(3,stars + 1);
     if (!victory) target = Mathf.Min(3,previousBest + 1);
     string title = stars >= 3 ? "3-STAR DEFENSE" : previousBest > stars && victory ? $"MATCH YOUR BEST: {target} STARS" : $"NEXT GOAL: {target} STARS";
-    return $"{title}: Finish with at least {LevelProgress.HealthForStars(target,startingHealth)} / {Mathf.Max(1,startingHealth)} health.";
+    int allowed = LevelProgress.MaxLossForStars(target,startingHealth);
+    return allowed > 0
+      ? $"{title}: Lose no more than {allowed} health."
+      : $"{title}: Lose no health.";
   }
 }

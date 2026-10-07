@@ -103,6 +103,18 @@ public static class LevelProgress
     return 1;
   }
 
+  // Stars are scored on health LOST over the level, the usual tower-defense
+  // rule (lives lost decide the rating). Scoring on health remaining let coins
+  // buy stars back: a heal, a reinforcement or a Mend before the last enemy
+  // turned a leaky defense into a clean one. Healing still matters - it keeps a
+  // run alive - it just does not rewrite how well the line held.
+  public static int StarsForDamage(int healthLost, int startingHealth) =>
+    StarsForHealth(Mathf.Max(0, startingHealth) - Mathf.Max(0, healthLost), startingHealth);
+
+  // The most health a level can cost and still earn `stars`.
+  public static int MaxLossForStars(int stars, int startingHealth) =>
+    Mathf.Max(0, Mathf.Max(1, startingHealth) - HealthForStars(stars, startingHealth));
+
   public static int StarsForHealth(int healthRemaining, int startingHealth)
   {
     if (startingHealth <= 0) return 1;

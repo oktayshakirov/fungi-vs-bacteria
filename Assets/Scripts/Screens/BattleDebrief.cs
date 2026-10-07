@@ -43,7 +43,7 @@ public sealed class BattleDebrief : MonoBehaviour
     Text("DebriefHeading",card,new Vector2(.05f,.875f),new Vector2(.95f,.965f),
       report.ReachedColony == 0 ? "COLONY HELD" : "REACHED THE COLONY",24,true,UiSkin.TextPrimary);
     Text("RunHealth",card,new Vector2(.05f,.80f),new Vector2(.95f,.875f),
-      $"Level {GameSession.SelectedLevel?.levelNumber ?? 1}  /  Health {health}/{report.StartingHealth}  /  Wave {wave}/{total}",19,false,UiSkin.TextMuted);
+      $"Level {GameSession.SelectedLevel?.levelNumber ?? 1}  /  Health lost {report.HealthLost}  /  Wave {wave}/{total}",19,false,UiSkin.TextMuted);
     var entries = report.RankedEscapes();
     if (entries.Count == 0)
     {

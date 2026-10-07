@@ -12,9 +12,9 @@ using TowerDefense.UI;
 // same plate in the same bottom-left slot, and mutually exclusive with them:
 // opening any one of the three closes the other two.
 //
-// Neither button is ever disabled for being unaffordable - a disabled button
-// swallowed the tap and read as a dead screen. Short on coins, a press shakes
-// the panel and plays the locked thud; the price is shown in red beforehand.
+// Short on coins, a button is disabled - dimmed by its own disabled tint with
+// the price still on it - exactly the way the tower panel's UPGRADE is, so the
+// two panels read as one system.
 public class BasePanel : MonoBehaviour
 {
   private static BasePanel instance;
@@ -80,7 +80,7 @@ public class BasePanel : MonoBehaviour
     actions.GetComponent<LayoutElement>().preferredHeight = ActionRowHeight;
     healButton = MakeAction(actions, "Heal", UiSkin.Primary, out healLabel);
     healButton.onClick.AddListener(OnHeal);
-    reinforceButton = MakeAction(actions, "Reinforce", UiSkin.Gold, out reinforceLabel);
+    reinforceButton = MakeAction(actions, "Reinforce", UiSkin.Primary, out reinforceLabel);
     reinforceButton.onClick.AddListener(OnReinforce);
   }
 
@@ -96,10 +96,11 @@ public class BasePanel : MonoBehaviour
     label = labelGo.AddComponent<TextMeshProUGUI>();
     UiSkin.Label(label, UiSkin.Role.ButtonLabel);
     label.raycastTarget = false;
-    label.richText = true;
 
     TowerInfoPanel.StyleAction(button, tint);
     UiFont.ApplyControl(label, true);
+    label.fontSize = label.fontSizeMax = 26f;
+    label.fontSizeMin = 16f;
     return button;
   }
 
@@ -117,35 +118,25 @@ public class BasePanel : MonoBehaviour
       : $"Fully reinforced ({BaseUpgrades.ReinforceSteps}/{BaseUpgrades.ReinforceSteps})";
 
     bool full = game.currentHealth >= game.MaxHealth;
-    healLabel.text = full ? "FULL HEALTH" : PriceText("HEAL", game.HealCost);
-    healButton.interactable = !full;
+    healLabel.text = full ? "FULL HEALTH" : $"HEAL  {game.HealCost}";
+    healButton.interactable = !full && game.CanAfford(game.HealCost);
 
     reinforceButton.gameObject.SetActive(game.CanReinforce);
-    if (game.CanReinforce) reinforceLabel.text = PriceText("REINFORCE", game.ReinforceCost);
-  }
-
-  // The price in gold when affordable, in red when not - read before pressing.
-  private static string PriceText(string verb, int price)
-  {
-    bool affordable = GameManager.Instance != null && GameManager.Instance.CanAfford(price);
-    string colour = affordable ? "#1A1D28" : "#B02A2A";
-    return $"{verb}  <color={colour}>{price:N0}</color>";
+    if (game.CanReinforce)
+    {
+      reinforceLabel.text = $"REINFORCE  {game.ReinforceCost}";
+      reinforceButton.interactable = game.CanAfford(game.ReinforceCost);
+    }
   }
 
   private void OnHeal()
   {
-    GameManager game = GameManager.Instance;
-    if (game == null) return;
-    if (!game.CanAfford(game.HealCost)) { Refuse(); return; }
-    if (game.TryHealBase()) Bought();
+    if (GameManager.Instance != null && GameManager.Instance.TryHealBase()) Bought();
   }
 
   private void OnReinforce()
   {
-    GameManager game = GameManager.Instance;
-    if (game == null || !game.CanReinforce) return;
-    if (!game.CanAfford(game.ReinforceCost)) { Refuse(); return; }
-    if (game.TryReinforceBase()) Bought();
+    if (GameManager.Instance != null && GameManager.Instance.TryReinforceBase()) Bought();
   }
 
   private void Bought()
@@ -153,12 +144,6 @@ public class BasePanel : MonoBehaviour
     AudioManager.Instance?.PlaySound(AudioManager.SoundType.ButtonClick);
     Haptics.Play(Haptics.Style.Success);
     Refresh();
-  }
-
-  private void Refuse()
-  {
-    AudioManager.Instance?.PlayLocked();
-    UiShake.Nudge((RectTransform)transform, 10f);
   }
 
   // Health and coins both move while the panel is open - a leak, a kill
