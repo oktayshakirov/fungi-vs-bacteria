@@ -31,26 +31,26 @@ extern "C" {
 // = YES, looked up at runtime so this file builds with or without the Google
 // Mobile Ads framework linked into the same target. Main thread: that is where
 // the Google SDK expects to be called, and where Unity calls in from.
+//
+// Every step checks the method exists before calling it, through objc_msgSend
+// rather than KVC: Unity's Xcode project builds with Objective-C exceptions
+// disabled, so an unknown key could not be caught - nothing here may throw in
+// the first place.
 static void ClaimSessionFromAds(void)
 {
     Class ads = NSClassFromString(@"GADMobileAds");
     SEL shared = NSSelectorFromString(@"sharedInstance");
     if (ads == nil || ![ads respondsToSelector:shared]) return;
 
-    @try
-    {
-        id instance = ((id (*)(id, SEL))objc_msgSend)(ads, shared);
-        id manager = [instance valueForKey:@"audioVideoManager"];
-        if (manager != nil &&
-            [manager respondsToSelector:NSSelectorFromString(@"setAudioSessionIsApplicationManaged:")])
-        {
-            [manager setValue:@YES forKey:@"audioSessionIsApplicationManaged"];
-        }
-    }
-    @catch (NSException *e)
-    {
-        NSLog(@"[Audio] Could not hand the audio session to the app: %@", e);
-    }
+    id instance = ((id (*)(id, SEL))objc_msgSend)(ads, shared);
+    SEL getManager = NSSelectorFromString(@"audioVideoManager");
+    if (instance == nil || ![instance respondsToSelector:getManager]) return;
+
+    id manager = ((id (*)(id, SEL))objc_msgSend)(instance, getManager);
+    SEL setManaged = NSSelectorFromString(@"setAudioSessionIsApplicationManaged:");
+    if (manager == nil || ![manager respondsToSelector:setManaged]) return;
+
+    ((void (*)(id, SEL, BOOL))objc_msgSend)(manager, setManaged, YES);
 }
 
 void _fvbSetAudioSessionPlayback(void)

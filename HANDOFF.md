@@ -28,7 +28,11 @@ that has actually cost debugging time, section 7 has the house rules.
   session (`audioSessionIsApplicationManaged`, looked up at runtime so the file
   builds without the framework), and `AudioManager.ApplyPlaybackAudioSession`
   runs after LevelPlay init, on every scene load and whenever the app regains
-  focus, then restarts Unity's audio output if it was stopped. Each call logs
+  focus, then restarts Unity's audio output if it was stopped. **Unity's Xcode
+  project builds with Objective-C exceptions off** (`GCC_ENABLE_OBJC_EXCEPTIONS
+  = NO`): no `@try` in plugin code - the first version used one and failed
+  the iOS build. Check with `xcrun -sdk iphoneos clang++ -x objective-c++
+  -fobjc-arc -fno-objc-exceptions -c <file>` before shipping a plugin change. Each call logs
   `[Audio] Session: ...` to the Xcode console - read that first if sound goes
   missing again. **Not verified on a device.** If the device was Android, this
   was not the cause.
