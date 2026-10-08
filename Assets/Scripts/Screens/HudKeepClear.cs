@@ -72,13 +72,16 @@ public class HudKeepClear : MonoBehaviour
     var space = self.parent as RectTransform;
     if (space == null) return;
 
-    float myLeft = EdgeIn(self, space, 0);          // bottom-left
+    // Measure from the original centered position, not last frame's nudge.
+    // Otherwise an already-cleared overlap yields zero push on the next
+    // frame and makes the badge alternate between its two positions.
+    float homeLeft = EdgeIn(self, space, 0) - (self.anchoredPosition.x - homeX);
     float blockerRight = RightmostEdge(blocker, space);
 
     // Only ever pushed RIGHT of centre, and only by as much as it takes. When
     // the chips shrink again the badge walks back to the middle on its own,
     // because homeX is what the offset is measured from.
-    float push = Mathf.Max(0f, (blockerRight + gap) - myLeft);
+    float push = Mathf.Max(0f, (blockerRight + gap) - homeLeft);
     float targetX = homeX + push;
 
     if (!Mathf.Approximately(self.anchoredPosition.x, targetX))

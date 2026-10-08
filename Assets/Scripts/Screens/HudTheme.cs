@@ -594,10 +594,10 @@ public static class HudTheme
 
       chevron.anchorMin = new Vector2(0f, 0.5f);
       chevron.anchorMax = new Vector2(0f, 0.5f);
-      chevron.pivot = new Vector2(0f, 0.5f);
-      // Clear of the pill's own corner radius, which a tighter inset lets the
-      // chevron's point stick out through.
-      chevron.anchoredPosition = new Vector2(18f, 0f);
+      // Rotate around the center: a left-edge pivot moves the arrow down
+      // by half its width when it turns, into the pill's rounded corner.
+      chevron.pivot = new Vector2(0.5f, 0.5f);
+      chevron.anchoredPosition = new Vector2(18f + chevron.rect.width * 0.5f, 0f);
       chevron.localEulerAngles = new Vector3(0f, 0f, 270f);   // bring it back
       return;
     }

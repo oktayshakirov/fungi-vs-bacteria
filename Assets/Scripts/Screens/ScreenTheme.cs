@@ -209,22 +209,22 @@ public static class ScreenTheme
       if (box != null) box.gameObject.SetActive(false);
     }
 
-    // The build, bottom-right: the first thing anyone reporting a bug from a
-    // playtest will be asked for.
+    // Keep the build number in the free center of the footer. Both corners
+    // are reserved for the privacy controls added by SettingScreen.
     Transform host = root.Find("SafeArea") ?? root;
     if (host.Find("Version") == null)
     {
       var go = new GameObject("Version", typeof(RectTransform));
       go.transform.SetParent(host, false);
       var rect = (RectTransform)go.transform;
-      rect.anchorMin = rect.anchorMax = new Vector2(1f, 0f);
-      rect.pivot = new Vector2(1f, 0f);
-      rect.anchoredPosition = new Vector2(-HeaderInset, HeaderInset);
-      rect.sizeDelta = new Vector2(300f, 36f);
+      rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+      rect.pivot = new Vector2(0.5f, 0f);
+      rect.anchoredPosition = new Vector2(0f, HeaderInset);
+      rect.sizeDelta = new Vector2(180f, 36f);
       var label = go.AddComponent<TextMeshProUGUI>();
       UiSkin.Label(label, UiSkin.Role.Caption, UiSkin.TextMuted);
       label.text = $"v{Application.version}";
-      label.alignment = TextAlignmentOptions.BottomRight;
+      label.alignment = TextAlignmentOptions.Bottom;
       label.raycastTarget = false;
     }
   }
