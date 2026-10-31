@@ -48,6 +48,8 @@ public static class Ads
 
   public static bool IsInitialized => provider != null && provider.IsInitialized;
 
+  public static bool IsAnyAdShowing => provider != null && provider.IsAnyAdShowing;
+
   public static bool IsRewardedReady => provider != null && provider.IsRewardedReady;
 
   // Distinguishes "an ad is on its way" from "there is no ad". Without it, UI
@@ -92,7 +94,9 @@ public static class Ads
 
   // Called at the end of every level, win or lose. Whether an ad actually shows
   // is decided here, so call sites do not each need their own counter.
-  public static void OnLevelEnded()
+  // True when an interstitial was asked for, so the caller can stay out of
+  // its way.
+  public static bool OnLevelEnded()
   {
     int total = PlayerPrefs.GetInt(LevelEndCountKey, 0) + 1;
     PlayerPrefs.SetInt(LevelEndCountKey, total);
@@ -104,16 +108,17 @@ public static class Ads
     // and deliberately NOT in ShowRewarded: rewarded ads are chosen by the
     // player and pay coins, so removing them would take a faucet away from
     // someone who has just paid rather than removing a nuisance.
-    if (NoAds.Active) return;
+    if (NoAds.Active) return false;
 
-    if (total <= GraceLevelEnds) return;
-    if (levelEndsSinceInterstitial < LevelEndsBetweenInterstitials) return;
-    if (Time.realtimeSinceStartup - lastInterstitialTime < MinSecondsBetweenInterstitials) return;
-    if (provider == null || !provider.IsInitialized || provider.IsAnyAdShowing) return;
+    if (total <= GraceLevelEnds) return false;
+    if (levelEndsSinceInterstitial < LevelEndsBetweenInterstitials) return false;
+    if (Time.realtimeSinceStartup - lastInterstitialTime < MinSecondsBetweenInterstitials) return false;
+    if (provider == null || !provider.IsInitialized || provider.IsAnyAdShowing) return false;
 
     levelEndsSinceInterstitial = 0;
     lastInterstitialTime = Time.realtimeSinceStartup;
     provider.ShowInterstitial();
+    return true;
   }
 
   // Watching a rewarded ad buys the player out of the next interstitial: back

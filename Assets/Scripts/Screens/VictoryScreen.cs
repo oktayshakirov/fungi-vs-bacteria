@@ -60,8 +60,9 @@ public class VictoryScreen : MonoBehaviour
     // Asked once per level end; Ads decides whether an ad is actually due.
     // Deliberately here rather than on the button presses: the screen appearing
     // is the moment the level is over, and the player has not yet chosen what
-    // to do next.
-    Ads.OnLevelEnded();
+    // to do next. The rating prompt only asks when no ad is coming.
+    bool adDue = Ads.OnLevelEnded();
+    if (!adDue) ReviewPrompt.AfterVictory(this, stars);
   }
 
   private Button EnsureReplayButton()
