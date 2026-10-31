@@ -62,8 +62,13 @@ public static class IosPostProcess
     PlistElementDict ats = plist.root.CreateDict("NSAppTransportSecurity");
     ats.SetBoolean("NSAllowsArbitraryLoads", true);
 
+    // The only encryption is the HTTPS the OS and the SDKs use, which is
+    // exempt. Declaring it here answers App Store Connect's export-compliance
+    // question once, instead of on every uploaded build.
+    plist.root.SetBoolean("ITSAppUsesNonExemptEncryption", false);
+
     plist.WriteToFile(plistPath);
-    Debug.Log("IOS POST-PROCESS: NSAllowsArbitraryLoads set for ad network traffic.");
+    Debug.Log("IOS POST-PROCESS: NSAllowsArbitraryLoads and ITSAppUsesNonExemptEncryption set.");
   }
 
   // Unity's exporter still writes the *legacy* app icon set: nineteen

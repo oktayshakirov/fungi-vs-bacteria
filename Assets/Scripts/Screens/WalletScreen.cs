@@ -28,18 +28,17 @@ public class WalletScreen : MonoBehaviour
   private readonly System.Collections.Generic.List<(Button button, TMP_Text label)> tabButtons =
     new System.Collections.Generic.List<(Button, TMP_Text)>();
 
-  // Tab indices within GET COINS. Free is first and is the default: a player
-  // who taps "get coins" is not necessarily saying "sell me something", and
-  // the free options should not be the tab they have to go looking for.
-  public const int TabFree = 0;
-  public const int TabPacks = 1;
+  // Tab indices within GET COINS. Packs are first and open by default; the
+  // free options (daily streak, rewarded ad) sit one tap away on the second tab.
+  public const int TabPacks = 0;
+  public const int TabFree = 1;
 
   // The booster store has no tabs or links to other purchase screens.
   public static WalletScreen OpenStore(Transform parent, Action onClosed = null) =>
     Create(parent, Mode.Store, TabFree, onClosed);
 
-  // How to get coins: free first, packs second.
-  public static WalletScreen OpenCoins(Transform parent, Action onClosed = null, int tab = TabFree) =>
+  // How to get coins: packs first, free second.
+  public static WalletScreen OpenCoins(Transform parent, Action onClosed = null, int tab = TabPacks) =>
     Create(parent, Mode.Coins, tab, onClosed);
 
   public static WalletScreen OpenRemoveAds(Transform parent, Action onClosed = null) =>
@@ -55,7 +54,7 @@ public class WalletScreen : MonoBehaviour
     var screen = go.AddComponent<WalletScreen>();
     screen.onClosed = onClosed;
     screen.mode = mode;
-    screen.initialTab = Mathf.Clamp(tab, TabFree, TabPacks);
+    screen.initialTab = Mathf.Clamp(tab, TabPacks, TabFree);
     screen.Build();
     return screen;
   }
@@ -116,13 +115,13 @@ public class WalletScreen : MonoBehaviour
     }
     else
     {
+      packsTab = TabPanel(body, "PacksTab");
+      PacksSection(packsTab);
+
       freeTab = TabPanel(body, "FreeTab");
       StreakRow(freeTab);
       WatchAdRow(freeTab);
       Explainer(freeTab);
-
-      packsTab = TabPanel(body, "PacksTab");
-      PacksSection(packsTab);
 
       SelectTab(initialTab);
     }
@@ -340,7 +339,7 @@ public class WalletScreen : MonoBehaviour
     close.onClick.AddListener(Close);
   }
 
-  // The two tab buttons - FREE COINS / COIN PACKS - sitting between the title
+  // The two tab buttons - COIN PACKS / FREE COINS - sitting between the title
   // and the scrollable body. A fixed-height row rather than part of the
   // scroll, so it is always visible regardless of which shelf is open.
   // Built only in Coins mode; the store has nothing to switch between.
@@ -369,7 +368,7 @@ public class WalletScreen : MonoBehaviour
     row.childForceExpandWidth = true;
     row.childForceExpandHeight = true;
 
-    string[] labels = { "FREE COINS", "COIN PACKS" };
+    string[] labels = { "COIN PACKS", "FREE COINS" };
     for (int i = 0; i < labels.Length; i++)
     {
       int index = i;
