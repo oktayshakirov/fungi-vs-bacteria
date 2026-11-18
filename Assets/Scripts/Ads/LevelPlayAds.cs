@@ -7,10 +7,6 @@ using GoogleMobileAds.Ump.Api;
 using Unity.Advertisement.IosSupport;
 #endif
 
-// LevelPlay 8.x still types its public events with the deprecated
-// com.unity3d.mediation aliases, so referencing them is unavoidable here.
-#pragma warning disable 0618
-
 // The LevelPlay (ironSource) implementation of Ads.IAdProvider: consent, init,
 // and both ad formats in one component, so there is a single place that knows
 // whether an ad is on screen.
@@ -235,7 +231,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     // AdMob dashboard reports zero requests.
     if (verboseLogging)
     {
-      IronSource.Agent.setAdaptersDebug(true);
+      LevelPlay.SetAdaptersDebug(true);
     }
 
     if (launchTestSuiteOnInit)
@@ -244,18 +240,14 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       // the test suite on puts a debug overlay in front of real players.
       Debug.LogWarning("[Ads] TEST SUITE ENABLED - turn launchTestSuiteOnInit off " +
                        "on the Ads object in MainMenu.unity before any real build.");
-      IronSource.Agent.setMetaData("is_test_suite", "enable");
+      LevelPlay.SetMetaData("is_test_suite", "enable");
     }
 
     Log("Initializing LevelPlay...");
-    LevelPlay.Init(appKey, null, new[]
-    {
-      com.unity3d.mediation.LevelPlayAdFormat.REWARDED,
-      com.unity3d.mediation.LevelPlayAdFormat.INTERSTITIAL
-    });
+    LevelPlay.Init(appKey);
   }
 
-  private void OnInitSuccess(com.unity3d.mediation.LevelPlayConfiguration configuration)
+  private void OnInitSuccess(LevelPlayConfiguration configuration)
   {
     // Not gated behind verboseLogging: this is the one line that proves ads
     // ever got off the ground at all, and its absence from a device log is
@@ -275,7 +267,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     // waterfall rather than merely present in the binary.
     if (verboseLogging)
     {
-      IronSource.Agent.validateIntegration();
+      LevelPlay.ValidateIntegration();
     }
 
     CreateInterstitial();
@@ -286,7 +278,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     if (launchTestSuiteOnInit) LevelPlay.LaunchTestSuite();
   }
 
-  private void OnInitFailed(com.unity3d.mediation.LevelPlayInitError error)
+  private void OnInitFailed(LevelPlayInitError error)
   {
     Debug.LogWarning($"[Ads] LevelPlay init failed: {error.ErrorCode} - {error.ErrorMessage}");
     AudioManager.Instance?.ApplyPlaybackAudioSession();
@@ -348,7 +340,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     rewarded.LoadAd();
   }
 
-  private void OnRewardedLoaded(com.unity3d.mediation.LevelPlayAdInfo info)
+  private void OnRewardedLoaded(LevelPlayAdInfo info)
   {
     rewardedLoaded = true;
     rewardedLoading = false;
@@ -356,7 +348,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     Ads.NotifyRewardedAvailability();
   }
 
-  private void OnRewardedLoadFailed(com.unity3d.mediation.LevelPlayAdError error)
+  private void OnRewardedLoadFailed(LevelPlayAdError error)
   {
     // No fill is routine (empty inventory, no test ads configured) and not
     // worth alarming over, but it must be visible somewhere - this used to be
@@ -413,8 +405,8 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     rewarded.ShowAd();
   }
 
-  private void OnRewardedEarned(com.unity3d.mediation.LevelPlayAdInfo info,
-                                com.unity3d.mediation.LevelPlayReward reward)
+  private void OnRewardedEarned(LevelPlayAdInfo info,
+                                LevelPlayReward reward)
   {
     rewardGranted = true;
     int amount = reward != null && reward.Amount > 0 ? reward.Amount : fallbackRewardAmount;
@@ -425,7 +417,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     callback?.Invoke(amount);
   }
 
-  private void OnRewardedDisplayFailed(com.unity3d.mediation.LevelPlayAdDisplayInfoError error)
+  private void OnRewardedDisplayFailed(LevelPlayAdInfo info, LevelPlayAdError error)
   {
     rewardedShowing = false;
     Ads.NotifyFullScreenAdClosed();
@@ -433,7 +425,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
     LoadRewarded();
   }
 
-  private void OnRewardedClosed(com.unity3d.mediation.LevelPlayAdInfo info)
+  private void OnRewardedClosed(LevelPlayAdInfo info)
   {
     rewardedShowing = false;
     rewardedLoaded = false;
@@ -510,7 +502,7 @@ public class LevelPlayAds : MonoBehaviour, Ads.IAdProvider
       interstitialRetryCount++;
       StartCoroutine(RetryLoadInterstitial(BackoffDelay(interstitialRetryCount)));
     };
-    interstitial.OnAdDisplayFailed += error =>
+    interstitial.OnAdDisplayFailed += (info, error) =>
     {
       interstitialShowing = false;
       Ads.NotifyFullScreenAdClosed();

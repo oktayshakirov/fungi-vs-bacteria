@@ -37,7 +37,7 @@ public static class IosPostProcess
 
   // LevelPlay requires ATS to allow arbitrary loads: some mediated networks
   // still serve creatives over HTTP, and without this their ad requests are
-  // blocked by the OS. `IronSource.Agent.validateIntegration()` reports
+  // blocked by the OS. `LevelPlay.ValidateIntegration()` reports
   // "App Transport Security settings MISSING" until this is set.
   //
   // ironSource is explicit that NSAllowsArbitraryLoads must be the *only* key

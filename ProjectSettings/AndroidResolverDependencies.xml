@@ -7,8 +7,9 @@
     <package>com.google.android.gms:play-services-ads-identifier:18.1.0</package>
     <package>com.google.android.ump:user-messaging-platform:3.2.0</package>
     <package>com.revenuecat.purchases:purchases-hybrid-common:[17.54.0]</package>
-    <package>com.unity3d.ads-mediation:admob-adapter:4.3.53</package>
-    <package>com.unity3d.ads-mediation:mediation-sdk:8.11.1</package>
+    <package>com.unity3d.ads-mediation:admob-adapter:5.0.0</package>
+    <package>com.unity3d.ads-mediation:mediation-sdk:9.8.0</package>
+    <package>com.unity3d.ads-mediation:unityads-adapter:5.17.0</package>
   </packages>
   <files />
   <settings>

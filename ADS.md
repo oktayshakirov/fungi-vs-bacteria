@@ -3,6 +3,51 @@
 Mirrors the setup in **snowman-run**: Unity LevelPlay (ironSource) as the
 mediation layer, with AdMob as a demand source and Google's UMP SDK for consent.
 
+## 2026-11-17: LevelPlay 9 and Unity Ads (ironSource network ends Dec 31, 2026)
+
+Unity shuts down the ironSource network (iSX) on **2026-12-31**. LevelPlay
+mediation stays; only the "ironSource" bidder in each app stops filling. So
+Unity Ads was added as a bidder, and the SDKs were moved to LevelPlay 9:
+
+| | Version |
+|---|---|
+| LevelPlay Unity package | 9.6.0 |
+| LevelPlay native SDK (Android / iOS) | 9.8.0 / 9.8.0.0 |
+| Unity Ads adapter (Unity / Android / iOS) | 5.18.0.0 / 5.17.0 / 5.14.0.0 -> Unity Ads 4.22.0 |
+| AdMob adapter (Unity / Android / iOS) | 5.0.0.0 / 5.0.0 / 5.0.0.0 |
+
+The AdMob adapter is deliberately the *oldest* LevelPlay 9 one: it is built on
+play-services-ads 24.5.0 and GMA iOS 12.9, exactly what GoogleMobileAds 10.4.2
+(our UMP consent source) ships. Newer AdMob adapters move to Google's Next-Gen
+Android SDK and GMA iOS 13, which needs a GoogleMobileAds plugin upgrade first.
+
+Dashboards, all done:
+
+* **Unity Ads** (cloud.unity.com, project *Fungi vs Bacteria*, Game IDs iOS
+  `6171533` / Android `6171532`): bidding ad units with placement IDs
+  `LevelPlay_Rewarded_iOS`, `LevelPlay_Interstitial_iOS`,
+  `LevelPlay_Rewarded_Android`, `LevelPlay_Interstitial_Android`. App Store ID
+  `6815334040` set; add the Google Play ID once the Android app is live
+  (Unity's lookup only finds published apps).
+* **LevelPlay**: a UnityAds bidding instance ("Unity Rewarded" / "Unity
+  Interstitial", All Countries) on both apps, pointing at those placements.
+
+SKAdNetwork IDs: `Assets/Editor/SkAdNetworkIds.cs` writes 93 IDs (LevelPlay's
+ironSource, Unity Ads and AdMob lists plus the Unity dashboard's list) into
+every iOS export. LevelPlay 9's own auto-add toggle is not used.
+
+iOS dependencies stay on CocoaPods only: the `<remoteSwiftPackage>` entries
+were removed from `IronSourceSDKDependencies.xml` and
+`ISUnityAdsAdapterDependencies.xml`. EDM4U 1.2.187 would otherwise add the SDK
+as a Swift package while the CocoaPods-only AdMob adapter pulls it as a pod -
+two copies of the SDK in one app. Remove them again whenever those files are
+re-downloaded. Expected `Podfile.lock`: IronSourceSDK 9.8.0.0,
+IronSourceUnityAdsAdapter 5.14.0.0, UnityAds 4.22.0, IronSourceAdMobAdapter
+5.0.0.0, and no `XCRemoteSwiftPackageReference` in the Xcode project.
+
+After 2026-12-31, ironSource test inventory is gone too: test with the device
+registered under Unity Ads -> Testing and AdMob test devices instead.
+
 ## The identifiers
 
 All of them live in **`Assets/Editor/AdsSetup.cs`**, and
@@ -54,7 +99,8 @@ cause.)
 
 1. Add AdMob as a network on each of the four LevelPlay placements, using the
    ad unit IDs above.
-2. The dashboard **reward amount is ignored**: the payout is
+2. Delete the ironSource instances after 2026-12-31 (they stop serving then).
+3. The dashboard **reward amount is ignored**: the payout is
    `RewardedGate.CoinsPerAd` (150, 8 a day) in code, because a remote amount
    could silently wreck the coin economy.
 
@@ -94,9 +140,11 @@ instead open the package's bundled
 `Library/PackageCache/com.unity.services.levelplay@<version>/`), find
 `unityPackage.versions["<installed package version>"].ironSourceSdkVersion`
 (a range), pick the newest `IronSourceSdk.versions` entry inside that range,
-then the newest `adapters.AdMob.versions` entry whose own range covers *that*
-SDK version. Their `dependencyXmlURL` (with `${VERSION}` substituted) is a
-plain HTTPS S3 URL — fetch both and drop them at
+then the `adapters.AdMob.versions` and `adapters.UnityAds.versions` entries
+whose own range covers *that* SDK version (for AdMob, keep the one matching
+GoogleMobileAds' Google SDK versions - see the LevelPlay 9 section above). The
+live manifest is `https://s3.amazonaws.com/ssa.public/Unity/Package/V2/LevelPlayVersions.json`. Their `dependencyXmlURL` (with `${VERSION}` substituted) is a
+plain HTTPS S3 URL — fetch them and drop them at
 `Assets/LevelPlay/Editor/<dependencyXmlFileName>`, then repeat steps 1-3
 above. This is exactly what **Ads Mediation -> Network Manager** does from
 inside a normal (non-batch) Editor session, if you would rather use the GUI.
@@ -233,7 +281,7 @@ worth chasing until then.
 Set **Store availability -> Live app**, supply the store listing, and real fill
 starts. Nothing in the Unity project needs to change - it is verified correct
 and matches the working snowman-run project exactly: identical package versions
-(LevelPlay 8.10.2, GoogleMobileAds 10.4.2, ios-support 1.0.1), matching ad unit
+(LevelPlay 9.6.0, GoogleMobileAds 10.4.2, ios-support 1.0.1), matching ad unit
 IDs, adapters/SDK/ATS all VERIFIED, and `GADApplicationIdentifier`, the ATT
 description, ironSource's `su67r6k2v3.skadnetwork` and the rest of the
 SKAdNetwork ids all present in the exported `Info.plist`.
@@ -384,8 +432,8 @@ to check on the LevelPlay dashboard, in order:
    the app's status in AdMob is Ready. An account still in review serves
    nothing, on any app.
 
-`verboseLogging` now also turns on `IronSource.Agent.setAdaptersDebug(true)`
-(before init) and `IronSource.Agent.validateIntegration()` (after init). The
+`verboseLogging` now also turns on `LevelPlay.SetAdaptersDebug(true)`
+(before init) and `LevelPlay.ValidateIntegration()` (after init). The
 first makes each adapter log its own load attempts - so the log shows whether
 AdMob was invoked at all; the second prints every adapter ironSource found,
 its version, and anything it considers misconfigured.
@@ -444,7 +492,7 @@ app only sees the resulting auction, not the dashboard's instance types.
 
 ## What validateIntegration proves - and what it cannot
 
-`IronSource.Agent.validateIntegration()` (on under `verboseLogging`) prints a
+`LevelPlay.ValidateIntegration()` (on under `verboseLogging`) prints a
 per-network report. A healthy one for this project looks like:
 
 ```
